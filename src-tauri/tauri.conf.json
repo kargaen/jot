@@ -1,0 +1,57 @@
+{
+  "productName": "Jot",
+  "version": "0.1.0",
+  "identifier": "com.jot.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Jot — Dashboard",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "visible": false,
+        "decorations": true,
+        "center": true
+      },
+      {
+        "label": "quick-capture",
+        "title": "Quick Capture",
+        "width": 480,
+        "height": 280,
+        "decorations": false,
+        "visible": false,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "skipTaskbar": true,
+        "center": true
+      }
+    ],
+"security": {
+      "csp": null,
+      "dangerousDisableAssetCspModification": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "wix": {}
+    }
+  }
+}
