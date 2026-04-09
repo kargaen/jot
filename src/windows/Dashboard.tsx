@@ -15,6 +15,8 @@ import {
   fetchLogbookTasks,
   fetchCompletionDates,
   completeTask,
+  deleteProject,
+  createArea,
 } from "../lib/supabase";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -27,19 +29,15 @@ import type { Area, Project, Tag, TaskWithTags } from "../types";
 
 type View = "overdue" | "today" | "inbox" | "upcoming" | "project" | "logbook";
 
-function sortTasks(tasks: TaskWithTags[], projects: Project[]): TaskWithTags[] {
-  const projectName = (t: TaskWithTags) =>
-    projects.find((p) => p.id === t.project_id)?.name ?? "";
+function sortTasks(tasks: TaskWithTags[], _projects: Project[]): TaskWithTags[] {
   return [...tasks].sort((a, b) => {
     // 1. Due date ascending; null sorts last
     const da = a.due_date ?? "9999-99-99";
     const db = b.due_date ?? "9999-99-99";
     if (da !== db) return da < db ? -1 : 1;
-    // 2. Project name
-    const pa = projectName(a).toLowerCase();
-    const pb = projectName(b).toLowerCase();
-    if (pa !== pb) return pa < pb ? -1 : 1;
-    // 3. Title
+    // 2. Created at ascending (oldest first)
+    if (a.created_at !== b.created_at) return a.created_at < b.created_at ? -1 : 1;
+    // 3. Title as tiebreaker
     return a.title.toLowerCase() < b.title.toLowerCase() ? -1 : 1;
   });
 }
@@ -230,6 +228,9 @@ export default function Dashboard() {
   const [compact, setCompact] = useState(() => localStorage.getItem("jot_compact") === "1");
   const [showSpacePicker, setShowSpacePicker] = useState(false);
   const [alwaysOnTop, setAlwaysOnTop] = useState(() => localStorage.getItem("jot_pin") === "1");
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; projectId: string } | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingName, setOnboardingName] = useState("Personal");
 
   const today = new Date().toISOString().split("T")[0];
   const userId = user?.id ?? null;
@@ -244,6 +245,9 @@ export default function Dashboard() {
         fetchAllTasks(),
       ]);
       setAreas(a);
+      if (a.length === 0 && !localStorage.getItem("jot_onboarding_done")) {
+        setShowOnboarding(true);
+      }
       if (!loadDefaultAreaId() && a.length > 0) {
         setDefaultAreaId(a[0].id);
         saveDefaultAreaId(a[0].id);
@@ -561,6 +565,23 @@ export default function Dashboard() {
     );
   }
 
+  async function handleOnboardingCreate() {
+    if (!onboardingName.trim()) return;
+    const area = await createArea(onboardingName.trim());
+    setDefaultAreaId(area.id);
+    saveDefaultAreaId(area.id);
+    localStorage.setItem("jot_onboarding_done", "1");
+    setShowOnboarding(false);
+    loadData();
+  }
+
+  async function handleDeleteProject(id: string) {
+    if (!confirm("Delete this project? Its tasks will move to the inbox.")) return;
+    await deleteProject(id);
+    if (selectedProject?.id === id) { setSelectedProject(null); setView("inbox"); }
+    loadData();
+  }
+
   const viewTitle =
     view === "overdue"  ? "Overdue" :
     view === "today"    ? "Today" :
@@ -608,6 +629,7 @@ export default function Dashboard() {
                   <button
                     key={project.id}
                     onClick={() => { setSelectedProject(project); setView("project"); setShowSpacePicker(false); }}
+                    onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
                     style={{ width: "100%", textAlign: "left", padding: "10px 20px 10px 44px", display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: selectedProject?.id === project.id ? projectColor(project.id) : "var(--text-secondary)", background: "transparent", fontWeight: selectedProject?.id === project.id ? 600 : 400 }}
                   >
                     <span style={{ width: 8, height: 8, borderRadius: "50%", background: projectColor(project.id), flexShrink: 0 }} />
@@ -623,6 +645,7 @@ export default function Dashboard() {
               <button
                 key={project.id}
                 onClick={() => { setSelectedProject(project); setView("project"); setShowSpacePicker(false); }}
+                onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
                 style={{ width: "100%", textAlign: "left", padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, fontSize: 14, color: selectedProject?.id === project.id ? projectColor(project.id) : "var(--text-primary)", background: "transparent" }}
               >
                 <span style={{ width: 10, height: 10, borderRadius: "50%", background: projectColor(project.id), flexShrink: 0 }} />
@@ -640,7 +663,7 @@ export default function Dashboard() {
             <CreateTask
               projects={projects} allTags={tags}
               projectId={selectedProject?.id ?? null}
-              areaId={selectedProject ? null : view === "inbox" && selectedInboxAreaId ? selectedInboxAreaId : (defaultAreaId ?? null)}
+              areaId={selectedProject ? null : selectedInboxAreaId ?? defaultAreaId ?? null}
               placeholder="Add task…"
               canCreateProjectsAndTags
               onCreated={() => loadData()}
@@ -700,6 +723,34 @@ export default function Dashboard() {
 
       {showPrefs && (
         <Preferences areas={areas} hiddenAreaIds={hiddenAreaIds} onHiddenChange={handleHiddenChange} onAreasChange={loadData} onClose={() => setShowPrefs(false)} />
+      )}
+
+      {/* Project context menu */}
+      {ctxMenu && (
+        <div
+          onClick={() => setCtxMenu(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 300 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "fixed", left: ctxMenu.x, top: ctxMenu.y,
+              background: "var(--bg-primary)", border: "1px solid var(--border-default)",
+              borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-lg)",
+              padding: "4px 0", minWidth: 140, zIndex: 301,
+            }}
+          >
+            <button
+              onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); handleDeleteProject(id); }}
+              style={{
+                width: "100%", textAlign: "left", padding: "7px 14px", fontSize: 13,
+                color: "var(--priority-high)", display: "flex", alignItems: "center", gap: 8,
+              }}
+            >
+              Delete project
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -761,13 +812,14 @@ export default function Dashboard() {
                   dot={projectColor(project.id)}
                   active={selectedProject?.id === project.id}
                   onClick={() => { setSelectedProject(project); setView("project"); }}
+                  onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
                 />
               ))}
             </div>
           ))}
 
-          {visibleProjects.filter((p) => !p.area_id).length > 0 && <SectionHeader label="Projects" />}
-          {visibleProjects.filter((p) => !p.area_id).map((project) => (
+          {visibleProjects.length > 0 && <SectionHeader label="Projects" />}
+          {visibleProjects.map((project) => (
             <NavItem
               key={project.id}
               label={project.name}
@@ -775,6 +827,7 @@ export default function Dashboard() {
               dot={projectColor(project.id)}
               active={selectedProject?.id === project.id}
               onClick={() => { setSelectedProject(project); setView("project"); }}
+              onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
             />
           ))}
         </nav>
@@ -832,7 +885,7 @@ export default function Dashboard() {
                 projects={projects}
                 allTags={tags}
                 projectId={selectedProject?.id ?? null}
-                areaId={selectedProject ? null : view === "inbox" && selectedInboxAreaId ? selectedInboxAreaId : (defaultAreaId ?? null)}
+                areaId={selectedProject ? null : selectedInboxAreaId ?? defaultAreaId ?? null}
                 placeholder="Add task… (natural language)"
                 canCreateProjectsAndTags
                 onCreated={() => loadData()}
@@ -876,6 +929,75 @@ export default function Dashboard() {
           onAreasChange={loadData}
           onClose={() => setShowPrefs(false)}
         />
+      )}
+
+      {/* Onboarding — first-run space creation */}
+      {showOnboarding && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 250, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 380, background: "var(--bg-primary)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-lg)", padding: "32px 28px", textAlign: "center" }}>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>Welcome to Jot</div>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 20 }}>
+              Create your first space to organize tasks. You can add more later in Preferences.
+            </p>
+            <input
+              autoFocus
+              value={onboardingName}
+              onChange={(e) => setOnboardingName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && onboardingName.trim()) handleOnboardingCreate(); }}
+              placeholder="e.g. Personal, Work, Side Project…"
+              style={{
+                width: "100%", padding: "10px 14px", fontSize: 14,
+                borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
+                background: "var(--bg-secondary)", color: "var(--text-primary)",
+                fontFamily: "inherit", outline: "none", marginBottom: 16,
+                textAlign: "center",
+              }}
+            />
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button
+                onClick={() => { localStorage.setItem("jot_onboarding_done", "1"); setShowOnboarding(false); }}
+                style={{ padding: "8px 18px", fontSize: 13, borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)", background: "var(--bg-secondary)", color: "var(--text-secondary)", cursor: "pointer" }}
+              >
+                Skip
+              </button>
+              <button
+                onClick={handleOnboardingCreate}
+                disabled={!onboardingName.trim()}
+                style={{ padding: "8px 24px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius-md)", background: "var(--accent)", color: "#fff", cursor: "pointer", opacity: onboardingName.trim() ? 1 : 0.5 }}
+              >
+                Create space
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Project context menu */}
+      {ctxMenu && (
+        <div
+          onClick={() => setCtxMenu(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 300 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "fixed", left: ctxMenu.x, top: ctxMenu.y,
+              background: "var(--bg-primary)", border: "1px solid var(--border-default)",
+              borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-lg)",
+              padding: "4px 0", minWidth: 140, zIndex: 301,
+            }}
+          >
+            <button
+              onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); handleDeleteProject(id); }}
+              style={{
+                width: "100%", textAlign: "left", padding: "7px 14px", fontSize: 13,
+                color: "var(--priority-high)", display: "flex", alignItems: "center", gap: 8,
+              }}
+            >
+              Delete project
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -988,12 +1110,13 @@ const AreaFilterDropdown = forwardRef<HTMLDivElement, {
 
 // ─── Small components ─────────────────────────────────────────────────────────
 
-function NavItem({ label, count, urgentCount, active, onClick, indent = false, dot, dotSquare = false }: {
+function NavItem({ label, count, urgentCount, active, onClick, onContextMenu, indent = false, dot, dotSquare = false }: {
   label: string;
   count?: number;
   urgentCount?: number;
   active: boolean;
   onClick: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
   indent?: boolean;
   dot?: string;
   dotSquare?: boolean;
@@ -1002,6 +1125,7 @@ function NavItem({ label, count, urgentCount, active, onClick, indent = false, d
   return (
     <button
       onClick={onClick}
+      onContextMenu={onContextMenu}
       style={{ width: "100%", textAlign: "left", padding: indent ? "6px 16px 6px 28px" : "6px 16px", fontSize: 13, borderRadius: 0, display: "flex", alignItems: "center", gap: 8, background: active ? "var(--accent-light)" : "transparent", color: active ? "var(--accent)" : "var(--text-secondary)", fontWeight: active ? 500 : 400, cursor: "pointer", transition: "background var(--transition)" }}
     >
       {dot && <span style={{ width: 8, height: 8, borderRadius: dotSquare ? 3 : "50%", background: dot, flexShrink: 0 }} />}

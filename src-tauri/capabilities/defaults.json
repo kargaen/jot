@@ -28,7 +28,10 @@
     "core:webview:allow-internal-toggle-devtools",
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",
-    "shell:allow-open"
+    "shell:allow-open",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
   ],
   "local-storage": true
 }

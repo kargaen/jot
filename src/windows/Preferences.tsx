@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   createArea,
   updateArea,
@@ -16,6 +16,8 @@ import { spaceColor } from "../lib/colors";
 import Toggle from "../components/Toggle";
 import { useAuth } from "../lib/auth";
 import type { Area, AreaMember } from "../types";
+
+import { enable as enableAutostart, disable as disableAutostart, isEnabled as isAutostart } from "@tauri-apps/plugin-autostart";
 
 type Tab = "spaces" | "sharing" | "reminders" | "account";
 
@@ -394,9 +396,16 @@ const DURATION_OPTIONS = [
 ];
 
 function RemindersTab() {
+  const [autostart, setAutostart] = useState(false);
   const [enabled,  setEnabled]  = useState(localStorage.getItem("jot_reminder_enabled")  !== "false");
   const [time,     setTime]     = useState(localStorage.getItem("jot_reminder_time")      ?? "08:00");
   const [duration, setDuration] = useState(localStorage.getItem("jot_reminder_duration") ?? "180");
+
+  useEffect(() => { isAutostart().then(setAutostart).catch(() => {}); }, []);
+  const toggleAutostart = useCallback(async () => {
+    const next = !autostart;
+    try { if (next) await enableAutostart(); else await disableAutostart(); setAutostart(next); } catch {}
+  }, [autostart]);
 
   function save(patch: { enabled?: boolean; time?: string; duration?: string }) {
     const e = patch.enabled  ?? enabled;
@@ -417,6 +426,15 @@ function RemindersTab() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
+      {/* Start with Windows */}
+      <div style={rowStyle}>
+        <div>
+          <div style={labelStyle}>Start with Windows</div>
+          <div style={hintStyle}>Launch Jot automatically when you log in</div>
+        </div>
+        <Toggle on={autostart} onToggle={toggleAutostart} />
+      </div>
+
       {/* Enable toggle */}
       <div style={rowStyle}>
         <div>

@@ -170,6 +170,11 @@ export async function fetchProjects(): Promise<Project[]> {
   return data;
 }
 
+export async function deleteProject(id: string): Promise<void> {
+  const { error } = await supabase.from("projects").delete().eq("id", id);
+  if (error) logErr("deleteProject", error);
+}
+
 export async function createProject(
   name: string,
   areaId?: string,
