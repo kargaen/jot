@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jot — Task management that stays out of your way</title>
+  <meta name="description" content="A fast, native desktop task manager for people who'd rather do things than organize them.">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #141413;
+      --bg-card: #1e1e1c;
+      --border: #2e2e2a;
+      --text: #e4e2de;
+      --text-dim: #a8a29e;
+      --text-faint: #57534e;
+      --accent: #f59e0b;
+      --green: #16a34a;
+      --red: #ef4444;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Grain overlay ── */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      z-index: 9999;
+    }
+
+    /* ── Layout ── */
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      position: relative;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 1px;
+      height: 80px;
+      background: linear-gradient(to bottom, transparent, var(--border));
+    }
+
+    .logo {
+      width: 72px;
+      height: 72px;
+      border-radius: 18px;
+      margin-bottom: 32px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 24px 48px rgba(0,0,0,0.4);
+    }
+
+    h1 {
+      font-size: clamp(40px, 7vw, 64px);
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      line-height: 1.05;
+      margin-bottom: 20px;
+    }
+
+    h1 .highlight {
+      background: linear-gradient(135deg, var(--accent), #fbbf24);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .tagline {
+      font-size: 18px;
+      color: var(--text-dim);
+      max-width: 440px;
+      margin-bottom: 40px;
+      line-height: 1.6;
+    }
+
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 32px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--bg);
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 0 0 1px rgba(245,158,11,0.3), 0 4px 16px rgba(245,158,11,0.2);
+    }
+
+    .cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 0 1px rgba(245,158,11,0.5), 0 8px 24px rgba(245,158,11,0.3);
+    }
+
+    .cta svg { width: 16px; height: 16px; }
+
+    .platform {
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--text-faint);
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Features ── */
+    .features {
+      padding: 100px 0;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      margin-bottom: 48px;
+      line-height: 1.2;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .card {
+      padding: 28px 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      transition: border-color 0.2s;
+    }
+
+    .card:hover { border-color: #3e3e38; }
+
+    .card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 18px;
+    }
+
+    .card h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+
+    .card p {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.55;
+    }
+
+    /* ── Principles ── */
+    .principles {
+      padding: 60px 0 100px;
+      border-top: 1px solid var(--border);
+    }
+
+    .principle-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .principle-list li {
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+
+    .principle-num {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-faint);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+      width: 24px;
+    }
+
+    .principle-list li span:last-child {
+      font-size: 15px;
+      color: var(--text-dim);
+    }
+
+    .principle-list li strong {
+      color: var(--text);
+    }
+
+    /* ── Footer ── */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    footer span {
+      font-size: 12px;
+      color: var(--text-faint);
+    }
+
+    footer a {
+      font-size: 12px;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    footer a:hover { color: var(--text); }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+      .hero { min-height: 85vh; }
+      h2 { font-size: 26px; }
+    }
+
+    /* ── Fade-in ── */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .fade-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <section class="hero">
+    <img src="icon.png" alt="Jot" class="logo" />
+    <h1>Write it down.<br><span class="highlight">Get it done.</span></h1>
+    <p class="tagline">
+      A fast, native task manager for people who'd rather do&nbsp;things than organize&nbsp;them.
+    </p>
+    <a href="https://github.com/kargaen/jot/releases" class="cta">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download for Windows
+    </a>
+    <p class="platform">Windows 10+ &middot; v0.1.0</p>
+  </section>
+
+  <!-- Features -->
+  <section class="features wrap fade-in">
+    <div class="section-label">Features</div>
+    <h2>Everything you need.<br>Nothing you don't.</h2>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card-icon" style="background: #f59e0b18; color: var(--accent);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <h3>Quick Capture</h3>
+        <p>Global hotkey summons a capture bar. Type, hit enter, keep moving. The thought is saved before you lose it.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon" style="background: #3b82f618; color: #3b82f6;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        </div>
+        <h3>Spaces &amp; Projects</h3>
+        <p>Organize by area and project. Color-coded, filterable, zero overhead. Structure that helps, not hinders.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon" style="background: #16a34a18; color: var(--green);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <h3>Today's Pulse</h3>
+        <p>A gentle reminder window shows what's due. Always-on-top, auto-dismissing, out of your way when you're in the zone.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon" style="background: #a855f718; color: #a855f7;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </div>
+        <h3>Logbook</h3>
+        <p>Completed tasks don't vanish. They're celebrated with a heatmap and a little encouragement. You earned it.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon" style="background: #ef444418; color: var(--red);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <h3>Due Dates &amp; Overdue</h3>
+        <p>Overdue tasks surface automatically. No manual triage, no guilt-tripping — just clear visibility.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon" style="background: #0ea5e918; color: #0ea5e9;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
+        <h3>Native &amp; Fast</h3>
+        <p>Built with Tauri. Starts instantly, uses minimal resources, lives in your system tray. Not another Electron app.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Principles -->
+  <section class="principles wrap fade-in">
+    <div class="section-label">Philosophy</div>
+    <h2>Built with intent.</h2>
+
+    <ul class="principle-list">
+      <li>
+        <span class="principle-num">01</span>
+        <span><strong>Speed is a feature.</strong> If the app is slower than pen and paper, it's failed.</span>
+      </li>
+      <li>
+        <span class="principle-num">02</span>
+        <span><strong>No busywork.</strong> No labels, no priorities, no kanban boards. Just tasks, dates, and done.</span>
+      </li>
+      <li>
+        <span class="principle-num">03</span>
+        <span><strong>Your data, synced.</strong> Cloud sync across devices. Your tasks follow you.</span>
+      </li>
+      <li>
+        <span class="principle-num">04</span>
+        <span><strong>Stay in flow.</strong> Quick capture from anywhere. Reminders that know when you're idle. No interruptions.</span>
+      </li>
+    </ul>
+  </section>
+
+  <!-- Footer -->
+  <footer class="wrap">
+    <span>&copy; 2026 Jot</span>
+    <a href="https://github.com/kargaen/jot">GitHub</a>
+  </footer>
+
+  <!-- Scroll reveal -->
+  <script>
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+    }, { threshold: 0.15 });
+    document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+  </script>
+
+</body>
+</html>
