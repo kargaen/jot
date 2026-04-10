@@ -125,6 +125,7 @@ export default function QuickCapture() {
           ref={createTaskRef}
           projects={projects}
           allTags={tags}
+          areaId={localStorage.getItem("jot_default_area") ?? null}
           placeholder="New task…"
           autoFocus
           canCreateProjectsAndTags

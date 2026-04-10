@@ -312,7 +312,7 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
     .insert({
       title: taskFields.title,
       project_id: taskFields.projectId ?? null,
-      area_id: taskFields.areaId ?? null,
+      area_id: taskFields.areaId ?? localStorage.getItem("jot_default_area") ?? null,
       parent_task_id: taskFields.parentTaskId ?? null,
       icon: taskFields.icon ?? null,
       due_date: taskFields.dueDate ?? null,
