@@ -561,12 +561,13 @@ export default function Dashboard() {
   // Urgent = overdue or due today — used for sidebar attention badges
   const areaUrgentCounts = useMemo(() => {
     const map = new Map<string, number>();
-    for (const t of inboxTasks) {
-      if (t.area_id && t.due_date && t.due_date <= today)
-        map.set(t.area_id, (map.get(t.area_id) ?? 0) + 1);
+    for (const t of visibleTasks) {
+      if (!t.due_date || t.due_date > today) continue;
+      const areaId = t.area_id ?? (t.project_id ? projects.find((p) => p.id === t.project_id)?.area_id : null);
+      if (areaId) map.set(areaId, (map.get(areaId) ?? 0) + 1);
     }
     return map;
-  }, [inboxTasks, today]);
+  }, [visibleTasks, projects, today]);
 
   const projectUrgentCounts = useMemo(() => {
     const map = new Map<string, number>();
@@ -582,7 +583,12 @@ export default function Dashboard() {
       switch (view) {
         case "overdue":  return overdueTask;
         case "today":    return todayTasks;
-        case "inbox":    return selectedInboxAreaId ? inboxTasks.filter((t) => t.area_id === selectedInboxAreaId) : inboxTasks;
+        case "inbox":    return selectedInboxAreaId
+          ? visibleTasks.filter((t) =>
+              t.area_id === selectedInboxAreaId ||
+              (t.project_id && projects.find((p) => p.id === t.project_id)?.area_id === selectedInboxAreaId)
+            )
+          : inboxTasks;
         case "upcoming": return upcomingTasks;
         case "project":  return projectTasks;
         case "logbook":  return logbookTasks;
