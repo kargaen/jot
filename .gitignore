@@ -4,3 +4,4 @@ src-tauri/target/
 .env
 *.local
 .claude/
+src-tauri/keys/update.key

@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { spaceColor, projectColor } from "../lib/colors";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import Toggle from "../components/Toggle";
 import Preferences from "./Preferences";
 import {
@@ -231,6 +233,10 @@ export default function Dashboard() {
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; projectId: string } | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingName, setOnboardingName] = useState("Personal");
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "available" | "downloading" | "ready">("idle");
+  const [updateVersion, setUpdateVersion] = useState("");
+  const [updateProgress, setUpdateProgress] = useState(0);
+  const updateRef = useRef<Awaited<ReturnType<typeof check>> | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
   const userId = user?.id ?? null;
@@ -336,6 +342,34 @@ export default function Dashboard() {
   useEffect(() => {
     getCurrentWebviewWindow().setAlwaysOnTop(alwaysOnTop || compact).catch(() => {});
   }, [alwaysOnTop, compact]);
+
+  // ── Auto-update check ─────────────────────────────────────────────────────
+  useEffect(() => {
+    check().then((update) => {
+      if (update) {
+        updateRef.current = update;
+        setUpdateVersion(update.version);
+        setUpdateStatus("available");
+      }
+    }).catch(() => {});
+  }, []);
+
+  async function handleUpdate() {
+    const update = updateRef.current;
+    if (!update) return;
+    setUpdateStatus("downloading");
+    let totalBytes = 0;
+    await update.downloadAndInstall((event) => {
+      if (event.event === "Started" && event.data.contentLength) {
+        totalBytes = event.data.contentLength;
+      } else if (event.event === "Progress" && totalBytes > 0) {
+        setUpdateProgress((prev) => Math.min(prev + event.data.chunkLength / totalBytes * 100, 100));
+      } else if (event.event === "Finished") {
+        setUpdateStatus("ready");
+      }
+    });
+    await relaunch();
+  }
 
   // ── Reminder scheduler ────────────────────────────────────────────────────
 
@@ -657,6 +691,19 @@ export default function Dashboard() {
         </>
       )}
 
+      {/* Update banner (compact) */}
+      {updateStatus === "available" && (
+        <div style={{
+          margin: "0 14px", padding: "8px 12px", borderRadius: "var(--radius-md)",
+          background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)",
+          display: "flex", alignItems: "center", gap: 8, fontSize: 12,
+        }}>
+          <span style={{ flex: 1, color: "var(--text-primary)" }}>v{updateVersion} available</span>
+          <button onClick={handleUpdate} style={{ padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--accent)", color: "#fff", cursor: "pointer" }}>Update</button>
+          <button onClick={() => setUpdateStatus("idle")} style={{ fontSize: 11, color: "var(--text-tertiary)", cursor: "pointer" }}>×</button>
+        </div>
+      )}
+
       {/* Task list */}
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", minHeight: 0 }}>
         {view !== "logbook" && (
@@ -877,6 +924,33 @@ export default function Dashboard() {
             />
           )}
         </div>
+
+        {/* Update banner */}
+        {updateStatus !== "idle" && (
+          <div style={{
+            margin: "0 32px", padding: "10px 14px", borderRadius: "var(--radius-md)",
+            background: updateStatus === "downloading" ? "rgba(139,92,246,0.08)" : "rgba(34,197,94,0.08)",
+            border: `1px solid ${updateStatus === "downloading" ? "rgba(139,92,246,0.2)" : "rgba(34,197,94,0.2)"}`,
+            display: "flex", alignItems: "center", gap: 10, fontSize: 13,
+          }}>
+            <span style={{ flex: 1, color: "var(--text-primary)" }}>
+              {updateStatus === "available" && `Jot ${updateVersion} is available.`}
+              {updateStatus === "downloading" && `Downloading update… ${Math.round(updateProgress)}%`}
+              {updateStatus === "ready" && "Update installed. Restarting…"}
+            </span>
+            {updateStatus === "available" && (
+              <>
+                <button onClick={handleUpdate} style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--accent)", color: "#fff", cursor: "pointer" }}>Update now</button>
+                <button onClick={() => setUpdateStatus("idle")} style={{ padding: "4px 8px", fontSize: 12, color: "var(--text-tertiary)", cursor: "pointer" }}>Later</button>
+              </>
+            )}
+            {updateStatus === "downloading" && (
+              <div style={{ width: 80, height: 4, borderRadius: 2, background: "var(--bg-tertiary)", overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${updateProgress}%`, background: "#8b5cf6", borderRadius: 2, transition: "width 0.3s" }} />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Scrollable task area */}
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 32px" }}>
