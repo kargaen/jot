@@ -832,6 +832,7 @@ export default function Dashboard() {
 
         <nav style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
           {([
+            { id: "inbox",    label: "Inbox",    count: inboxTasks.filter((t) => !t.area_id).length },
             { id: "overdue",  label: "Overdue",  count: overdueTask.length },
             { id: "today",    label: "Today",    count: todayTasks.length },
             { id: "upcoming", label: "Upcoming", count: upcomingTasks.length },
@@ -841,8 +842,8 @@ export default function Dashboard() {
               key={id}
               label={label}
               count={count}
-              active={view === id && !selectedProject}
-              onClick={() => { setView(id); setSelectedProject(null); }}
+              active={view === id && !selectedProject && (id !== "inbox" || !selectedInboxAreaId)}
+              onClick={() => { setView(id); setSelectedProject(null); if (id === "inbox") setSelectedInboxAreaId(null); }}
             />
           ))}
 
