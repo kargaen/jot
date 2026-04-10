@@ -175,6 +175,36 @@ export async function deleteProject(id: string): Promise<void> {
   if (error) logErr("deleteProject", error);
 }
 
+export async function closeProject(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("projects")
+    .update({ status: "completed" })
+    .eq("id", id);
+  if (error) logErr("closeProject", error);
+}
+
+/** Close a project and handle its remaining tasks */
+export async function closeProjectAndCompleteTasks(projectId: string): Promise<void> {
+  const now = new Date().toISOString();
+  const { error: taskErr } = await supabase
+    .from("tasks")
+    .update({ status: "completed", completed_at: now })
+    .eq("project_id", projectId)
+    .eq("status", "todo");
+  if (taskErr) logErr("closeProjectAndCompleteTasks(tasks)", taskErr);
+  await closeProject(projectId);
+}
+
+export async function closeProjectAndReleaseTasks(projectId: string): Promise<void> {
+  const { error: taskErr } = await supabase
+    .from("tasks")
+    .update({ project_id: null, updated_at: new Date().toISOString() })
+    .eq("project_id", projectId)
+    .eq("status", "todo");
+  if (taskErr) logErr("closeProjectAndReleaseTasks(tasks)", taskErr);
+  await closeProject(projectId);
+}
+
 export async function createProject(
   name: string,
   areaId?: string,
@@ -183,7 +213,7 @@ export async function createProject(
   const user_id = await getCurrentUserId();
   const { data, error } = await supabase
     .from("projects")
-    .insert({ name, area_id: areaId ?? null, color, user_id })
+    .insert({ name, area_id: areaId ?? localStorage.getItem("jot_default_area") ?? null, color, user_id })
     .select()
     .single();
   if (error) throw error;

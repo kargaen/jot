@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { UserAttentionType } from "@tauri-apps/api/window";
@@ -6,6 +6,7 @@ import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { useAuth } from "../lib/auth";
 import { fetchAllTasks, fetchProjects, fetchAreas } from "../lib/supabase";
 import { spaceColor, projectColor } from "../lib/colors";
+import { loadHiddenAreas, filterVisibleTasks } from "../lib/tasks";
 import Toggle from "../components/Toggle";
 import type { Area, TaskWithTags, Project } from "../types";
 
@@ -242,11 +243,26 @@ export default function ReminderWindow() {
     else      localStorage.setItem("jot_reminder_pin", "false");
   }
 
+  // Re-read hidden areas when Dashboard changes them (storage event fires cross-window)
+  const [hiddenAreaIds, setHiddenAreaIds] = useState(loadHiddenAreas);
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "jot_hidden_areas") setHiddenAreaIds(loadHiddenAreas());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   // ── Derived ──────────────────────────────────────────────────────────────
+  const visibleTasks = useMemo(
+    () => filterVisibleTasks(tasks, projects, hiddenAreaIds),
+    [tasks, projects, hiddenAreaIds],
+  );
+
   const today    = new Date().toISOString().slice(0, 10);
-  const todayT   = tasks.filter((t) => t.due_date === today);
-  const overdueT = tasks.filter((t) => t.due_date && t.due_date < today);
-  const upcomingT= tasks.filter((t) => t.due_date && t.due_date > today);
+  const todayT   = visibleTasks.filter((t) => t.due_date === today);
+  const overdueT = visibleTasks.filter((t) => t.due_date && t.due_date < today);
+  const upcomingT= visibleTasks.filter((t) => t.due_date && t.due_date > today);
 
   const progress   = secondsLeft / duration.current;
   const urgent     = !paused && secondsLeft <= PULSE_THRESHOLD;

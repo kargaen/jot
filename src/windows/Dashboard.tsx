@@ -18,6 +18,9 @@ import {
   fetchCompletionDates,
   completeTask,
   deleteProject,
+  closeProject,
+  closeProjectAndCompleteTasks,
+  closeProjectAndReleaseTasks,
   createArea,
 } from "../lib/supabase";
 import { supabase } from "../lib/supabase";
@@ -27,6 +30,7 @@ import LogbookRow from "../components/LogbookRow";
 import CreateTask from "../components/CreateTask";
 import CompletionHeatmap from "../components/CompletionHeatmap";
 import { logger } from "../lib/logger";
+import { loadHiddenAreas, saveHiddenAreas, filterVisibleTasks, filterVisibleProjects } from "../lib/tasks";
 import type { Area, Project, Tag, TaskWithTags } from "../types";
 
 type View = "overdue" | "today" | "inbox" | "upcoming" | "project" | "logbook";
@@ -192,17 +196,7 @@ function TaskList({
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
-const HIDDEN_AREAS_KEY = "jot_hidden_areas";
 const DEFAULT_AREA_KEY = "jot_default_area";
-
-function loadHiddenAreas(): string[] {
-  try { return JSON.parse(localStorage.getItem(HIDDEN_AREAS_KEY) ?? "[]"); }
-  catch { return []; }
-}
-
-function saveHiddenAreas(ids: string[]) {
-  localStorage.setItem(HIDDEN_AREAS_KEY, JSON.stringify(ids));
-}
 
 function loadDefaultAreaId(): string | null {
   return localStorage.getItem(DEFAULT_AREA_KEY);
@@ -231,6 +225,8 @@ export default function Dashboard() {
   const [showSpacePicker, setShowSpacePicker] = useState(false);
   const [alwaysOnTop, setAlwaysOnTop] = useState(() => localStorage.getItem("jot_pin") === "1");
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; projectId: string } | null>(null);
+  const [closeDialog, setCloseDialog] = useState<{ projectId: string; taskCount: number } | null>(null);
+  const projectsSeenWithTasks = useRef(new Set<string>());
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingName, setOnboardingName] = useState("Personal");
   const [updateStatus, setUpdateStatus] = useState<"idle" | "available" | "downloading" | "ready">("idle");
@@ -241,8 +237,10 @@ export default function Dashboard() {
   const today = new Date().toISOString().split("T")[0];
   const userId = user?.id ?? null;
 
+  const loadIdRef = useRef(0);
   const loadData = useCallback(async () => {
-    logger.debug("dashboard", "loadData: fetching…");
+    const id = ++loadIdRef.current;
+    logger.debug("dashboard", `loadData #${id}: fetching…`);
     try {
       const [a, p, t, tasks] = await Promise.all([
         fetchAreas(),
@@ -250,6 +248,7 @@ export default function Dashboard() {
         fetchTags(),
         fetchAllTasks(),
       ]);
+      if (id !== loadIdRef.current) return; // stale — a newer load is in flight
       setAreas(a);
       if (a.length === 0 && !localStorage.getItem("jot_onboarding_done")) {
         setShowOnboarding(true);
@@ -261,8 +260,9 @@ export default function Dashboard() {
       setProjects(p);
       setTags(t);
       setAllTasks(tasks);
-      logger.info("dashboard", `loadData: ${tasks.length} tasks, ${p.length} projects`);
+      logger.info("dashboard", `loadData #${id}: ${tasks.length} tasks, ${p.length} projects`);
     } catch (err) {
+      if (id !== loadIdRef.current) return;
       logger.error("dashboard", "loadData failed", err instanceof Error ? err.message : err);
     }
   }, []);
@@ -285,14 +285,21 @@ export default function Dashboard() {
     }).catch((err) => logger.error("dashboard", "fetchLogbookTasks failed", err instanceof Error ? err.message : err));
   }, [userId, view]);
 
-  // Realtime: reload allTasks on any change
+  // Realtime: reload on any change, debounced to avoid flicker on rapid completions
+  const realtimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!userId) return;
     const channel = supabase
       .channel("tasks-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
+        if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = setTimeout(() => loadData(), 500);
+      })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
+      supabase.removeChannel(channel);
+    };
   }, [userId, loadData]);
 
   // Restore window geometry on startup
@@ -373,7 +380,22 @@ export default function Dashboard() {
 
   // ── Reminder scheduler ────────────────────────────────────────────────────
 
+  async function isQuickCaptureOpen(): Promise<boolean> {
+    try {
+      const qc = await WebviewWindow.getByLabel("quick-capture");
+      return qc ? await qc.isVisible() : false;
+    } catch { return false; }
+  }
+
   async function openReminderWindow(manual = false) {
+    // Don't steal focus from Quick Capture — shouldShowReminder() will retry next tick
+    if (!manual && await isQuickCaptureOpen()) return;
+
+    // Mark today's reminder as shown only when it actually opens
+    if (!manual) {
+      localStorage.setItem("jot_last_reminder_date", new Date().toISOString().slice(0, 10));
+    }
+
     const label = manual ? "reminder-manual" : "reminder";
     const existing = await WebviewWindow.getByLabel(label);
     if (existing) { await existing.show(); await existing.setFocus(); return; }
@@ -410,7 +432,6 @@ export default function Dashboard() {
     if (!userId) return;
     const t = setTimeout(() => {
       if (shouldShowReminder()) {
-        localStorage.setItem("jot_last_reminder_date", new Date().toISOString().slice(0, 10));
         openReminderWindow(false);
       } else if (localStorage.getItem("jot_reminder_on_start") === "true") {
         openReminderWindow(true);
@@ -424,7 +445,6 @@ export default function Dashboard() {
     const tick = () => {
       if (localStorage.getItem("jot_reminder_enabled") === "false") return;
       const now = new Date();
-      const today = now.toISOString().slice(0, 10);
 
       // Snooze expiry
       const snoozedUntil = localStorage.getItem("jot_reminder_snoozed_until");
@@ -434,12 +454,9 @@ export default function Dashboard() {
         return;
       }
 
-      // Time-based trigger (exact minute match)
+      // Time-based trigger (at or after configured time, once per day)
       if (snoozedUntil) return;
-      const reminderTime = localStorage.getItem("jot_reminder_time") ?? "08:00";
-      const timeNow = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-      if (timeNow === reminderTime && localStorage.getItem("jot_last_reminder_date") !== today) {
-        localStorage.setItem("jot_last_reminder_date", today);
+      if (shouldShowReminder()) {
         openReminderWindow();
       }
     };
@@ -498,10 +515,14 @@ export default function Dashboard() {
   function handleHiddenChange(ids: string[]) {
     setHiddenAreaIds(ids);
     saveHiddenAreas(ids);
-    // If currently selected project is in a now-hidden area, deselect it
-    if (selectedProject) {
-      const area = areas.find((a) => a.id === selectedProject.id);
-      if (area && ids.includes(area.id)) setSelectedProject(null);
+    // If currently viewing a space or project that's now hidden, deselect
+    if (selectedInboxAreaId && ids.includes(selectedInboxAreaId)) {
+      setSelectedInboxAreaId(null);
+      setView("today");
+    }
+    if (selectedProject?.area_id && ids.includes(selectedProject.area_id)) {
+      setSelectedProject(null);
+      setView("today");
     }
   }
 
@@ -509,19 +530,13 @@ export default function Dashboard() {
 
   // Projects and tasks filtered by visible areas
   const visibleProjects = useMemo(
-    () => projects.filter((p) => !p.area_id || !hiddenAreaIds.includes(p.area_id)),
+    () => filterVisibleProjects(projects, hiddenAreaIds),
     [projects, hiddenAreaIds],
   );
 
-  const visibleProjectIds = useMemo(
-    () => new Set(visibleProjects.map((p) => p.id)),
-    [visibleProjects],
-  );
-
-  // Tasks scoped to visible areas (inbox tasks always shown — they have no project/area)
   const visibleTasks = useMemo(
-    () => allTasks.filter((t) => !t.project_id || visibleProjectIds.has(t.project_id)),
-    [allTasks, visibleProjectIds],
+    () => filterVisibleTasks(allTasks, projects, hiddenAreaIds),
+    [allTasks, projects, hiddenAreaIds],
   );
 
   const overdueTask = useMemo(
@@ -557,6 +572,13 @@ export default function Dashboard() {
     () => selectedProject ? visibleTasks.filter((t) => t.project_id === selectedProject.id) : [],
     [visibleTasks, selectedProject],
   );
+
+  // Track projects that have been seen with tasks (to detect "became empty")
+  useEffect(() => {
+    for (const t of allTasks) {
+      if (t.project_id) projectsSeenWithTasks.current.add(t.project_id);
+    }
+  }, [allTasks]);
 
   // Urgent = overdue or due today — used for sidebar attention badges
   const areaUrgentCounts = useMemo(() => {
@@ -617,9 +639,34 @@ export default function Dashboard() {
   }
 
   async function handleDeleteProject(id: string) {
-    if (!confirm("Delete this project? Its tasks will move to the inbox.")) return;
+    if (!confirm("Permanently delete this project? Its tasks will move to the inbox.")) return;
     await deleteProject(id);
     if (selectedProject?.id === id) { setSelectedProject(null); setView("inbox"); }
+    loadData();
+  }
+
+  function handleCloseProject(projectId: string) {
+    const taskCount = allTasks.filter((t) => t.project_id === projectId).length;
+    if (taskCount > 0) {
+      setCloseDialog({ projectId, taskCount });
+    } else {
+      closeProject(projectId).then(() => {
+        if (selectedProject?.id === projectId) { setSelectedProject(null); setView("inbox"); }
+        loadData();
+      });
+    }
+  }
+
+  async function handleCloseConfirm(action: "complete" | "release") {
+    if (!closeDialog) return;
+    const { projectId } = closeDialog;
+    if (action === "complete") {
+      await closeProjectAndCompleteTasks(projectId);
+    } else {
+      await closeProjectAndReleaseTasks(projectId);
+    }
+    setCloseDialog(null);
+    if (selectedProject?.id === projectId) { setSelectedProject(null); setView("inbox"); }
     loadData();
   }
 
@@ -726,7 +773,12 @@ export default function Dashboard() {
             />
           </div>
         )}
-        {displayTasks.length === 0 ? <EmptyState view={view} /> : view === "logbook" ? (
+        {displayTasks.length === 0 ? (
+          <EmptyState
+            view={view}
+            onCloseProject={view === "project" && selectedProject && projectsSeenWithTasks.current.has(selectedProject.id) ? () => handleCloseProject(selectedProject!.id) : undefined}
+          />
+        ) : view === "logbook" ? (
           <div style={{ display: "flex", flexDirection: "column" }}>
             {displayTasks.map((task) => (
               <LogbookRow key={task.id} task={task} projects={projects} areas={areas} onClick={() => openTaskWindow(task)} />
@@ -795,6 +847,15 @@ export default function Dashboard() {
             }}
           >
             <button
+              onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); handleCloseProject(id); }}
+              style={{
+                width: "100%", textAlign: "left", padding: "7px 14px", fontSize: 13,
+                color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8,
+              }}
+            >
+              Close project
+            </button>
+            <button
               onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); handleDeleteProject(id); }}
               style={{
                 width: "100%", textAlign: "left", padding: "7px 14px", fontSize: 13,
@@ -806,6 +867,9 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Close project dialog */}
+      {closeDialog && <CloseProjectDialog taskCount={closeDialog.taskCount} onComplete={() => handleCloseConfirm("complete")} onRelease={() => handleCloseConfirm("release")} onCancel={() => setCloseDialog(null)} />}
     </div>
   );
 
@@ -872,8 +936,8 @@ export default function Dashboard() {
             </div>
           ))}
 
-          {visibleProjects.length > 0 && <SectionHeader label="Projects" />}
-          {visibleProjects.map((project) => (
+          {visibleProjects.filter((p) => !p.area_id).length > 0 && <SectionHeader label="Projects" />}
+          {visibleProjects.filter((p) => !p.area_id).map((project) => (
             <NavItem
               key={project.id}
               label={project.name}
@@ -977,7 +1041,10 @@ export default function Dashboard() {
           )}
 
           {displayTasks.length === 0 ? (
-            <EmptyState view={view} />
+            <EmptyState
+              view={view}
+              onCloseProject={view === "project" && selectedProject && projectsSeenWithTasks.current.has(selectedProject.id) ? () => handleCloseProject(selectedProject!.id) : undefined}
+            />
           ) : view === "logbook" ? (
             <div style={{ display: "flex", flexDirection: "column" }}>
               {displayTasks.map((task) => (
@@ -1069,6 +1136,15 @@ export default function Dashboard() {
             }}
           >
             <button
+              onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); handleCloseProject(id); }}
+              style={{
+                width: "100%", textAlign: "left", padding: "7px 14px", fontSize: 13,
+                color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8,
+              }}
+            >
+              Close project
+            </button>
+            <button
               onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); handleDeleteProject(id); }}
               style={{
                 width: "100%", textAlign: "left", padding: "7px 14px", fontSize: 13,
@@ -1080,6 +1156,9 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Close project dialog */}
+      {closeDialog && <CloseProjectDialog taskCount={closeDialog.taskCount} onComplete={() => handleCloseConfirm("complete")} onRelease={() => handleCloseConfirm("release")} onCancel={() => setCloseDialog(null)} />}
     </div>
   );
 }
@@ -1233,20 +1312,133 @@ function SectionHeader({ label }: { label: string }) {
   );
 }
 
-function EmptyState({ view }: { view: View }) {
+const ZEN_QUOTES = [
+  { text: "All quiet on the western front.",                    from: "All Quiet on the Western Front" },
+  { text: "After all, tomorrow is another day.",                from: "Gone with the Wind" },
+  { text: "I think this is the beginning of a beautiful friendship.", from: "Casablanca" },
+  { text: "Life moves pretty fast. If you don't stop and look around once in a while, you could miss it.", from: "Ferris Bueller's Day Off" },
+  { text: "Just keep swimming.",                                from: "Finding Nemo" },
+  { text: "To infinity and beyond!",                            from: "Toy Story" },
+  { text: "It's not our abilities that show what we truly are. It is our choices.", from: "Harry Potter" },
+  { text: "The stuff that dreams are made of.",                 from: "The Maltese Falcon" },
+  { text: "Carpe diem. Seize the day, boys.",                   from: "Dead Poets Society" },
+  { text: "My mama always said life was like a box of chocolates.", from: "Forrest Gump" },
+  { text: "Why so serious?",                                   from: "The Dark Knight" },
+  { text: "I'm the king of the world!",                        from: "Titanic" },
+  { text: "Roads? Where we're going, we don't need roads.",     from: "Back to the Future" },
+  { text: "Perfectly balanced, as all things should be.",       from: "Avengers: Infinity War" },
+  { text: "It's only after we've lost everything that we're free to do anything.", from: "Fight Club" },
+  { text: "Do, or do not. There is no try.",                    from: "The Empire Strikes Back" },
+  { text: "I find your lack of tasks disturbing.",              from: "A galaxy far, far away" },
+  { text: "You had me at zero tasks.",                          from: "Jerry Maguire (sort of)" },
+  { text: "Here's looking at you, empty inbox.",                from: "Casablanca (sort of)" },
+  { text: "I'll be back. But not with more tasks.",             from: "The Terminator (hopefully)" },
+];
+
+function ZenIllustration() {
+  const [imgOk, setImgOk] = useState(true);
+  if (!imgOk) return null;
+  return (
+    <img
+      src="/zen-beach.png"
+      alt="Relaxing on the beach"
+      onError={() => setImgOk(false)}
+      style={{ width: "100%", maxWidth: 400, borderRadius: 12, objectFit: "contain" }}
+    />
+  );
+}
+
+function EmptyState({ view, onCloseProject }: { view: View; onCloseProject?: () => void }) {
   const messages: Record<View, { title: string; hint: string }> = {
     overdue:  { title: "Nothing overdue",       hint: "You're all caught up" },
     today:    { title: "Nothing due today",      hint: "Press Ctrl+Space to add a task" },
-    inbox:    { title: "Inbox is empty",         hint: "Tasks without a project in this space" },
+    inbox:    { title: "",                       hint: "" },
     upcoming: { title: "Nothing upcoming",       hint: "Tasks with future dates will appear here" },
     logbook:  { title: "No completed tasks yet", hint: "Completed tasks are stored here" },
     project:  { title: "No tasks",              hint: "Add a task to this project" },
   };
+
+  // Zen mode for empty spaces
+  const [zenQuote] = useState(() => ZEN_QUOTES[Math.floor(Math.random() * ZEN_QUOTES.length)]);
+  if (view === "inbox") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 32px", gap: 16, textAlign: "center" }}>
+        <ZenIllustration />
+        <div style={{ maxWidth: 300 }}>
+          <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text-secondary)", fontStyle: "italic", lineHeight: 1.5 }}>
+            "{zenQuote.text}"
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
+            — {zenQuote.from}
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 4 }}>
+          Nothing here. Enjoy the silence.
+        </div>
+      </div>
+    );
+  }
+
   const { title, hint } = messages[view];
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "64px 32px", color: "var(--text-tertiary)", gap: 8, textAlign: "center" }}>
       <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text-secondary)" }}>{title}</div>
       <div style={{ fontSize: 13 }}>{hint}</div>
+      {onCloseProject && (
+        <button
+          onClick={onCloseProject}
+          style={{
+            marginTop: 16, padding: "7px 18px", fontSize: 13, fontWeight: 500,
+            color: "var(--text-secondary)", background: "var(--bg-tertiary)",
+            borderRadius: "var(--radius-md)", cursor: "pointer",
+            transition: "background var(--transition)",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--accent-light)"; e.currentTarget.style.color = "var(--accent)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "var(--bg-tertiary)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+        >
+          Close project
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CloseProjectDialog({ taskCount, onComplete, onRelease, onCancel }: {
+  taskCount: number;
+  onComplete: () => void;
+  onRelease: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 250, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: 380, background: "var(--bg-primary)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-lg)", padding: "28px 24px" }}>
+        <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>Close project</div>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 20 }}>
+          This project has {taskCount} remaining task{taskCount !== 1 ? "s" : ""}. What should happen to {taskCount !== 1 ? "them" : "it"}?
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <button
+            onClick={onComplete}
+            style={{ width: "100%", padding: "10px 16px", fontSize: 13, fontWeight: 500, borderRadius: "var(--radius-md)", background: "var(--accent)", color: "#fff", cursor: "pointer", textAlign: "left" }}
+          >
+            Complete all tasks and close
+            <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.8, marginTop: 2 }}>Mark all tasks as done</div>
+          </button>
+          <button
+            onClick={onRelease}
+            style={{ width: "100%", padding: "10px 16px", fontSize: 13, fontWeight: 500, borderRadius: "var(--radius-md)", background: "var(--bg-tertiary)", color: "var(--text-primary)", cursor: "pointer", textAlign: "left" }}
+          >
+            Move tasks out and close
+            <div style={{ fontSize: 11, fontWeight: 400, color: "var(--text-tertiary)", marginTop: 2 }}>Tasks stay in their space, unlinked from project</div>
+          </button>
+          <button
+            onClick={onCancel}
+            style={{ width: "100%", padding: "8px 16px", fontSize: 13, color: "var(--text-tertiary)", cursor: "pointer", textAlign: "center", marginTop: 4 }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
