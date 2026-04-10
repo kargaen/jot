@@ -124,6 +124,7 @@ fn main() {
 
             TrayIconBuilder::new()
                 .menu(&menu)
+                .show_menu_on_left_click(false)
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("Jot")
                 .on_menu_event(|app, event| match event.id().as_ref() {
@@ -134,13 +135,21 @@ fn main() {
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        toggle_qc(tray.app_handle());
+                    match event {
+                        TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } => {
+                            toggle_qc(tray.app_handle());
+                        }
+                        TrayIconEvent::DoubleClick {
+                            button: MouseButton::Left,
+                            ..
+                        } => {
+                            open_dashboard(tray.app_handle().clone());
+                        }
+                        _ => {}
                     }
                 })
                 .build(app)?;

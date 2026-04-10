@@ -62,6 +62,15 @@ export interface TaskWithTags extends Task {
   project?: Project | null;
 }
 
+export interface Feedback {
+  id: string;
+  user_id: string;
+  text: string;
+  status: "new" | "reviewing" | "planned" | "in_progress" | "done" | "declined";
+  admin_note: string | null;
+  created_at: string;
+}
+
 export interface AreaMember {
   id: string;
   area_id: string;

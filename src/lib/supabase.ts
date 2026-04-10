@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Area, AreaMember, Project, Tag, Task, TaskWithTags } from "../types";
+import type { Area, AreaMember, Feedback, Project, Tag, Task, TaskWithTags } from "../types";
 import { logger } from "./logger";
 
 function logErr(op: string, error: unknown): never {
@@ -367,5 +367,26 @@ export async function createTag(name: string, color = "#6B7280"): Promise<Tag> {
     .select()
     .single();
   if (error) throw error;
+  return data;
+}
+
+// ─── Feedback ────────────────────────────────────────────────────────────────
+
+export async function fetchFeedback(): Promise<Feedback[]> {
+  const { data, error } = await supabase
+    .from("feedback")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) logErr("fetchFeedback", error);
+  return data ?? [];
+}
+
+export async function submitFeedback(text: string): Promise<Feedback> {
+  const { data, error } = await supabase
+    .from("feedback")
+    .insert({ text })
+    .select()
+    .single();
+  if (error) logErr("submitFeedback", error);
   return data;
 }

@@ -11,15 +11,17 @@ import {
   fetchPendingInvites,
   acceptInvite,
   declineInvite,
+  fetchFeedback,
+  submitFeedback,
 } from "../lib/supabase";
 import { spaceColor } from "../lib/colors";
 import Toggle from "../components/Toggle";
 import { useAuth } from "../lib/auth";
-import type { Area, AreaMember } from "../types";
+import type { Area, AreaMember, Feedback } from "../types";
 
 import { enable as enableAutostart, disable as disableAutostart, isEnabled as isAutostart } from "@tauri-apps/plugin-autostart";
 
-type Tab = "spaces" | "sharing" | "reminders" | "account";
+type Tab = "spaces" | "sharing" | "reminders" | "feedback" | "account";
 
 export default function Preferences({
   areas,
@@ -54,7 +56,7 @@ export default function Preferences({
 
         {/* Tabs */}
         <div style={{ display: "flex", borderBottom: "1px solid var(--border-subtle)", padding: "0 24px" }}>
-          {(["spaces", "sharing", "reminders", "account"] as Tab[]).map((t) => (
+          {(["spaces", "sharing", "reminders", "feedback", "account"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -74,6 +76,7 @@ export default function Preferences({
             <SharingTab areas={areas} currentUserId={user?.id ?? ""} />
           )}
           {tab === "reminders" && <RemindersTab />}
+          {tab === "feedback" && <FeedbackTab currentUserId={user?.id ?? ""} />}
           {tab === "account" && (
             <AccountTab user={user} signOut={signOut} />
           )}
@@ -486,6 +489,123 @@ function RemindersTab() {
         The countdown pauses automatically when you're away from your keyboard, so you'll never miss it.
         Use <strong>Snooze 1h</strong> on the popup to defer it when you're in a flow.
       </p>
+    </div>
+  );
+}
+
+// ─── Feedback tab ────────────────────────────────────────────────────────────
+
+const STATUS_LABELS: Record<Feedback["status"], string> = {
+  new: "New",
+  reviewing: "Reviewing",
+  planned: "Planned",
+  in_progress: "In Progress",
+  done: "Done",
+  declined: "Declined",
+};
+const STATUS_COLORS: Record<Feedback["status"], string> = {
+  new: "#6b7280",
+  reviewing: "#d97706",
+  planned: "#3b82f6",
+  in_progress: "#8b5cf6",
+  done: "#16a34a",
+  declined: "#57534e",
+};
+
+function FeedbackTab({ currentUserId }: { currentUserId: string }) {
+  const [items, setItems] = useState<Feedback[]>([]);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchFeedback()
+      .then(setItems)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!text.trim() || busy) return;
+    setBusy(true);
+    try {
+      const item = await submitFeedback(text.trim());
+      setItems((prev) => [item, ...prev]);
+      setText("");
+    } catch {}
+    setBusy(false);
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <p style={{ fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+        Ideas, bugs, feature requests — anything goes. You can see what others have submitted and track status.
+      </p>
+
+      {/* Submit form */}
+      <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8 }}>
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Describe your idea or bug…"
+          style={{ ...inputStyle, flex: 1 }}
+        />
+        <button
+          type="submit"
+          disabled={busy || !text.trim()}
+          style={{
+            padding: "7px 16px", background: "var(--accent)", color: "#fff",
+            borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 500,
+            opacity: busy || !text.trim() ? 0.6 : 1, flexShrink: 0,
+          }}
+        >
+          {busy ? "Sending…" : "Submit"}
+        </button>
+      </form>
+
+      {/* Feedback list */}
+      {loading ? (
+        <div style={{ fontSize: 13, color: "var(--text-tertiary)", textAlign: "center", padding: "20px 0" }}>Loading…</div>
+      ) : items.length === 0 ? (
+        <div style={{ fontSize: 13, color: "var(--text-tertiary)", textAlign: "center", padding: "20px 0" }}>No feedback yet. Be the first!</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {items.map((item) => (
+            <div
+              key={item.id}
+              style={{
+                padding: "10px 12px", borderRadius: "var(--radius-md)",
+                background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <span style={{
+                  fontSize: 11, fontWeight: 600, padding: "1px 7px", borderRadius: 10,
+                  background: `${STATUS_COLORS[item.status]}18`,
+                  color: STATUS_COLORS[item.status],
+                }}>
+                  {STATUS_LABELS[item.status]}
+                </span>
+                {item.user_id === currentUserId && (
+                  <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>You</span>
+                )}
+                <span style={{ fontSize: 10, color: "var(--text-tertiary)", marginLeft: "auto" }}>
+                  {new Date(item.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                </span>
+              </div>
+              <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.4 }}>
+                {item.text}
+              </div>
+              {item.admin_note && (
+                <div style={{ fontSize: 12, color: "var(--accent)", marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--border-subtle)", lineHeight: 1.4 }}>
+                  {item.admin_note}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -355,6 +355,7 @@ export default function Dashboard() {
       resizable: true,
       skipTaskbar: false,
       visible: false,
+      transparent: true,
     });
   }
 
