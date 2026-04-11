@@ -33,7 +33,8 @@
     "autostart:allow-disable",
     "autostart:allow-is-enabled",
     "updater:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    "core:app:default"
   ],
   "local-storage": true
 }

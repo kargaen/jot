@@ -20,7 +20,6 @@ import { useAuth } from "../lib/auth";
 import type { Area, AreaMember, Feedback } from "../types";
 
 import { enable as enableAutostart, disable as disableAutostart, isEnabled as isAutostart } from "@tauri-apps/plugin-autostart";
-
 type Tab = "spaces" | "sharing" | "reminders" | "feedback" | "account";
 
 export default function Preferences({
@@ -46,7 +45,7 @@ export default function Preferences({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ width: 540, maxHeight: "82vh", background: "var(--bg-primary)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-lg)", display: "flex", flexDirection: "column", overflow: "hidden" }}
+        style={{ width: 540, background: "var(--bg-primary)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-lg)", display: "flex", flexDirection: "column", overflow: "hidden" }}
       >
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", padding: "18px 24px", borderBottom: "1px solid var(--border-subtle)" }}>
@@ -68,7 +67,7 @@ export default function Preferences({
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+        <div style={{ height: 420, overflowY: "auto", padding: "20px 24px" }}>
           {tab === "spaces" && (
             <AreasTab areas={areas} hiddenAreaIds={hiddenAreaIds} onHiddenChange={onHiddenChange} onAreasChange={onAreasChange} />
           )}
@@ -609,6 +608,7 @@ function FeedbackTab({ currentUserId }: { currentUserId: string }) {
     </div>
   );
 }
+
 
 // ─── Small helpers ────────────────────────────────────────────────────────────
 

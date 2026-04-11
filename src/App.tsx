@@ -5,6 +5,7 @@ import QuickCapture from "./windows/QuickCapture";
 import Dashboard from "./windows/Dashboard";
 import TaskDetailWindow from "./windows/TaskDetailWindow";
 import ReminderWindow from "./windows/ReminderWindow";
+import AboutWindow from "./windows/AboutWindow";
 import { logger } from "./lib/logger";
 
 const windowLabel = getCurrentWebviewWindow().label;
@@ -47,5 +48,6 @@ export default function App() {
   if (windowLabel === "quick-capture") return <QuickCapture />;
   if (windowLabel.startsWith("reminder")) return <ReminderWindow />;
   if (windowLabel.startsWith("task-")) return <TaskDetailWindow />;
+  if (windowLabel === "about") return <AboutWindow />;
   return <Dashboard />;
 }

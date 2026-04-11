@@ -1,6 +1,6 @@
 {
   "productName": "Jot",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "identifier": "com.jot.app",
   "build": {
     "frontendDist": "../dist",
@@ -32,6 +32,16 @@
         "alwaysOnTop": true,
         "resizable": false,
         "skipTaskbar": true,
+        "center": true
+      }
+      ,{
+        "label": "about",
+        "title": "About Jot",
+        "width": 380,
+        "height": 340,
+        "decorations": false,
+        "visible": false,
+        "resizable": false,
         "center": true
       }
     ],

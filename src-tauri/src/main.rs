@@ -7,6 +7,7 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
+
 fn show_qc(app: &tauri::AppHandle) {
     if let Some(win) = app.get_webview_window("quick-capture") {
         let _ = win.center();
@@ -114,6 +115,7 @@ fn main() {
                 MenuItemBuilder::with_id("dashboard", "Open Dashboard").build(app)?;
             let item_pulse =
                 MenuItemBuilder::with_id("pulse", "Today's Pulse").build(app)?;
+            let item_about = MenuItemBuilder::with_id("about", "About Jot").build(app)?;
             let item_quit = MenuItemBuilder::with_id("quit", "Quit Jot").build(app)?;
 
             let menu = MenuBuilder::new(app)
@@ -121,6 +123,7 @@ fn main() {
                 .item(&item_dashboard)
                 .item(&item_pulse)
                 .separator()
+                .item(&item_about)
                 .item(&item_quit)
                 .build()?;
 
@@ -134,6 +137,12 @@ fn main() {
                     "capture" => toggle_qc(app),
                     "dashboard" => open_dashboard(app.clone()),
                     "pulse" => { let _ = app.emit("show-reminder", ()); }
+                    "about" => {
+                        if let Some(win) = app.get_webview_window("about") {
+                            let _ = win.show();
+                            let _ = win.set_focus();
+                        }
+                    }
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {

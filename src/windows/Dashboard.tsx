@@ -470,6 +470,7 @@ export default function Dashboard() {
     return () => { unlisten.then((f) => f()); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+
   // QuickCapture navigation actions → switch view
   useEffect(() => {
     const unlisten = listen<{ view: string }>("navigate", (e) => {
@@ -958,6 +959,15 @@ export default function Dashboard() {
             Preferences
           </button>
           <button
+            onClick={async () => {
+              const win = await WebviewWindow.getByLabel("about");
+              if (win) { await win.show(); await win.setFocus(); }
+            }}
+            style={{ width: "100%", textAlign: "left", padding: "6px 8px", borderRadius: "var(--radius-sm)", fontSize: 13, color: "var(--text-secondary)", cursor: "pointer" }}
+          >
+            About Jot
+          </button>
+          <button
             onClick={() => signOut()}
             style={{ width: "100%", textAlign: "left", padding: "6px 8px", borderRadius: "var(--radius-sm)", fontSize: 13, color: "var(--text-tertiary)", cursor: "pointer" }}
           >
@@ -1335,12 +1345,18 @@ const ZEN_QUOTES = [
   { text: "I'll be back. But not with more tasks.",             from: "The Terminator (hopefully)" },
 ];
 
+const ZEN_IMAGES = [
+  "/zen-beach1.png", "/zen-beach2.png", "/zen-beach3.png",
+  "/zen-beach4.png", "/zen-beach5.png", "/zen-beach6.png", "/zen-beach7.png",
+];
+
 function ZenIllustration() {
   const [imgOk, setImgOk] = useState(true);
+  const [src] = useState(() => ZEN_IMAGES[Math.floor(Math.random() * ZEN_IMAGES.length)]);
   if (!imgOk) return null;
   return (
     <img
-      src="/zen-beach.png"
+      src={src}
       alt="Relaxing on the beach"
       onError={() => setImgOk(false)}
       style={{ width: "100%", maxWidth: 400, borderRadius: 12, objectFit: "contain" }}
