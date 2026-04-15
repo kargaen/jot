@@ -302,6 +302,7 @@ export async function updateTask(
     recurrence_rule: string | null;
     estimated_mins: number | null;
     status: Task["status"];
+    sort_order: number;
   }>,
 ): Promise<void> {
   logger.debug("supabase", `updateTask: ${id}`, Object.keys(fields));
@@ -310,6 +311,16 @@ export async function updateTask(
     .update({ ...fields, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) logErr("updateTask", error);
+}
+
+export async function reorderTasks(
+  updates: { id: string; sort_order: number }[],
+): Promise<void> {
+  await Promise.all(
+    updates.map(({ id, sort_order }) =>
+      supabase.from("tasks").update({ sort_order }).eq("id", id),
+    ),
+  );
 }
 
 export interface CreateTaskInput {

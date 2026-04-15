@@ -22,12 +22,14 @@ export default function TaskRow({
   task,
   projects,
   selected,
+  draggable: isDraggable,
   onComplete,
   onClick,
 }: {
   task: TaskWithTags;
   projects: Project[];
   selected?: boolean;
+  draggable?: boolean;
   onComplete?: () => void;
   onClick?: () => void;
 }) {
@@ -57,6 +59,25 @@ export default function TaskRow({
         cursor: onClick ? "pointer" : "default",
       }}
     >
+      {isDraggable && (
+        <span
+          style={{
+            width: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: hovered ? 0.35 : 0,
+            transition: "opacity var(--transition)",
+            cursor: "grab",
+            flexShrink: 0,
+            fontSize: 14,
+            color: "var(--text-tertiary)",
+            userSelect: "none",
+          }}
+        >
+          ⠿
+        </span>
+      )}
       <button
         onClick={(e) => {
           e.stopPropagation();

@@ -17,6 +17,8 @@ import {
   fetchLogbookTasks,
   fetchCompletionDates,
   completeTask,
+  updateTask,
+  reorderTasks,
   deleteProject,
   closeProject,
   closeProjectAndCompleteTasks,
@@ -35,15 +37,19 @@ import type { Area, Project, Tag, TaskWithTags } from "../types";
 
 type View = "overdue" | "today" | "inbox" | "upcoming" | "project" | "logbook";
 
-function sortTasks(tasks: TaskWithTags[], _projects: Project[]): TaskWithTags[] {
+function sortTasks(tasks: TaskWithTags[], byOrder = false): TaskWithTags[] {
   return [...tasks].sort((a, b) => {
-    // 1. Due date ascending; null sorts last
+    if (byOrder) {
+      const diff = a.sort_order - b.sort_order;
+      if (diff !== 0) return diff;
+      // Fallback when sort_orders are equal (e.g. all 0 initially)
+      return a.created_at < b.created_at ? -1 : 1;
+    }
+    // Default: due date → created_at → title
     const da = a.due_date ?? "9999-99-99";
     const db = b.due_date ?? "9999-99-99";
     if (da !== db) return da < db ? -1 : 1;
-    // 2. Created at ascending (oldest first)
     if (a.created_at !== b.created_at) return a.created_at < b.created_at ? -1 : 1;
-    // 3. Title as tiebreaker
     return a.title.toLowerCase() < b.title.toLowerCase() ? -1 : 1;
   });
 }
@@ -165,31 +171,101 @@ function AuthScreen() {
   );
 }
 
-// ─── Task list ────────────────────────────────────────────────────────────────
+// ─── Task list with drag-and-drop reordering ─────────────────────────────────
 
 function TaskList({
   tasks,
   projects,
+  reorderable = false,
   onComplete,
   onOpen,
+  onReorder,
+  onDragStart,
+  onDragEnd,
 }: {
   tasks: TaskWithTags[];
   projects: Project[];
+  reorderable?: boolean;
   onComplete: (id: string) => void;
   onOpen: (task: TaskWithTags) => void;
+  onReorder?: (newOrder: TaskWithTags[]) => void;
+  onDragStart?: (task: TaskWithTags) => void;
+  onDragEnd?: () => void;
 }) {
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dropIdx, setDropIdx] = useState<number | null>(null);
+
+  function handleDragStart(e: React.DragEvent, idx: number) {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("taskId", tasks[idx].id);
+    setDragIdx(idx);
+    onDragStart?.(tasks[idx]);
+  }
+
+  function handleDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (!reorderable) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const insertBefore = e.clientY < rect.top + rect.height / 2;
+    setDropIdx(insertBefore ? idx : idx + 1);
+  }
+
+  function handleDrop(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    if (!reorderable || dragIdx === null) { reset(); return; }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const insertAt = e.clientY < rect.top + rect.height / 2 ? idx : idx + 1;
+    if (insertAt === dragIdx || insertAt === dragIdx + 1) { reset(); return; }
+    const next = [...tasks];
+    const [moved] = next.splice(dragIdx, 1);
+    const target = insertAt > dragIdx ? insertAt - 1 : insertAt;
+    next.splice(target, 0, moved);
+    onReorder?.(next);
+    reset();
+  }
+
+  function handleDragEnd() {
+    reset();
+    onDragEnd?.();
+  }
+
+  function reset() {
+    setDragIdx(null);
+    setDropIdx(null);
+  }
+
   if (tasks.length === 0) return null;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      {tasks.map((task) => (
-        <TaskRow
-          key={task.id}
-          task={task}
-          projects={projects}
-          onComplete={() => onComplete(task.id)}
-          onClick={() => onOpen(task)}
-        />
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {tasks.map((task, idx) => (
+        <div key={task.id}>
+          {/* Drop indicator line above this item */}
+          {reorderable && dropIdx === idx && dragIdx !== null && dragIdx !== idx && (
+            <div style={{ height: 2, margin: "1px 14px", borderRadius: 1, background: "var(--accent)", pointerEvents: "none" }} />
+          )}
+          <div
+            draggable={reorderable}
+            onDragStart={reorderable ? (e) => handleDragStart(e, idx) : undefined}
+            onDragOver={reorderable ? (e) => handleDragOver(e, idx) : undefined}
+            onDrop={reorderable ? (e) => handleDrop(e, idx) : undefined}
+            onDragEnd={reorderable ? handleDragEnd : undefined}
+            style={{ opacity: dragIdx === idx ? 0.4 : 1, transition: "opacity 0.1s" }}
+          >
+            <TaskRow
+              task={task}
+              projects={projects}
+              draggable={reorderable}
+              onComplete={() => onComplete(task.id)}
+              onClick={() => onOpen(task)}
+            />
+          </div>
+        </div>
       ))}
+      {/* Drop indicator after last item */}
+      {reorderable && dropIdx === tasks.length && dragIdx !== null && (
+        <div style={{ height: 2, margin: "1px 14px", borderRadius: 1, background: "var(--accent)", pointerEvents: "none" }} />
+      )}
     </div>
   );
 }
@@ -233,6 +309,7 @@ export default function Dashboard() {
   const [updateVersion, setUpdateVersion] = useState("");
   const [updateProgress, setUpdateProgress] = useState(0);
   const updateRef = useRef<Awaited<ReturnType<typeof check>> | null>(null);
+  const [draggingTask, setDraggingTask] = useState<TaskWithTags | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
   const userId = user?.id ?? null;
@@ -617,7 +694,7 @@ export default function Dashboard() {
         case "logbook":  return logbookTasks;
       }
     })();
-    return view === "logbook" ? raw : sortTasks(raw, projects);
+    return view === "logbook" ? raw : sortTasks(raw, view === "project");
   }, [view, overdueTask, todayTasks, inboxTasks, upcomingTasks, projectTasks, logbookTasks, projects, selectedInboxAreaId]);
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -627,6 +704,25 @@ export default function Dashboard() {
     completeTask(taskId).catch((err) =>
       logger.error("dashboard", "completeTask failed", err instanceof Error ? err.message : err),
     );
+  }
+
+  function handleReorder(newOrder: TaskWithTags[]) {
+    const updates = newOrder.map((t, i) => ({ id: t.id, sort_order: (i + 1) * 1000 }));
+    // Optimistic update in memory
+    setAllTasks((prev) => {
+      const map = new Map(updates.map((u) => [u.id, u.sort_order]));
+      return prev.map((t) => (map.has(t.id) ? { ...t, sort_order: map.get(t.id)! } : t));
+    });
+    reorderTasks(updates).catch((err) =>
+      logger.error("dashboard", "reorderTasks failed", err instanceof Error ? err.message : err),
+    );
+  }
+
+  async function handleMoveTask(taskId: string, projectId: string | null, areaId: string | null) {
+    setAllTasks((prev) =>
+      prev.map((t) => t.id === taskId ? { ...t, project_id: projectId, area_id: areaId } : t),
+    );
+    await updateTask(taskId, { project_id: projectId, area_id: areaId });
   }
 
   async function handleOnboardingCreate() {
@@ -786,7 +882,16 @@ export default function Dashboard() {
             ))}
           </div>
         ) : (
-          <TaskList tasks={displayTasks} projects={projects} onComplete={handleComplete} onOpen={openTaskWindow} />
+          <TaskList
+            tasks={displayTasks}
+            projects={projects}
+            reorderable={view === "project"}
+            onComplete={handleComplete}
+            onOpen={openTaskWindow}
+            onReorder={handleReorder}
+            onDragStart={(t) => setDraggingTask(t)}
+            onDragEnd={() => setDraggingTask(null)}
+          />
         )}
       </div>
 
@@ -921,6 +1026,10 @@ export default function Dashboard() {
                 dotSquare
                 active={view === "inbox" && selectedInboxAreaId === area.id && !selectedProject}
                 onClick={() => { setView("inbox"); setSelectedInboxAreaId(area.id); setSelectedProject(null); }}
+                onDrop={draggingTask ? (e) => {
+                  const taskId = e.dataTransfer.getData("taskId");
+                  if (taskId) handleMoveTask(taskId, null, area.id);
+                } : undefined}
               />
               {visibleProjects.filter((p) => p.area_id === area.id).map((project) => (
                 <NavItem
@@ -932,6 +1041,10 @@ export default function Dashboard() {
                   active={selectedProject?.id === project.id}
                   onClick={() => { setSelectedProject(project); setView("project"); }}
                   onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
+                  onDrop={draggingTask ? (e) => {
+                    const taskId = e.dataTransfer.getData("taskId");
+                    if (taskId) handleMoveTask(taskId, project.id, project.area_id);
+                  } : undefined}
                 />
               ))}
             </div>
@@ -947,6 +1060,10 @@ export default function Dashboard() {
               active={selectedProject?.id === project.id}
               onClick={() => { setSelectedProject(project); setView("project"); }}
               onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
+              onDrop={draggingTask ? (e) => {
+                const taskId = e.dataTransfer.getData("taskId");
+                if (taskId) handleMoveTask(taskId, project.id, project.area_id);
+              } : undefined}
             />
           ))}
         </nav>
@@ -1065,8 +1182,12 @@ export default function Dashboard() {
             <TaskList
               tasks={displayTasks}
               projects={projects}
+              reorderable={view === "project"}
               onComplete={handleComplete}
               onOpen={openTaskWindow}
+              onReorder={handleReorder}
+              onDragStart={(t) => setDraggingTask(t)}
+              onDragEnd={() => setDraggingTask(null)}
             />
           )}
         </div>
@@ -1280,23 +1401,39 @@ const AreaFilterDropdown = forwardRef<HTMLDivElement, {
 
 // ─── Small components ─────────────────────────────────────────────────────────
 
-function NavItem({ label, count, urgentCount, active, onClick, onContextMenu, indent = false, dot, dotSquare = false }: {
+function NavItem({ label, count, urgentCount, active, onClick, onContextMenu, onDrop, indent = false, dot, dotSquare = false }: {
   label: string;
   count?: number;
   urgentCount?: number;
   active: boolean;
   onClick: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
   indent?: boolean;
   dot?: string;
   dotSquare?: boolean;
 }) {
+  const [dragOver, setDragOver] = useState(false);
   const showUrgent = urgentCount != null && urgentCount > 0;
+  const isDropTarget = !!onDrop;
   return (
     <button
       onClick={onClick}
       onContextMenu={onContextMenu}
-      style={{ width: "100%", textAlign: "left", padding: indent ? "6px 16px 6px 28px" : "6px 16px", fontSize: 13, borderRadius: 0, display: "flex", alignItems: "center", gap: 8, background: active ? "var(--accent-light)" : "transparent", color: active ? "var(--accent)" : "var(--text-secondary)", fontWeight: active ? 500 : 400, cursor: "pointer", transition: "background var(--transition)" }}
+      onDragOver={isDropTarget ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(true); } : undefined}
+      onDragLeave={isDropTarget ? () => setDragOver(false) : undefined}
+      onDrop={isDropTarget ? (e) => { setDragOver(false); onDrop(e); } : undefined}
+      style={{
+        width: "100%", textAlign: "left",
+        padding: indent ? "6px 16px 6px 28px" : "6px 16px",
+        fontSize: 13, borderRadius: 0, display: "flex", alignItems: "center", gap: 8,
+        background: dragOver ? "var(--accent-light)" : active ? "var(--accent-light)" : "transparent",
+        color: dragOver ? "var(--accent)" : active ? "var(--accent)" : "var(--text-secondary)",
+        fontWeight: active || dragOver ? 500 : 400,
+        cursor: "pointer", transition: "background var(--transition)",
+        outline: dragOver ? "2px solid var(--accent)" : "none",
+        outlineOffset: "-2px",
+      }}
     >
       {dot && <span style={{ width: 8, height: 8, borderRadius: dotSquare ? 3 : "50%", background: dot, flexShrink: 0 }} />}
       <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>

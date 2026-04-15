@@ -207,15 +207,17 @@ export function parseDate(input: string): DateResult | null {
   // ── 3. in N units / om N enheder ──────────────────────────────
 
   m = lower.match(
-    /(^|\s)(?:in|om)\s+(\d+)\s+(days?|dage?|weeks?|uger?|months?|måned(?:er)?)/,
+    /(^|\s)(?:in|om)\s+(\d+)\s+(minutes?|minutter?|hours?|timer?|days?|dage?|weeks?|uger?|months?|måned(?:er)?|years?|år)/,
   );
   if (m) {
     const n = parseInt(m[2]);
     const unit = m[3];
     const d = new Date(today);
-    if (/^(days?|dage?)$/.test(unit)) d.setDate(d.getDate() + n);
-    else if (/^(weeks?|uger?)$/.test(unit))
-      d.setDate(d.getDate() + n * 7);
+    if (/^(minutes?|minutter?)$/.test(unit)) d.setMinutes(d.getMinutes() + n);
+    else if (/^(hours?|timer?)$/.test(unit)) d.setHours(d.getHours() + n);
+    else if (/^(days?|dage?)$/.test(unit)) d.setDate(d.getDate() + n);
+    else if (/^(weeks?|uger?)$/.test(unit)) d.setDate(d.getDate() + n * 7);
+    else if (/^(years?|år)$/.test(unit)) d.setFullYear(d.getFullYear() + n);
     else d.setMonth(d.getMonth() + n);
     return { date: toISODate(d), time: null, consumed: m[0] };
   }
@@ -374,12 +376,19 @@ type Priority = "high" | "medium" | "low" | "none";
 export function parsePriority(
   input: string,
 ): { priority: Priority; consumed: string } | null {
+  // Trailing ! (one or more) = high priority — check first so it's consumed
+  // and doesn't end up in the task title.
+  const trailingBang = input.match(/\s*!+\s*$/);
+  if (trailingBang) {
+    return { priority: "high", consumed: trailingBang[0] };
+  }
+
   const patterns: Array<{ re: RegExp; priority: Priority }> = [
     {
       re: /\b(urgent|asap|critical|haster|akut|!!|!1)\b/i,
       priority: "high",
     },
-    { re: /\b(important|vigtig|vigtigt|!2|!)\b/i, priority: "medium" },
+    { re: /\b(important|vigtig|vigtigt|!2)\b/i, priority: "medium" },
     {
       re: /\b(low\s+priority|lav\s+prioritet|someday|en\s+dag|!3|!4)\b/i,
       priority: "low",
@@ -430,35 +439,33 @@ export function parseProject(
   consumed: string;
   confidence: number;
 } {
-  let m = input.match(/#([\w-]+)/i);
-  if (m) {
-    const name = m[1].toLowerCase();
-    const exact = projects.find((p) => p.name.toLowerCase() === name);
-    if (exact)
-      return {
-        project: exact,
-        suggestedName: null,
-        consumed: m[0],
-        confidence: 1,
-      };
-    const best = fuzzyBestMatch(name, projects);
-    if (best && best.score > 0.4) {
-      return {
-        project: best.project,
-        suggestedName: null,
-        consumed: m[0],
-        confidence: best.score,
-      };
+  // Support project names with spaces, numbers, and Danish chars (#Projekt 2, #Mit Projekt).
+  // Capture from # up to the next metadata trigger or end-of-string, then progressively
+  // shorten by one word at a time until we find a matching project — this prevents
+  // "Buy milk #Jot fix bug" from consuming "Jot fix bug" as the project name.
+  const hashMatch = input.match(
+    /#([\w\sæøåÆØÅ\d-]+?)(?=\s[@!]|\s(?:due|at|kl|i\s(?:dag|morgen|overmorgen)|næste|every|hver)|$)/i,
+  );
+  if (hashMatch) {
+    const words = hashMatch[1].trim().split(/\s+/);
+    for (let len = words.length; len >= 1; len--) {
+      const name = words.slice(0, len).join(" ");
+      const consumed = "#" + words.slice(0, len).join(" ");
+      const exact = projects.find(
+        (p) => p.name.toLowerCase() === name.toLowerCase(),
+      );
+      if (exact)
+        return { project: exact, suggestedName: null, consumed, confidence: 1 };
+      const best = fuzzyBestMatch(name, projects);
+      if (best && best.score > 0.4)
+        return { project: best.project, suggestedName: null, consumed, confidence: best.score };
     }
-    return {
-      project: null,
-      suggestedName: m[1],
-      consumed: m[0],
-      confidence: 0,
-    };
+    // Nothing matched — suggest the single word after #
+    const single = words[0];
+    return { project: null, suggestedName: single, consumed: "#" + single, confidence: 0 };
   }
 
-  m = input.match(
+  let m = input.match(
     /\bfor\s+(?:project\s+)?([\w\s-]+?)(?=\s+(due|at|@|!|\btag\b|$))/i,
   );
   if (m) {
@@ -544,10 +551,15 @@ export function parseInput(
   let priority: Priority = "none";
   if (priResult) {
     priority = priResult.priority;
-    working = working.replace(
-      new RegExp(escapeRegex(priResult.consumed), "i"),
-      " ",
-    );
+    // Trailing ! — slice from the end rather than replace (avoids mid-string collisions)
+    if (/^\s*!+\s*$/.test(priResult.consumed)) {
+      working = working.slice(0, working.length - priResult.consumed.length);
+    } else {
+      working = working.replace(
+        new RegExp(escapeRegex(priResult.consumed), "i"),
+        " ",
+      );
+    }
   }
 
   const tagResult = parseTags(working, tags);
@@ -560,6 +572,12 @@ export function parseInput(
   if (projResult.consumed) {
     working = working.replace(projResult.consumed, " ");
   }
+
+  // Strip orphaned prepositions left behind after metadata extraction.
+  // e.g. "Buy milk for tomorrow" → after removing "tomorrow" → "Buy milk for" → "Buy milk"
+  working = working
+    .replace(/\s+\b(for|due|on|at|til|inden|på)\s*$/i, "")   // trailing
+    .replace(/^\s*\b(for|due|on|at|til|inden|på)\b\s+/i, ""); // leading
 
   const title = working
     .replace(/\s+/g, " ")
