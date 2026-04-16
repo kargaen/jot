@@ -866,7 +866,6 @@ export default function Dashboard() {
               canCreateProjectsAndTags
               onCreated={() => loadData()}
               onProjectCreated={(p) => setProjects((prev) => [...prev, p])}
-              onTagCreated={(t) => setTags((prev) => [...prev, t])}
             />
           </div>
         )}
@@ -1162,7 +1161,6 @@ export default function Dashboard() {
                 canCreateProjectsAndTags
                 onCreated={() => loadData()}
                 onProjectCreated={(p) => setProjects((prev) => [...prev, p])}
-                onTagCreated={(t) => setTags((prev) => [...prev, t])}
               />
             </div>
           )}

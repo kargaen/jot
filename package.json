@@ -1,13 +1,14 @@
 {
   "name": "jot",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test:nlp": "TZ=UTC npx tsx tests/nlp.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.43.4",

@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { fetchProjects, fetchTags } from "../lib/supabase";
+import { fetchProjects } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import CreateTask, { type CreateTaskRef } from "../components/CreateTask";
-import type { Project, Tag, QuickAction } from "../types";
+import type { Project, QuickAction } from "../types";
 
 const QUICK_ACTIONS: QuickAction[] = [
   { id: "open-dashboard", label: "Open dashboard",   shortcut: "↵" },
@@ -21,12 +21,10 @@ export default function QuickCapture() {
 
   const [actionIndex, setActionIndex] = useState(-1);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
   const createTaskRef = useRef<CreateTaskRef>(null);
 
   useEffect(() => {
     fetchProjects().then(setProjects).catch(() => {});
-    fetchTags().then(setTags).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -124,13 +122,12 @@ export default function QuickCapture() {
         <CreateTask
           ref={createTaskRef}
           projects={projects}
-          allTags={tags}
+          allTags={[]}
           placeholder="New task…"
           autoFocus
           canCreateProjectsAndTags
           onKeyDownFirst={onKeyDownFirst}
           onProjectCreated={(p) => setProjects((prev) => [...prev, p])}
-          onTagCreated={(t) => setTags((prev) => [...prev, t])}
           onSaved={(keepOpen) => {
             if (!keepOpen) invoke("hide_quick_capture").catch(() => {});
           }}

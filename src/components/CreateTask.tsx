@@ -1,5 +1,11 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
-import { createTask, createProject, createTag } from "../lib/supabase";
+import {
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useState,
+  useEffect,
+} from "react";
+import { createTask, createProject } from "../lib/supabase";
 import { parseInput } from "../lib/nlp";
 import { suggestIcon } from "../lib/icons";
 import { logger } from "../lib/logger";
@@ -35,6 +41,12 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: "#6b7280",
   none: "",
 };
+const PRIORITY_CYCLE: Array<Task["priority"]> = [
+  "none",
+  "low",
+  "medium",
+  "high",
+];
 
 function Chip({ label, color }: { label: string; color: string }) {
   return (
@@ -57,6 +69,83 @@ function Chip({ label, color }: { label: string; color: string }) {
     >
       {label}
     </span>
+  );
+}
+
+// ─── MetaField ────────────────────────────────────────────────────────────────
+// A fixed slot in the metadata row. Always rendered; filled or empty.
+// Uses a readOnly input for cycling fields (priority) and a normal input elsewhere.
+
+function MetaField({
+  prefix,
+  value,
+  placeholder,
+  color,
+  inputRef,
+  readOnly,
+  onFocus,
+  onKeyDown,
+  onChange,
+  onClick,
+}: {
+  prefix: string;
+  value: string;
+  placeholder: string;
+  color: string;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  readOnly?: boolean;
+  onFocus?: () => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onChange?: (v: string) => void;
+  onClick?: () => void;
+}) {
+  const filled = value.length > 0;
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "3px 8px",
+        borderRadius: 20,
+        fontSize: 12,
+        color: filled ? color : "var(--text-quaternary, #9ca3af)",
+        background: filled ? `${color}15` : "var(--bg-secondary)",
+        border: `1px solid ${filled ? `${color}35` : "var(--border-subtle)"}`,
+        transition: "color 120ms, background 120ms, border-color 120ms",
+        cursor: readOnly ? "pointer" : "text",
+      }}
+    >
+      <span style={{ flexShrink: 0, userSelect: "none" }}>{prefix}</span>
+      <input
+        ref={inputRef}
+        value={value}
+        placeholder={placeholder}
+        readOnly={readOnly}
+        onFocus={onFocus}
+        onKeyDown={onKeyDown}
+        onChange={readOnly ? undefined : (e) => onChange?.(e.target.value)}
+        style={{
+          background: "transparent",
+          border: "none",
+          outline: "none",
+          fontSize: 12,
+          color: "inherit",
+          fontFamily: "inherit",
+          cursor: readOnly ? "pointer" : "text",
+          width:
+            Math.max(
+              (value || placeholder).length,
+              placeholder.length,
+            ) *
+              7 +
+            4,
+          minWidth: 30,
+          maxWidth: 160,
+        }}
+      />
+    </div>
   );
 }
 
@@ -83,7 +172,7 @@ export interface CreateTaskProps {
   /** Compact inline style (for subtask input) vs full dashed-border card */
   compact?: boolean;
   autoFocus?: boolean;
-  /** Allow NLP-suggested projects/tags to be created on the fly */
+  /** Allow NLP-suggested projects to be created on the fly */
   canCreateProjectsAndTags?: boolean;
   /** Called when a task is successfully created */
   onCreated?: (task: Task) => void;
@@ -103,8 +192,6 @@ export interface CreateTaskProps {
   ) => boolean;
   /** Called when new projects are created (so parent can update its list) */
   onProjectCreated?: (p: Project) => void;
-  /** Called when new tags are created (so parent can update its list) */
-  onTagCreated?: (t: Tag) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -125,7 +212,6 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
       onSaved,
       onKeyDownFirst,
       onProjectCreated,
-      onTagCreated,
     },
     ref,
   ) {
@@ -135,7 +221,21 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
     );
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Metadata field values — driven by NLP but user-editable
+    const [metaProject, setMetaProject] = useState("");
+    const [metaDate, setMetaDate] = useState("");
+    const [metaPriority, setMetaPriority] = useState<Task["priority"]>("none");
+    const [metaRecurrence, setMetaRecurrence] = useState("");
+
+    // Track which fields the user has manually edited so NLP won't overwrite them
+    const [userEdited, setUserEdited] = useState<Set<string>>(new Set());
+
     const inputEl = useRef<HTMLInputElement>(null);
+    const projectFieldRef = useRef<HTMLInputElement>(null);
+    const dateFieldRef = useRef<HTMLInputElement>(null);
+    const priorityFieldRef = useRef<HTMLInputElement>(null);
+    const recurrenceFieldRef = useRef<HTMLInputElement>(null);
     const parseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useImperativeHandle(ref, () => ({
@@ -144,9 +244,50 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
         setInput("");
         setParsed(null);
         setError(null);
+        setMetaProject("");
+        setMetaDate("");
+        setMetaPriority("none");
+        setMetaRecurrence("");
+        setUserEdited(new Set());
       },
       isEmpty: () => !input.trim(),
     }));
+
+    // When NLP fires, update meta fields that the user hasn't manually touched
+    useEffect(() => {
+      if (!parsed) {
+        if (!userEdited.has("project")) setMetaProject("");
+        if (!userEdited.has("date")) setMetaDate("");
+        if (!userEdited.has("priority")) setMetaPriority("none");
+        if (!userEdited.has("recurrence")) setMetaRecurrence("");
+        return;
+      }
+      if (!userEdited.has("project")) {
+        setMetaProject(
+          parsed.project?.name ?? parsed.suggestedProjectName ?? "",
+        );
+      }
+      if (!userEdited.has("date")) {
+        setMetaDate(
+          parsed.dueDate
+            ? `${formatDate(parsed.dueDate)}${parsed.dueTime ? " " + parsed.dueTime : ""}`
+            : "",
+        );
+      }
+      if (!userEdited.has("priority")) {
+        setMetaPriority(parsed.priority);
+      }
+      if (!userEdited.has("recurrence")) {
+        setMetaRecurrence(
+          parsed.recurrenceRule
+            ? parsed.recurrenceRule
+                .split(";")[0]
+                .replace("FREQ=", "")
+                .toLowerCase()
+            : "",
+        );
+      }
+    }, [parsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
     function runParse(value: string) {
       if (parseTimer.current) clearTimeout(parseTimer.current);
@@ -163,6 +304,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
       const value = e.target.value;
       setInput(value);
       setError(null);
+      setUserEdited(new Set());
       if (!value) {
         setParsed(null);
         return;
@@ -170,17 +312,70 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
       runParse(value);
     }
 
+    function markEdited(field: string) {
+      setUserEdited((prev) => new Set([...prev, field]));
+    }
+
+    function cyclePriority() {
+      setMetaPriority((prev) => {
+        const idx = PRIORITY_CYCLE.indexOf(prev);
+        return PRIORITY_CYCLE[(idx + 1) % PRIORITY_CYCLE.length];
+      });
+      markEdited("priority");
+    }
+
+    // Resolve meta fields back into Task fields at save time
+    function resolveForSave() {
+      const freshParse = parseInput(input, projects, allTags);
+
+      // Project
+      let resolvedProject = freshParse.project;
+      let resolvedSuggestedProject = freshParse.suggestedProjectName;
+      if (userEdited.has("project")) {
+        const match = projects.find(
+          (p) => p.name.toLowerCase() === metaProject.toLowerCase(),
+        );
+        resolvedProject = match ?? null;
+        resolvedSuggestedProject = !match && metaProject ? metaProject : null;
+      }
+
+      // Date — if user edited, re-parse from the meta field text
+      let resolvedDate = freshParse.dueDate;
+      let resolvedTime = freshParse.dueTime;
+      if (userEdited.has("date") && metaDate) {
+        const reParsed = parseInput(metaDate, [], []);
+        resolvedDate = reParsed.dueDate;
+        resolvedTime = reParsed.dueTime;
+      } else if (userEdited.has("date") && !metaDate) {
+        resolvedDate = null;
+        resolvedTime = null;
+      }
+
+      return {
+        title: freshParse.title || input.trim(),
+        project: resolvedProject,
+        suggestedProjectName: resolvedSuggestedProject,
+        dueDate: resolvedDate,
+        dueTime: resolvedTime,
+        priority: userEdited.has("priority") ? metaPriority : freshParse.priority,
+        recurrenceRule:
+          userEdited.has("recurrence") && !metaRecurrence
+            ? null
+            : freshParse.recurrenceRule,
+      };
+    }
+
     async function handleSave(keepOpen = false) {
       if (!input.trim() || saving) return;
       setSaving(true);
       setError(null);
       try {
-        const result = parseInput(input, projects, allTags);
-        logger.info("create-task", `save: "${result.title || input.trim()}"`, {
+        const result = resolveForSave();
+
+        logger.info("create-task", `save: "${result.title}"`, {
           project: result.project?.name ?? result.suggestedProjectName,
           priority: result.priority !== "none" ? result.priority : undefined,
           dueDate: result.dueDate,
-          tags: result.tags.map((t) => t.name),
           parent: parentTaskId ?? undefined,
         });
 
@@ -196,30 +391,26 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
           onProjectCreated?.(newProject);
         }
 
-        const tagIds: string[] = result.tags.map((t) => t.id);
-        if (canCreateProjectsAndTags) {
-          for (const name of result.suggestedTagNames) {
-            const newTag = await createTag(name);
-            tagIds.push(newTag.id);
-            onTagCreated?.(newTag);
-          }
-        }
-
         const task = await createTask({
-          title: result.title || input.trim(),
+          title: result.title,
           parentTaskId: parentTaskId ?? null,
           projectId: resolvedProjectId,
           areaId: areaId ?? null,
-          icon: suggestIcon(result.title || input.trim()),
+          icon: suggestIcon(result.title),
           dueDate: result.dueDate,
           dueTime: result.dueTime,
           priority: result.priority,
           recurrenceRule: result.recurrenceRule,
-          tagIds,
+          tagIds: [],
         });
 
         setInput("");
         setParsed(null);
+        setMetaProject("");
+        setMetaDate("");
+        setMetaPriority("none");
+        setMetaRecurrence("");
+        setUserEdited(new Set());
         logger.info("create-task", `saved: ${task.id}`);
         onCreated?.(task);
         onSaved?.(keepOpen);
@@ -232,7 +423,39 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
       }
     }
 
+    // Shared key handler for meta fields
+    function metaFieldKeyDown(
+      e: React.KeyboardEvent<HTMLInputElement>,
+      nextRef: React.RefObject<HTMLInputElement | null> | null,
+    ) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        inputEl.current?.focus();
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (input.trim()) handleSave(false);
+        return;
+      }
+      if (e.key === "Tab") {
+        e.preventDefault();
+        if (nextRef?.current) {
+          nextRef.current.focus();
+        } else {
+          inputEl.current?.focus();
+        }
+      }
+    }
+
     function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+      // Tab from main input → first meta field (full mode only)
+      if (!compact && e.key === "Tab") {
+        e.preventDefault();
+        projectFieldRef.current?.focus();
+        return;
+      }
+
       if (onKeyDownFirst?.(e, !input.trim())) return;
 
       if (e.key === "Enter" && !e.shiftKey) {
@@ -249,8 +472,6 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
       (parsed.dueDate ||
         parsed.project ||
         parsed.priority !== "none" ||
-        parsed.tags.length > 0 ||
-        parsed.suggestedTagNames.length > 0 ||
         parsed.recurrenceRule ||
         parsed.suggestedProjectName);
 
@@ -258,9 +479,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
     if (compact) {
       return (
         <div>
-          <div
-            style={{ display: "flex", alignItems: "center", gap: 8 }}
-          >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div
               style={{
                 width: 16,
@@ -300,10 +519,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
               }}
             >
               {parsed?.project && (
-                <Chip
-                  color="#5b5bd6"
-                  label={`# ${parsed.project.name}`}
-                />
+                <Chip color="#5b5bd6" label={`# ${parsed.project.name}`} />
               )}
               {parsed?.dueDate && (
                 <Chip
@@ -317,9 +533,6 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
                   label={PRIORITY_LABELS[parsed.priority]}
                 />
               )}
-              {parsed?.tags.map((t) => (
-                <Chip key={t.id} color="#6b7280" label={`@ ${t.name}`} />
-              ))}
             </div>
           )}
           {error && (
@@ -404,7 +617,8 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
           )}
         </div>
 
-        {hasPreview && (
+        {/* Fixed metadata row — always visible when there is input */}
+        {input.trim() && (
           <div
             style={{
               display: "flex",
@@ -413,40 +627,65 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
               padding: "8px 14px 0",
             }}
           >
-            {(parsed?.project || parsed?.suggestedProjectName) && (
-              <Chip
-                color={parsed?.project ? "#5b5bd6" : "#d97706"}
-                label={
-                  parsed?.project
-                    ? `# ${parsed.project.name}`
-                    : `+ project: ${parsed?.suggestedProjectName}`
+            <MetaField
+              prefix="#"
+              value={metaProject}
+              placeholder="Project"
+              color="#5b5bd6"
+              inputRef={projectFieldRef}
+              onChange={(v) => {
+                setMetaProject(v);
+                markEdited("project");
+              }}
+              onKeyDown={(e) => metaFieldKeyDown(e, dateFieldRef)}
+            />
+            <MetaField
+              prefix="📅"
+              value={metaDate}
+              placeholder="Date"
+              color="#0891b2"
+              inputRef={dateFieldRef}
+              onChange={(v) => {
+                setMetaDate(v);
+                markEdited("date");
+              }}
+              onKeyDown={(e) => metaFieldKeyDown(e, priorityFieldRef)}
+            />
+            <MetaField
+              prefix={metaPriority !== "none" ? "" : "!"}
+              value={
+                metaPriority !== "none" ? PRIORITY_LABELS[metaPriority] : ""
+              }
+              placeholder="Priority"
+              color={
+                metaPriority !== "none"
+                  ? PRIORITY_COLORS[metaPriority]
+                  : "#9ca3af"
+              }
+              inputRef={priorityFieldRef}
+              readOnly
+              onClick={cyclePriority}
+              onKeyDown={(e) => {
+                if (e.key === " ") {
+                  e.preventDefault();
+                  cyclePriority();
+                  return;
                 }
-              />
-            )}
-            {parsed?.dueDate && (
-              <Chip
-                color="#0891b2"
-                label={`📅 ${formatDate(parsed.dueDate)}${parsed.dueTime ? " " + parsed.dueTime : ""}`}
-              />
-            )}
-            {parsed?.priority && parsed.priority !== "none" && (
-              <Chip
-                color={PRIORITY_COLORS[parsed.priority]}
-                label={PRIORITY_LABELS[parsed.priority]}
-              />
-            )}
-            {parsed?.tags.map((t) => (
-              <Chip key={t.id} color="#6b7280" label={`@ ${t.name}`} />
-            ))}
-            {parsed?.suggestedTagNames.map((name) => (
-              <Chip key={name} color="#d97706" label={`+ tag: ${name}`} />
-            ))}
-            {parsed?.recurrenceRule && (
-              <Chip
-                color="#059669"
-                label={`↻ ${parsed.recurrenceRule.split(";")[0].replace("FREQ=", "").toLowerCase()}`}
-              />
-            )}
+                metaFieldKeyDown(e, recurrenceFieldRef);
+              }}
+            />
+            <MetaField
+              prefix="↻"
+              value={metaRecurrence}
+              placeholder="Repeat"
+              color="#059669"
+              inputRef={recurrenceFieldRef}
+              onChange={(v) => {
+                setMetaRecurrence(v);
+                markEdited("recurrence");
+              }}
+              onKeyDown={(e) => metaFieldKeyDown(e, null)}
+            />
           </div>
         )}
 

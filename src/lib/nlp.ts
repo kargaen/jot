@@ -136,6 +136,21 @@ export function parseDate(input: string): DateResult | null {
 
   let m: RegExpMatchArray | null;
 
+  // ── 0. Explicit @ date prefix ─────────────────────────────────
+  // "@monday", "@tomorrow", "@fredag", "@next-week" (hyphen = space).
+  // Takes priority over implicit patterns so the user can force date
+  // parsing on any term without ambiguity.
+  m = lower.match(/(^|\s)@([\wæøåÆØÅ-]+)/i);
+  if (m) {
+    const candidate = m[2].replace(/-/g, " ").trim();
+    const inner = parseDate(candidate);
+    if (inner) {
+      const rest = input.slice((m.index ?? 0) + m[0].length);
+      const { time, consumed: timeSuffix } = parseTimeSuffix(rest);
+      return { date: inner.date, time, consumed: m[0] + timeSuffix };
+    }
+  }
+
   // ── 1. Relative dates (EN + DA) ───────────────────────────────
 
   // today / i dag
@@ -527,7 +542,7 @@ function fuzzyBestMatch(
 export function parseInput(
   raw: string,
   projects: Project[],
-  tags: Tag[],
+  _tags: Tag[],
 ): ParsedInput {
   let working = raw.trim();
 
@@ -562,10 +577,9 @@ export function parseInput(
     }
   }
 
-  const tagResult = parseTags(working, tags);
-  for (const consumed of tagResult.consumed) {
-    working = working.replace(consumed, " ");
-  }
+  // @ is now the explicit date prefix — tag parsing is a hidden server-side
+  // feature and no longer runs in the main input pipeline.
+  const tagResult = { matchedTags: [] as Tag[], newTagNames: [] as string[], consumed: [] as string[] };
 
   const projResult = parseProject(working, projects);
   const project: Project | null = projResult.project;
