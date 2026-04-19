@@ -323,6 +323,16 @@ export async function reorderTasks(
   );
 }
 
+export async function reorderProjects(
+  updates: { id: string; sort_order: number }[],
+): Promise<void> {
+  await Promise.all(
+    updates.map(({ id, sort_order }) =>
+      supabase.from("projects").update({ sort_order }).eq("id", id),
+    ),
+  );
+}
+
 export interface CreateTaskInput {
   title: string;
   projectId?: string | null;

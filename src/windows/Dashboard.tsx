@@ -19,6 +19,7 @@ import {
   completeTask,
   updateTask,
   reorderTasks,
+  reorderProjects,
   deleteProject,
   closeProject,
   closeProjectAndCompleteTasks,
@@ -310,6 +311,8 @@ export default function Dashboard() {
   const [updateProgress, setUpdateProgress] = useState(0);
   const updateRef = useRef<Awaited<ReturnType<typeof check>> | null>(null);
   const [draggingTask, setDraggingTask] = useState<TaskWithTags | null>(null);
+  const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
+  const [projectDropTarget, setProjectDropTarget] = useState<{ id: string; before: boolean } | null>(null);
   const [suggestClose, setSuggestClose] = useState<{ projectId: string; projectName: string } | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
@@ -730,6 +733,29 @@ export default function Dashboard() {
     );
   }
 
+  function handleProjectDrop(e: React.DragEvent, targetId: string, group: Project[]) {
+    const sourceId = e.dataTransfer.getData("projectId");
+    setDraggingProjectId(null);
+    setProjectDropTarget(null);
+    if (!sourceId || sourceId === targetId) return;
+    const srcIdx = group.findIndex((p) => p.id === sourceId);
+    const tgtIdx = group.findIndex((p) => p.id === targetId);
+    if (srcIdx === -1 || tgtIdx === -1) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const insertAt = e.clientY < rect.top + rect.height / 2 ? tgtIdx : tgtIdx + 1;
+    const next = [...group];
+    const [moved] = next.splice(srcIdx, 1);
+    next.splice(insertAt > srcIdx ? insertAt - 1 : insertAt, 0, moved);
+    const updates = next.map((p, i) => ({ id: p.id, sort_order: (i + 1) * 1000 }));
+    setProjects((prev) => {
+      const map = new Map(updates.map((u) => [u.id, u.sort_order]));
+      return [...prev].sort((a, b) => (map.get(a.id) ?? a.sort_order) - (map.get(b.id) ?? b.sort_order));
+    });
+    reorderProjects(updates).catch((err) =>
+      logger.error("dashboard", "reorderProjects failed", err instanceof Error ? err.message : err),
+    );
+  }
+
   async function handleMoveTask(taskId: string, projectId: string | null, areaId: string | null) {
     setAllTasks((prev) =>
       prev.map((t) => t.id === taskId ? { ...t, project_id: projectId, area_id: areaId } : t),
@@ -1060,55 +1086,89 @@ export default function Dashboard() {
           ))}
 
           {areas.filter((a) => !hiddenAreaIds.includes(a.id)).length > 0 && <SectionHeader label="Spaces" />}
-          {areas.filter((a) => !hiddenAreaIds.includes(a.id)).map((area) => (
-            <div key={area.id}>
-              <NavItem
-                label={area.name}
-                urgentCount={areaUrgentCounts.get(area.id) ?? 0}
-                dot={spaceColor(area.id)}
-                dotSquare
-                active={view === "inbox" && selectedInboxAreaId === area.id && !selectedProject}
-                onClick={() => { setView("inbox"); setSelectedInboxAreaId(area.id); setSelectedProject(null); }}
-                onDrop={draggingTask ? (e) => {
-                  const taskId = e.dataTransfer.getData("taskId");
-                  if (taskId) handleMoveTask(taskId, null, area.id);
-                } : undefined}
-              />
-              {visibleProjects.filter((p) => p.area_id === area.id).map((project) => (
+          {areas.filter((a) => !hiddenAreaIds.includes(a.id)).map((area) => {
+            const areaProjects = visibleProjects.filter((p) => p.area_id === area.id);
+            return (
+              <div key={area.id}>
                 <NavItem
-                  key={project.id}
-                  label={project.name}
-                  urgentCount={projectUrgentCounts.get(project.id) ?? 0}
-                  indent
-                  dot={projectColor(project.id)}
-                  active={selectedProject?.id === project.id}
-                  onClick={() => { setSelectedProject(project); setView("project"); }}
-                  onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
+                  label={area.name}
+                  urgentCount={areaUrgentCounts.get(area.id) ?? 0}
+                  dot={spaceColor(area.id)}
+                  dotSquare
+                  active={view === "inbox" && selectedInboxAreaId === area.id && !selectedProject}
+                  onClick={() => { setView("inbox"); setSelectedInboxAreaId(area.id); setSelectedProject(null); }}
                   onDrop={draggingTask ? (e) => {
                     const taskId = e.dataTransfer.getData("taskId");
-                    if (taskId) handleMoveTask(taskId, project.id, project.area_id);
+                    if (taskId) handleMoveTask(taskId, null, area.id);
                   } : undefined}
                 />
-              ))}
-            </div>
-          ))}
+                {areaProjects.map((project) => (
+                  <div key={project.id}>
+                    {projectDropTarget?.id === project.id && projectDropTarget.before && (
+                      <div style={{ height: 2, margin: "1px 28px", borderRadius: 1, background: "var(--accent)", pointerEvents: "none" }} />
+                    )}
+                    <div
+                      draggable
+                      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("projectId", project.id); setDraggingProjectId(project.id); }}
+                      onDragOver={draggingProjectId ? (e) => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setProjectDropTarget({ id: project.id, before: e.clientY < r.top + r.height / 2 }); } : undefined}
+                      onDragLeave={draggingProjectId ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setProjectDropTarget((p) => p?.id === project.id ? null : p); } : undefined}
+                      onDrop={draggingProjectId ? (e) => handleProjectDrop(e, project.id, areaProjects) : undefined}
+                      onDragEnd={() => { setDraggingProjectId(null); setProjectDropTarget(null); }}
+                      style={{ opacity: draggingProjectId === project.id ? 0.4 : 1, cursor: "grab" }}
+                    >
+                      <NavItem
+                        label={project.name}
+                        urgentCount={projectUrgentCounts.get(project.id) ?? 0}
+                        indent
+                        dot={projectColor(project.id)}
+                        active={selectedProject?.id === project.id}
+                        onClick={() => { setSelectedProject(project); setView("project"); }}
+                        onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
+                        onDrop={draggingTask ? (e) => { const taskId = e.dataTransfer.getData("taskId"); if (taskId) handleMoveTask(taskId, project.id, project.area_id); } : undefined}
+                      />
+                    </div>
+                    {projectDropTarget?.id === project.id && !projectDropTarget.before && (
+                      <div style={{ height: 2, margin: "1px 28px", borderRadius: 1, background: "var(--accent)", pointerEvents: "none" }} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
 
           {visibleProjects.filter((p) => !p.area_id).length > 0 && <SectionHeader label="Projects" />}
-          {visibleProjects.filter((p) => !p.area_id).map((project) => (
-            <NavItem
-              key={project.id}
-              label={project.name}
-              urgentCount={projectUrgentCounts.get(project.id) ?? 0}
-              dot={projectColor(project.id)}
-              active={selectedProject?.id === project.id}
-              onClick={() => { setSelectedProject(project); setView("project"); }}
-              onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
-              onDrop={draggingTask ? (e) => {
-                const taskId = e.dataTransfer.getData("taskId");
-                if (taskId) handleMoveTask(taskId, project.id, project.area_id);
-              } : undefined}
-            />
-          ))}
+          {(() => {
+            const standaloneProjects = visibleProjects.filter((p) => !p.area_id);
+            return standaloneProjects.map((project) => (
+              <div key={project.id}>
+                {projectDropTarget?.id === project.id && projectDropTarget.before && (
+                  <div style={{ height: 2, margin: "1px 16px", borderRadius: 1, background: "var(--accent)", pointerEvents: "none" }} />
+                )}
+                <div
+                  draggable
+                  onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("projectId", project.id); setDraggingProjectId(project.id); }}
+                  onDragOver={draggingProjectId ? (e) => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setProjectDropTarget({ id: project.id, before: e.clientY < r.top + r.height / 2 }); } : undefined}
+                  onDragLeave={draggingProjectId ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setProjectDropTarget((p) => p?.id === project.id ? null : p); } : undefined}
+                  onDrop={draggingProjectId ? (e) => handleProjectDrop(e, project.id, standaloneProjects) : undefined}
+                  onDragEnd={() => { setDraggingProjectId(null); setProjectDropTarget(null); }}
+                  style={{ opacity: draggingProjectId === project.id ? 0.4 : 1, cursor: "grab" }}
+                >
+                  <NavItem
+                    label={project.name}
+                    urgentCount={projectUrgentCounts.get(project.id) ?? 0}
+                    dot={projectColor(project.id)}
+                    active={selectedProject?.id === project.id}
+                    onClick={() => { setSelectedProject(project); setView("project"); }}
+                    onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
+                    onDrop={draggingTask ? (e) => { const taskId = e.dataTransfer.getData("taskId"); if (taskId) handleMoveTask(taskId, project.id, project.area_id); } : undefined}
+                  />
+                </div>
+                {projectDropTarget?.id === project.id && !projectDropTarget.before && (
+                  <div style={{ height: 2, margin: "1px 16px", borderRadius: 1, background: "var(--accent)", pointerEvents: "none" }} />
+                )}
+              </div>
+            ));
+          })()}
         </nav>
 
         <div style={{ padding: "12px 12px 0", borderTop: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", gap: 2 }}>
