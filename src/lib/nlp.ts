@@ -1,7 +1,10 @@
 import type { ParsedInput, Project, Tag } from "../types";
 
 function toISODate(d: Date): string {
-  return d.toISOString().split("T")[0];
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${da}`;
 }
 
 function nextWeekday(target: number): Date {
@@ -64,8 +67,8 @@ const MONTHS: Record<string, number> = {
   oct: 9, october: 9,
   nov: 10, november: 10,
   dec: 11, december: 11,
-  // Danish additions (shared ones like januar/februar/april/august already overlap)
-  marts: 2,
+  // Danish full names
+  januar: 0, februar: 1, marts: 2,
   maj: 4,
   juni: 5,
   juli: 6,
@@ -157,21 +160,21 @@ export function parseDate(input: string): DateResult | null {
   m = lower.match(/(^|\s)(today|i\s+dag)(?=\s|$)/);
   if (m) return withTime(input, m, today);
 
-  // tomorrow / i morgen
-  m = lower.match(/(^|\s)(tomorrow|i\s+morgen)(?=\s|$)/);
-  if (m) {
-    const d = new Date(today);
-    d.setDate(d.getDate() + 1);
-    return withTime(input, m, d);
-  }
-
-  // day after tomorrow / i overmorgen / overmorgen
+  // day after tomorrow / i overmorgen / overmorgen — checked BEFORE tomorrow
   m = lower.match(
     /(^|\s)((?:the\s+)?day\s+after\s+tomorrow|i\s+overmorgen|overmorgen)(?=\s|$)/,
   );
   if (m) {
     const d = new Date(today);
     d.setDate(d.getDate() + 2);
+    return withTime(input, m, d);
+  }
+
+  // tomorrow / i morgen
+  m = lower.match(/(^|\s)(tomorrow|i\s+morgen)(?=\s|$)/);
+  if (m) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + 1);
     return withTime(input, m, d);
   }
 
@@ -228,9 +231,17 @@ export function parseDate(input: string): DateResult | null {
     const n = parseInt(m[2]);
     const unit = m[3];
     const d = new Date(today);
-    if (/^(minutes?|minutter?)$/.test(unit)) d.setMinutes(d.getMinutes() + n);
-    else if (/^(hours?|timer?)$/.test(unit)) d.setHours(d.getHours() + n);
-    else if (/^(days?|dage?)$/.test(unit)) d.setDate(d.getDate() + n);
+    if (/^(minutes?|minutter?)$/.test(unit)) {
+      d.setMinutes(d.getMinutes() + n);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      return { date: toISODate(d), time: `${hh}:${mm}`, consumed: m[0] };
+    } else if (/^(hours?|timer?)$/.test(unit)) {
+      d.setHours(d.getHours() + n);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      return { date: toISODate(d), time: `${hh}:${mm}`, consumed: m[0] };
+    } else if (/^(days?|dage?)$/.test(unit)) d.setDate(d.getDate() + n);
     else if (/^(weeks?|uger?)$/.test(unit)) d.setDate(d.getDate() + n * 7);
     else if (/^(years?|år)$/.test(unit)) d.setFullYear(d.getFullYear() + n);
     else d.setMonth(d.getMonth() + n);
@@ -276,9 +287,9 @@ export function parseDate(input: string): DateResult | null {
       if (d < today) d.setFullYear(d.getFullYear() + 1);
       return { date: toISODate(d), time: null, consumed: m[0] };
     }
-    // "15 jan" / "15th january" / "15. januar"
+    // "15 jan" / "15th january" / "15. januar" / "den 15. jan" / "d. 15. maj"
     const re2 = new RegExp(
-      `(^|\\s)(\\d{1,2})(?:st|nd|rd|th)?\\.?\\s+(${mon})(?=\\s|$)`,
+      `(^|\\s)(?:den|d\\.?)?\\s*(\\d{1,2})(?:st|nd|rd|th)?\\.?\\s+(${mon})(?=\\s|$)`,
       "i",
     );
     m = lower.match(re2);
@@ -400,12 +411,12 @@ export function parsePriority(
 
   const patterns: Array<{ re: RegExp; priority: Priority }> = [
     {
-      re: /\b(urgent|asap|critical|haster|akut|!!|!1)\b/i,
+      re: /(^|\s)!?(urgent|asap|critical|haster|akut|!!|!1)(?=\s|$)/i,
       priority: "high",
     },
-    { re: /\b(important|vigtig|vigtigt|!2)\b/i, priority: "medium" },
+    { re: /(^|\s)(important|vigtig|vigtigt|!2)(?=\s|$)/i, priority: "medium" },
     {
-      re: /\b(low\s+priority|lav\s+prioritet|someday|en\s+dag|!3|!4)\b/i,
+      re: /(^|\s)(low\s+priority|lav\s+prioritet|someday|en\s+dag|!3|!4)(?=\s|$)/i,
       priority: "low",
     },
   ];
@@ -463,6 +474,7 @@ export function parseProject(
   );
   if (hashMatch) {
     const words = hashMatch[1].trim().split(/\s+/);
+    // Pass 1: exact match only (longest first)
     for (let len = words.length; len >= 1; len--) {
       const name = words.slice(0, len).join(" ");
       const consumed = "#" + words.slice(0, len).join(" ");
@@ -471,6 +483,11 @@ export function parseProject(
       );
       if (exact)
         return { project: exact, suggestedName: null, consumed, confidence: 1 };
+    }
+    // Pass 2: fuzzy match (longest first)
+    for (let len = words.length; len >= 1; len--) {
+      const name = words.slice(0, len).join(" ");
+      const consumed = "#" + words.slice(0, len).join(" ");
       const best = fuzzyBestMatch(name, projects);
       if (best && best.score > 0.4)
         return { project: best.project, suggestedName: null, consumed, confidence: best.score };
@@ -481,7 +498,7 @@ export function parseProject(
   }
 
   let m = input.match(
-    /\bfor\s+(?:project\s+)?([\w\s-]+?)(?=\s+(due|at|@|!|\btag\b|$))/i,
+    /\bfor\s+(?:project\s+)?([\w\s-]+?)(?=\s+(?:due|at|@|!|\btag\b)|$)/i,
   );
   if (m) {
     const name = m[1].trim().toLowerCase();
@@ -546,20 +563,37 @@ export function parseInput(
 ): ParsedInput {
   let working = raw.trim();
 
+  // Recurrence runs first so "every monday" isn't consumed as a bare weekday date.
+  const recResult = parseRecurrence(working);
+  let recurrenceRule: string | null = null;
+  if (recResult) {
+    recurrenceRule = recResult.rule;
+    working = working.replace(new RegExp(escapeRegex(recResult.consumed), "i"), " ");
+  }
+
   const dateResult = parseDate(working);
   let dueDate: string | null = null;
   let dueTime: string | null = null;
   if (dateResult) {
     dueDate = dateResult.date;
     dueTime = dateResult.time;
-    working = working.replace(dateResult.consumed, " ");
+    working = working.replace(new RegExp(escapeRegex(dateResult.consumed), "i"), " ");
   }
 
-  const recResult = parseRecurrence(working);
-  let recurrenceRule: string | null = null;
-  if (recResult) {
-    recurrenceRule = recResult.rule;
-    working = working.replace(new RegExp(escapeRegex(recResult.consumed), "i"), " ");
+  // Extract a time that appears anywhere in the string (e.g. "at 12am today",
+  // "at klokken 14" with no date, or any other position before/after the date).
+  if (!dueTime) {
+    const timeRe = /(?:^|\s)(?:at\s+klokken|at\s+kl\.?|at|kl\.?|klokken)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?(?=\s|$)/i;
+    const tm = working.match(timeRe);
+    if (tm) {
+      let h = parseInt(tm[1]);
+      const min = tm[2] ? parseInt(tm[2]) : 0;
+      const ampm = tm[3]?.toLowerCase();
+      if (ampm === "pm" && h < 12) h += 12;
+      if (ampm === "am" && h === 12) h = 0;
+      dueTime = `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+      working = working.replace(new RegExp(escapeRegex(tm[0]), "i"), " ");
+    }
   }
 
   const priResult = parsePriority(working);
@@ -583,7 +617,10 @@ export function parseInput(
 
   const projResult = parseProject(working, projects);
   const project: Project | null = projResult.project;
-  if (projResult.consumed) {
+  // Always remove hash-syntax consumed (#Project). For "for X" syntax, only
+  // remove if a project was actually matched — otherwise "for interview" etc.
+  // would be stripped even when the fuzzy score is below threshold.
+  if (projResult.consumed && (projResult.project || projResult.consumed.startsWith("#"))) {
     working = working.replace(projResult.consumed, " ");
   }
 

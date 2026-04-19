@@ -346,8 +346,8 @@ const groups: TestGroup[] = [
       // Disambiguates task words from project name
       { input: "#Mit Projekt fix bug",      expected: { title: "fix bug",     projectName: "Mit Projekt" } },
       { input: "#Jot deploy hotfix",        expected: { title: "deploy hotfix", projectName: "Jot" } },
-      // "Jot 2" fuzzy-matches "Jot" (trigram score > 0.4)
-      { input: "Fix #Jot 2 ship release",   expected: { title: "Fix ship release", projectName: "Jot" } },
+      // Two-pass exact-first: "Jot" found exactly at len=1; "2" stays in title
+      { input: "Fix #Jot 2 ship release",   expected: { title: "Fix 2 ship release", projectName: "Jot" } },
       // Unknown project → suggested name (single word after #)
       { input: "#NewProject123 new habit",  expected: { title: "new habit",   suggestedProject: "NewProject123" } },
       // # alone — no match, no suggestion
