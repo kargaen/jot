@@ -310,6 +310,7 @@ export default function Dashboard() {
   const [updateProgress, setUpdateProgress] = useState(0);
   const updateRef = useRef<Awaited<ReturnType<typeof check>> | null>(null);
   const [draggingTask, setDraggingTask] = useState<TaskWithTags | null>(null);
+  const [suggestClose, setSuggestClose] = useState<{ projectId: string; projectName: string } | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
   const userId = user?.id ?? null;
@@ -700,10 +701,21 @@ export default function Dashboard() {
   // ──────────────────────────────────────────────────────────────────────────
 
   function handleComplete(taskId: string) {
+    const task = allTasks.find((t) => t.id === taskId);
     setAllTasks((prev) => prev.filter((t) => t.id !== taskId));
     completeTask(taskId).catch((err) =>
       logger.error("dashboard", "completeTask failed", err instanceof Error ? err.message : err),
     );
+    // If this was the last todo task in a project, offer to close it
+    if (task?.project_id) {
+      const remaining = allTasks.filter(
+        (t) => t.id !== taskId && t.project_id === task.project_id,
+      );
+      if (remaining.length === 0 && projectsSeenWithTasks.current.has(task.project_id)) {
+        const project = projects.find((p) => p.id === task.project_id);
+        if (project) setSuggestClose({ projectId: task.project_id, projectName: project.name });
+      }
+    }
   }
 
   function handleReorder(newOrder: TaskWithTags[]) {
@@ -970,6 +982,38 @@ export default function Dashboard() {
               Delete project
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Suggest closing a project when its last task is completed */}
+      {suggestClose && (
+        <div style={{
+          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+          background: "var(--bg-primary)", border: "1px solid var(--border-default)",
+          borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-lg)",
+          padding: "12px 16px", display: "flex", alignItems: "center", gap: 12,
+          zIndex: 200, fontSize: 13, color: "var(--text-primary)", whiteSpace: "nowrap",
+        }}>
+          <span>All done in <strong>{suggestClose.projectName}</strong>. Close the project?</span>
+          <button
+            onClick={() => {
+              const { projectId } = suggestClose;
+              setSuggestClose(null);
+              closeProject(projectId).then(() => {
+                if (selectedProject?.id === projectId) { setSelectedProject(null); setView("inbox"); }
+                loadData();
+              });
+            }}
+            style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--accent)", color: "#fff", cursor: "pointer" }}
+          >
+            Close project
+          </button>
+          <button
+            onClick={() => setSuggestClose(null)}
+            style={{ padding: "5px 10px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border-default)", background: "transparent", color: "var(--text-secondary)", cursor: "pointer" }}
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
@@ -1283,6 +1327,38 @@ export default function Dashboard() {
               Delete project
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Suggest closing a project when its last task is completed */}
+      {suggestClose && (
+        <div style={{
+          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+          background: "var(--bg-primary)", border: "1px solid var(--border-default)",
+          borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-lg)",
+          padding: "12px 16px", display: "flex", alignItems: "center", gap: 12,
+          zIndex: 200, fontSize: 13, color: "var(--text-primary)", whiteSpace: "nowrap",
+        }}>
+          <span>All done in <strong>{suggestClose.projectName}</strong>. Close the project?</span>
+          <button
+            onClick={() => {
+              const { projectId } = suggestClose;
+              setSuggestClose(null);
+              closeProject(projectId).then(() => {
+                if (selectedProject?.id === projectId) { setSelectedProject(null); setView("inbox"); }
+                loadData();
+              });
+            }}
+            style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--accent)", color: "#fff", cursor: "pointer" }}
+          >
+            Close project
+          </button>
+          <button
+            onClick={() => setSuggestClose(null)}
+            style={{ padding: "5px 10px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border-default)", background: "transparent", color: "var(--text-secondary)", cursor: "pointer" }}
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
