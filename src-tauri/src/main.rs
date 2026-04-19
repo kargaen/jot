@@ -5,6 +5,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
 };
+use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 
@@ -174,6 +175,20 @@ fn main() {
                     }
                 },
             )?;
+
+            // Enable autostart on first run (user can toggle in Preferences)
+            #[cfg(not(debug_assertions))]
+            {
+                if let Ok(data_dir) = app.path().app_data_dir() {
+                    let flag = data_dir.join(".autostart_initialized");
+                    if !flag.exists() {
+                        let mgr = app.autolaunch();
+                        let _ = mgr.enable();
+                        let _ = std::fs::create_dir_all(&data_dir);
+                        let _ = std::fs::write(&flag, "");
+                    }
+                }
+            }
 
             if let Some(win) = app.get_webview_window("main") {
                 let _ = win.hide();

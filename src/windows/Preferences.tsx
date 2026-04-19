@@ -399,6 +399,7 @@ const DURATION_OPTIONS = [
 
 function RemindersTab() {
   const [autostart, setAutostart] = useState(false);
+  const [autostartError, setAutostartError] = useState<string | null>(null);
   const [enabled,  setEnabled]  = useState(localStorage.getItem("jot_reminder_enabled")  !== "false");
   const [time,     setTime]     = useState(localStorage.getItem("jot_reminder_time")      ?? "08:00");
   const [duration, setDuration] = useState(localStorage.getItem("jot_reminder_duration") ?? "180");
@@ -406,7 +407,16 @@ function RemindersTab() {
   useEffect(() => { isAutostart().then(setAutostart).catch(() => {}); }, []);
   const toggleAutostart = useCallback(async () => {
     const next = !autostart;
-    try { if (next) await enableAutostart(); else await disableAutostart(); setAutostart(next); } catch {}
+    setAutostartError(null);
+    try {
+      if (next) await enableAutostart(); else await disableAutostart();
+      setAutostart(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setAutostartError(msg);
+      // Re-read actual state so the toggle reflects reality
+      isAutostart().then(setAutostart).catch(() => {});
+    }
   }, [autostart]);
 
   function save(patch: { enabled?: boolean; time?: string; duration?: string }) {
@@ -433,6 +443,11 @@ function RemindersTab() {
         <div>
           <div style={labelStyle}>Start with Windows</div>
           <div style={hintStyle}>Launch Jot automatically when you log in</div>
+          {autostartError && (
+            <div style={{ fontSize: 11, color: "#dc2626", marginTop: 4 }}>
+              Failed: {autostartError}
+            </div>
+          )}
         </div>
         <Toggle on={autostart} onToggle={toggleAutostart} />
       </div>

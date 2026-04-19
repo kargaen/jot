@@ -9,6 +9,7 @@ import { createTask, createProject } from "../lib/supabase";
 import { parseInput } from "../lib/nlp";
 import { suggestIcon } from "../lib/icons";
 import { logger } from "../lib/logger";
+import { SquarePen } from "lucide-react";
 import type { Task, Project, Tag } from "../types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -170,6 +171,8 @@ export interface CreateTaskProps {
     inputEmpty: boolean,
   ) => boolean;
   onProjectCreated?: (p: Project) => void;
+  /** Called instead of onSaved when the user clicks "save and edit" */
+  onSavedWithEdit?: (task: Task) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -190,6 +193,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
       onSaved,
       onKeyDownFirst,
       onProjectCreated,
+      onSavedWithEdit,
     },
     ref,
   ) {
@@ -328,7 +332,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
       }
     }
 
-    async function handleSave(keepOpen = false) {
+    async function handleSave(keepOpen = false, openAfter = false) {
       const titleToSave = metaTitle.trim() || input.trim();
       if (!titleToSave || saving) return;
       setSaving(true);
@@ -374,7 +378,11 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
         resetAllFields();
         logger.info("create-task", `saved: ${task.id}`);
         onCreated?.(task);
-        onSaved?.(keepOpen);
+        if (openAfter) {
+          onSavedWithEdit?.(task);
+        } else {
+          onSaved?.(keepOpen);
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to save";
         logger.error("create-task", `save failed: ${msg}`);
@@ -565,19 +573,42 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
             </span>
           )}
           {!saving && (input || metaTitle) && (
-            <kbd
-              style={{
-                fontSize: 11,
-                color: "var(--text-tertiary)",
-                background: "var(--bg-secondary)",
-                border: "1px solid var(--border-default)",
-                borderRadius: 4,
-                padding: "2px 6px",
-                fontFamily: "inherit",
-              }}
-            >
-              ↵
-            </kbd>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              {onSavedWithEdit && (
+                <button
+                  title="Save and edit"
+                  onClick={() => handleSave(false, true)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 24,
+                    height: 24,
+                    borderRadius: 4,
+                    border: "1px solid var(--border-default)",
+                    background: "var(--bg-secondary)",
+                    color: "var(--text-tertiary)",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                >
+                  <SquarePen size={13} />
+                </button>
+              )}
+              <kbd
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-tertiary)",
+                  background: "var(--bg-secondary)",
+                  border: "1px solid var(--border-default)",
+                  borderRadius: 4,
+                  padding: "2px 6px",
+                  fontFamily: "inherit",
+                }}
+              >
+                ↵
+              </kbd>
+            </div>
           )}
         </div>
 

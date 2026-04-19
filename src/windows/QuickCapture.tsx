@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getCurrentWebviewWindow, WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { fetchProjects } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import CreateTask, { type CreateTaskRef } from "../components/CreateTask";
-import type { Project, QuickAction } from "../types";
+import type { Project, QuickAction, Task } from "../types";
 
 const QUICK_ACTIONS: QuickAction[] = [
   { id: "open-dashboard", label: "Open dashboard",   shortcut: "↵" },
@@ -130,6 +130,19 @@ export default function QuickCapture() {
           onProjectCreated={(p) => setProjects((prev) => [...prev, p])}
           onSaved={(keepOpen) => {
             if (!keepOpen) invoke("hide_quick_capture").catch(() => {});
+          }}
+          onSavedWithEdit={(task: Task) => {
+            invoke("hide_quick_capture").catch(() => {});
+            const win = new WebviewWindow(`task-${task.id}`, {
+              url: window.location.origin,
+              title: task.title,
+              width: 700,
+              height: 720,
+              decorations: true,
+              resizable: true,
+              center: true,
+            });
+            win.once("tauri://error", () => {});
           }}
         />
       </div>

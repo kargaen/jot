@@ -4,7 +4,7 @@ import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewW
 import { UserAttentionType } from "@tauri-apps/api/window";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { useAuth } from "../lib/auth";
-import { fetchAllTasks, fetchProjects, fetchAreas } from "../lib/supabase";
+import { supabase, fetchAllTasks, fetchProjects, fetchAreas, completeTask } from "../lib/supabase";
 import { spaceColor, projectColor } from "../lib/colors";
 import { loadHiddenAreas, filterVisibleTasks } from "../lib/tasks";
 import Toggle from "../components/Toggle";
@@ -56,17 +56,44 @@ async function openTask(task: TaskWithTags) {
 // ─── Task row ─────────────────────────────────────────────────────────────────
 
 function ReminderTask({
-  task, projects, areas,
-}: { task: TaskWithTags; projects: Project[]; areas: Area[] }) {
+  task, projects, areas, onCompleted,
+}: { task: TaskWithTags; projects: Project[]; areas: Area[]; onCompleted: (id: string) => void }) {
+  const [done, setDone] = useState(false);
   const project = projects.find((p) => p.id === task.project_id) ?? null;
   const areaId  = task.area_id ?? project?.area_id ?? null;
   const area    = areas.find((a) => a.id === areaId) ?? null;
 
+  async function handleComplete(e: React.MouseEvent) {
+    e.stopPropagation();
+    setDone(true);
+    try {
+      await completeTask(task.id);
+      onCompleted(task.id);
+    } catch {
+      setDone(false);
+    }
+  }
+
   return (
     <div
       onClick={() => openTask(task)}
-      style={{ display: "flex", alignItems: "center", gap: 7, padding: "3px 0", cursor: "pointer" }}
+      style={{
+        display: "flex", alignItems: "center", gap: 7, padding: "3px 0",
+        cursor: "pointer", opacity: done ? 0.4 : 1, transition: "opacity 200ms",
+      }}
     >
+      {/* Completion circle */}
+      <span
+        onClick={handleComplete}
+        style={{
+          width: 13, height: 13, borderRadius: "50%", flexShrink: 0,
+          border: `1.5px solid ${done ? "var(--text-tertiary)" : "var(--border-strong)"}`,
+          background: done ? "var(--text-tertiary)" : "transparent",
+          cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}
+      />
+
       {/* Space indicator — rounded square */}
       <span style={{
         width: 7, height: 7, borderRadius: 2, flexShrink: 0,
@@ -76,6 +103,7 @@ function ReminderTask({
       <span style={{
         fontSize: 12, color: "var(--text-primary)",
         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
+        textDecoration: done ? "line-through" : "none",
       }}>
         {task.title}
       </span>
@@ -94,11 +122,12 @@ function ReminderTask({
 // ─── Section ─────────────────────────────────────────────────────────────────
 
 function Section({
-  label, color, tasks, projects, areas, divider,
+  label, color, tasks, projects, areas, divider, onCompleted,
 }: {
   label: string; color: string;
   tasks: TaskWithTags[]; projects: Project[]; areas: Area[];
   divider?: boolean;
+  onCompleted: (id: string) => void;
 }) {
   if (tasks.length === 0) return null;
   const shown = tasks.slice(0, MAX_PER_SECTION);
@@ -115,7 +144,7 @@ function Section({
         </span>
       </div>
       {shown.map((t) => (
-        <ReminderTask key={t.id} task={t} projects={projects} areas={areas} />
+        <ReminderTask key={t.id} task={t} projects={projects} areas={areas} onCompleted={onCompleted} />
       ))}
       {rest > 0 && (
         <div style={{ fontSize: 11, color: "var(--text-tertiary)", paddingTop: 2 }}>and {rest} more…</div>
@@ -205,6 +234,27 @@ export default function ReminderWindow() {
     Promise.all([fetchAllTasks(), fetchProjects(), fetchAreas()])
       .then(([t, p, a]) => { setTasks(t); setProjects(p); setAreas(a); })
       .catch(() => {});
+  }, [user?.id]);
+
+  // Realtime: reload when tasks change in any window (dashboard completions, edits)
+  useEffect(() => {
+    if (!user) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const channel = supabase
+      .channel("pulse-tasks")
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          fetchAllTasks()
+            .then(setTasks)
+            .catch(() => {});
+        }, 500);
+      })
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
   }, [user?.id]);
 
   // Idle polling (auto only)
@@ -321,9 +371,9 @@ export default function ReminderWindow() {
           </div>
         ) : (
           <>
-            <Section label="Today"    color="var(--accent)"         tasks={todayT}    projects={projects} areas={areas} />
-            <Section label="Overdue"  color="var(--priority-high)"  tasks={overdueT}  projects={projects} areas={areas} divider={todayT.length > 0} />
-            <Section label="Upcoming" color="var(--text-secondary)"  tasks={upcomingT} projects={projects} areas={areas} divider={todayT.length + overdueT.length > 0} />
+            <Section label="Today"    color="var(--accent)"         tasks={todayT}    projects={projects} areas={areas} onCompleted={(id) => setTasks((prev) => prev.filter((t) => t.id !== id))} />
+            <Section label="Overdue"  color="var(--priority-high)"  tasks={overdueT}  projects={projects} areas={areas} divider={todayT.length > 0} onCompleted={(id) => setTasks((prev) => prev.filter((t) => t.id !== id))} />
+            <Section label="Upcoming" color="var(--text-secondary)"  tasks={upcomingT} projects={projects} areas={areas} divider={todayT.length + overdueT.length > 0} onCompleted={(id) => setTasks((prev) => prev.filter((t) => t.id !== id))} />
           </>
         )}
       </div>
