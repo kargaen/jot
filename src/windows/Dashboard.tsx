@@ -183,6 +183,8 @@ function TaskList({
   onReorder,
   onDragStart,
   onDragEnd,
+  onSidebarDrop,
+  onSidebarHover,
 }: {
   tasks: TaskWithTags[];
   projects: Project[];
@@ -192,80 +194,194 @@ function TaskList({
   onReorder?: (newOrder: TaskWithTags[]) => void;
   onDragStart?: (task: TaskWithTags) => void;
   onDragEnd?: () => void;
+  onSidebarDrop?: (taskId: string, projectId: string | null, areaId: string | null) => void;
+  onSidebarHover?: (projectId: string | null, areaId: string | null) => void;
 }) {
+  // Refs stable across renders — avoid stale closures in document listeners
+  const dragIdxRef = useRef<number | null>(null);
+  const dropIdxRef = useRef<number | null>(null);
+  const ghostOffsetRef = useRef({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  // pending = intent to drag before threshold is met (avoids flash on plain click)
+  const pendingRef = useRef<{ idx: number; startX: number; startY: number; h: number; w: number } | null>(null);
+  // always-current callbacks/data for use inside document listeners
+  const liveRef = useRef({ tasks, onReorder, onDragStart, onDragEnd, onSidebarDrop, onSidebarHover, reorderable });
+  useEffect(() => { liveRef.current = { tasks, onReorder, onDragStart, onDragEnd, onSidebarDrop, onSidebarHover, reorderable }; });
+  // sidebar target tracked every pointermove frame — read in onUp
+  const sidebarDropRef = useRef<{ projectId: string | null; areaId: string | null } | null>(null);
+
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragHeight, setDragHeight] = useState(44);
+  const [dragWidth, setDragWidth] = useState(300);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
+  const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
 
-  function handleDragStart(e: React.DragEvent, idx: number) {
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("taskId", tasks[idx].id);
-    setDragIdx(idx);
-    onDragStart?.(tasks[idx]);
-  }
+  // Document-level pointer listeners — set up once, always active
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const pending = pendingRef.current;
+      if (!pending) return;
 
-  function handleDragOver(e: React.DragEvent, idx: number) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (!reorderable) return;
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const insertBefore = e.clientY < rect.top + rect.height / 2;
-    setDropIdx(insertBefore ? idx : idx + 1);
-  }
+      if (dragIdxRef.current === null) {
+        // Not dragging yet — wait for threshold
+        if (Math.abs(e.clientX - pending.startX) + Math.abs(e.clientY - pending.startY) < 6) return;
+        // Commit to drag
+        dragIdxRef.current = pending.idx;
+        dropIdxRef.current = pending.idx;
+        liveRef.current.onDragStart?.(liveRef.current.tasks[pending.idx]);
+        setDragHeight(pending.h);
+        setDragWidth(pending.w);
+        setGhostPos({ x: e.clientX, y: e.clientY });
+        setDragIdx(pending.idx);
+        setDropIdx(pending.idx);
+        document.body.style.cursor = liveRef.current.reorderable ? "grabbing" : "no-drop";
+        return;
+      }
 
-  function handleDrop(e: React.DragEvent, idx: number) {
-    e.preventDefault();
-    if (!reorderable || dragIdx === null) { reset(); return; }
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const insertAt = e.clientY < rect.top + rect.height / 2 ? idx : idx + 1;
-    if (insertAt === dragIdx || insertAt === dragIdx + 1) { reset(); return; }
-    const next = [...tasks];
-    const [moved] = next.splice(dragIdx, 1);
-    const target = insertAt > dragIdx ? insertAt - 1 : insertAt;
-    next.splice(target, 0, moved);
-    onReorder?.(next);
-    reset();
-  }
+      // Update ghost
+      setGhostPos({ x: e.clientX, y: e.clientY });
 
-  function handleDragEnd() {
-    reset();
-    onDragEnd?.();
-  }
+      // Track sidebar target every frame (more reliable than elementFromPoint at pointerup)
+      const hit = document.elementFromPoint(e.clientX, e.clientY);
+      let node: Element | null = hit;
+      let foundProject: string | null = null;
+      let foundArea: string | null = null;
+      while (node) {
+        const pid = node.getAttribute("data-drop-project-id");
+        if (pid) { foundProject = pid; foundArea = node.getAttribute("data-drop-area-id") || null; break; }
+        const aid = node.getAttribute("data-drop-area-id");
+        if (aid) { foundArea = aid; break; }
+        node = node.parentElement;
+      }
+      const prev = sidebarDropRef.current;
+      if (foundProject !== prev?.projectId || foundArea !== prev?.areaId) {
+        sidebarDropRef.current = (foundProject || foundArea) ? { projectId: foundProject, areaId: foundArea } : null;
+        liveRef.current.onSidebarHover?.(foundProject, foundArea);
+        if (foundProject || foundArea) {
+          document.body.style.cursor = "copy";
+        } else {
+          document.body.style.cursor = liveRef.current.reorderable ? "grabbing" : "no-drop";
+        }
+      }
 
-  function reset() {
-    setDragIdx(null);
-    setDropIdx(null);
+      // Hit-test task wrapper divs (marked with data-task-idx) for drop slot
+      if (!containerRef.current) return;
+      const cy = e.clientY;
+      const wrappers = Array.from(containerRef.current.querySelectorAll<HTMLElement>("[data-task-idx]"));
+      let target = wrappers.length;
+      for (let i = 0; i < wrappers.length; i++) {
+        const r = wrappers[i].getBoundingClientRect();
+        if (cy < r.top + r.height / 2) { target = i; break; }
+      }
+      dropIdxRef.current = target;
+      setDropIdx(target);
+    };
+
+    const onUp = (e: PointerEvent) => {
+      pendingRef.current = null;
+      const src = dragIdxRef.current;
+
+      if (src !== null) {
+        const sidebar = sidebarDropRef.current;
+        sidebarDropRef.current = null;
+
+        if (sidebar) {
+          liveRef.current.onSidebarDrop?.(liveRef.current.tasks[src].id, sidebar.projectId, sidebar.areaId);
+        } else {
+          const insertAt = dropIdxRef.current;
+          if (insertAt !== null && insertAt !== src && insertAt !== src + 1) {
+            const cur = liveRef.current.tasks;
+            const next = [...cur];
+            const [moved] = next.splice(src, 1);
+            next.splice(insertAt > src ? insertAt - 1 : insertAt, 0, moved);
+            liveRef.current.onReorder?.(next);
+          }
+        }
+      }
+
+      dragIdxRef.current = null;
+      dropIdxRef.current = null;
+      document.body.style.cursor = "";
+      setDragIdx(null);
+      setDropIdx(null);
+      setDragHeight(44);
+      setGhostPos(null);
+      liveRef.current.onDragEnd?.();
+    };
+
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    return () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handlePointerDown(e: React.PointerEvent, idx: number) {
+    if (!reorderable || e.button !== 0) return;
+    const el = e.currentTarget as HTMLElement;
+    const rect = el.getBoundingClientRect();
+    ghostOffsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    pendingRef.current = { idx, startX: e.clientX, startY: e.clientY, h: rect.height, w: rect.width };
   }
 
   if (tasks.length === 0) return null;
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
+    <div ref={containerRef} style={{ display: "flex", flexDirection: "column", userSelect: dragIdx !== null ? "none" : undefined }}>
       {tasks.map((task, idx) => (
-        <div key={task.id}>
+        <div key={task.id} data-task-idx={idx}>
           {/* Drop indicator line above this item */}
-          {reorderable && dropIdx === idx && dragIdx !== null && dragIdx !== idx && (
+          {reorderable && dropIdx === idx && dragIdx !== null && dragIdx !== idx && dragIdx !== idx - 1 && (
             <div style={{ height: 2, margin: "1px 14px", borderRadius: 1, background: "var(--accent)", pointerEvents: "none" }} />
           )}
-          <div
-            draggable={reorderable}
-            onDragStart={reorderable ? (e) => handleDragStart(e, idx) : undefined}
-            onDragOver={reorderable ? (e) => handleDragOver(e, idx) : undefined}
-            onDrop={reorderable ? (e) => handleDrop(e, idx) : undefined}
-            onDragEnd={reorderable ? handleDragEnd : undefined}
-            style={{ opacity: dragIdx === idx ? 0.4 : 1, transition: "opacity 0.1s" }}
-          >
-            <TaskRow
-              task={task}
-              projects={projects}
-              draggable={reorderable}
-              onComplete={() => onComplete(task.id)}
-              onClick={() => onOpen(task)}
-            />
+          <div onPointerDown={(e) => handlePointerDown(e, idx)} style={{ touchAction: "none" }}>
+            {dragIdx === idx ? (
+              <div style={{ height: dragHeight, padding: "4px 8px", boxSizing: "border-box" }}>
+                <div style={{
+                  height: "100%",
+                  borderRadius: "var(--radius-md)",
+                  border: "2px dashed var(--border-default)",
+                  background: "var(--bg-overlay)",
+                }} />
+              </div>
+            ) : (
+              <TaskRow
+                task={task}
+                projects={projects}
+                draggable={reorderable}
+                onComplete={() => onComplete(task.id)}
+                onClick={() => onOpen(task)}
+              />
+            )}
           </div>
         </div>
       ))}
-      {/* Drop indicator after last item */}
       {reorderable && dropIdx === tasks.length && dragIdx !== null && (
         <div style={{ height: 2, margin: "1px 14px", borderRadius: 1, background: "var(--accent)", pointerEvents: "none" }} />
+      )}
+      {dragIdx !== null && ghostPos !== null && (
+        <div style={{
+          position: "fixed",
+          left: ghostPos.x - ghostOffsetRef.current.x,
+          top: ghostPos.y - ghostOffsetRef.current.y,
+          width: dragWidth,
+          pointerEvents: "none",
+          zIndex: 9999,
+          borderRadius: "var(--radius-md)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.22)",
+          border: "1px solid var(--accent)",
+          background: "var(--bg-primary)",
+          opacity: 0.88,
+          transform: "scale(1.02)",
+        }}>
+          <TaskRow
+            task={tasks[dragIdx]}
+            projects={projects}
+            draggable={false}
+            onComplete={() => {}}
+            onClick={() => {}}
+          />
+        </div>
       )}
     </div>
   );
@@ -311,6 +427,7 @@ export default function Dashboard() {
   const [updateProgress, setUpdateProgress] = useState(0);
   const updateRef = useRef<Awaited<ReturnType<typeof check>> | null>(null);
   const [draggingTask, setDraggingTask] = useState<TaskWithTags | null>(null);
+  const [sidebarHover, setSidebarHover] = useState<{ projectId: string | null; areaId: string | null } | null>(null);
   const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
   const [projectDropTarget, setProjectDropTarget] = useState<{ id: string; before: boolean } | null>(null);
   const [suggestClose, setSuggestClose] = useState<{ projectId: string; projectName: string } | null>(null);
@@ -351,6 +468,11 @@ export default function Dashboard() {
   useEffect(() => {
     if (userId) loadData();
   }, [userId, loadData]);
+
+  // Clear stale "suggest close" toast when the user navigates away from the project it refers to
+  useEffect(() => {
+    setSuggestClose(null);
+  }, [selectedProject?.id]);
 
   // Load logbook + heatmap lazily only when that view is active
   useEffect(() => {
@@ -910,7 +1032,7 @@ export default function Dashboard() {
         {displayTasks.length === 0 ? (
           <EmptyState
             view={view}
-            onCloseProject={view === "project" && selectedProject && projectsSeenWithTasks.current.has(selectedProject.id) ? () => handleCloseProject(selectedProject!.id) : undefined}
+            onCloseProject={view === "project" && selectedProject ? () => handleCloseProject(selectedProject!.id) : undefined}
           />
         ) : view === "logbook" ? (
           <div style={{ display: "flex", flexDirection: "column" }}>
@@ -927,7 +1049,9 @@ export default function Dashboard() {
             onOpen={openTaskWindow}
             onReorder={handleReorder}
             onDragStart={(t) => setDraggingTask(t)}
-            onDragEnd={() => setDraggingTask(null)}
+            onDragEnd={() => { setDraggingTask(null); setSidebarHover(null); }}
+            onSidebarDrop={handleMoveTask}
+            onSidebarHover={(pid, aid) => setSidebarHover(pid || aid ? { projectId: pid, areaId: aid } : null)}
           />
         )}
       </div>
@@ -1090,24 +1214,25 @@ export default function Dashboard() {
             const areaProjects = visibleProjects.filter((p) => p.area_id === area.id);
             return (
               <div key={area.id}>
+                <div data-drop-area-id={area.id}>
                 <NavItem
                   label={area.name}
                   urgentCount={areaUrgentCounts.get(area.id) ?? 0}
                   dot={spaceColor(area.id)}
                   dotSquare
                   active={view === "inbox" && selectedInboxAreaId === area.id && !selectedProject}
+                  highlighted={sidebarHover?.areaId === area.id && sidebarHover.projectId === null}
                   onClick={() => { setView("inbox"); setSelectedInboxAreaId(area.id); setSelectedProject(null); }}
-                  onDrop={draggingTask ? (e) => {
-                    const taskId = e.dataTransfer.getData("taskId");
-                    if (taskId) handleMoveTask(taskId, null, area.id);
-                  } : undefined}
                 />
+                </div>
                 {areaProjects.map((project) => (
                   <div key={project.id}>
                     {projectDropTarget?.id === project.id && projectDropTarget.before && (
                       <div style={{ height: 2, margin: "1px 28px", borderRadius: 1, background: "var(--accent)", pointerEvents: "none" }} />
                     )}
                     <div
+                      data-drop-project-id={project.id}
+                      data-drop-area-id={project.area_id ?? ""}
                       draggable
                       onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("projectId", project.id); setDraggingProjectId(project.id); }}
                       onDragOver={draggingProjectId ? (e) => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setProjectDropTarget({ id: project.id, before: e.clientY < r.top + r.height / 2 }); } : undefined}
@@ -1122,9 +1247,9 @@ export default function Dashboard() {
                         indent
                         dot={projectColor(project.id)}
                         active={selectedProject?.id === project.id}
+                        highlighted={sidebarHover?.projectId === project.id}
                         onClick={() => { setSelectedProject(project); setView("project"); }}
                         onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
-                        onDrop={draggingTask ? (e) => { const taskId = e.dataTransfer.getData("taskId"); if (taskId) handleMoveTask(taskId, project.id, project.area_id); } : undefined}
                       />
                     </div>
                     {projectDropTarget?.id === project.id && !projectDropTarget.before && (
@@ -1145,12 +1270,16 @@ export default function Dashboard() {
                   <div style={{ height: 2, margin: "1px 16px", borderRadius: 1, background: "var(--accent)", pointerEvents: "none" }} />
                 )}
                 <div
+                  data-drop-project-id={project.id}
+                  data-drop-area-id={project.area_id ?? ""}
                   draggable
                   onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("projectId", project.id); setDraggingProjectId(project.id); }}
                   onDragOver={draggingProjectId ? (e) => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setProjectDropTarget({ id: project.id, before: e.clientY < r.top + r.height / 2 }); } : undefined}
                   onDragLeave={draggingProjectId ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setProjectDropTarget((p) => p?.id === project.id ? null : p); } : undefined}
                   onDrop={draggingProjectId ? (e) => handleProjectDrop(e, project.id, standaloneProjects) : undefined}
                   onDragEnd={() => { setDraggingProjectId(null); setProjectDropTarget(null); }}
+                  onPointerEnter={draggingTask ? () => setSidebarHover({ projectId: project.id, areaId: project.area_id ?? null }) : undefined}
+                  onPointerLeave={draggingTask ? () => setSidebarHover(null) : undefined}
                   style={{ opacity: draggingProjectId === project.id ? 0.4 : 1, cursor: "grab" }}
                 >
                   <NavItem
@@ -1158,9 +1287,9 @@ export default function Dashboard() {
                     urgentCount={projectUrgentCounts.get(project.id) ?? 0}
                     dot={projectColor(project.id)}
                     active={selectedProject?.id === project.id}
+                    highlighted={sidebarHover?.projectId === project.id}
                     onClick={() => { setSelectedProject(project); setView("project"); }}
                     onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
-                    onDrop={draggingTask ? (e) => { const taskId = e.dataTransfer.getData("taskId"); if (taskId) handleMoveTask(taskId, project.id, project.area_id); } : undefined}
                   />
                 </div>
                 {projectDropTarget?.id === project.id && !projectDropTarget.before && (
@@ -1272,7 +1401,7 @@ export default function Dashboard() {
           {displayTasks.length === 0 ? (
             <EmptyState
               view={view}
-              onCloseProject={view === "project" && selectedProject && projectsSeenWithTasks.current.has(selectedProject.id) ? () => handleCloseProject(selectedProject!.id) : undefined}
+              onCloseProject={view === "project" && selectedProject ? () => handleCloseProject(selectedProject!.id) : undefined}
             />
           ) : view === "logbook" ? (
             <div style={{ display: "flex", flexDirection: "column" }}>
@@ -1535,7 +1664,7 @@ const AreaFilterDropdown = forwardRef<HTMLDivElement, {
 
 // ─── Small components ─────────────────────────────────────────────────────────
 
-function NavItem({ label, count, urgentCount, active, onClick, onContextMenu, onDrop, indent = false, dot, dotSquare = false }: {
+function NavItem({ label, count, urgentCount, active, onClick, onContextMenu, onDrop, indent = false, dot, dotSquare = false, highlighted = false }: {
   label: string;
   count?: number;
   urgentCount?: number;
@@ -1546,10 +1675,12 @@ function NavItem({ label, count, urgentCount, active, onClick, onContextMenu, on
   indent?: boolean;
   dot?: string;
   dotSquare?: boolean;
+  highlighted?: boolean;
 }) {
   const [dragOver, setDragOver] = useState(false);
   const showUrgent = urgentCount != null && urgentCount > 0;
   const isDropTarget = !!onDrop;
+  const lit = dragOver || highlighted;
   return (
     <button
       onClick={onClick}
@@ -1561,11 +1692,11 @@ function NavItem({ label, count, urgentCount, active, onClick, onContextMenu, on
         width: "100%", textAlign: "left",
         padding: indent ? "6px 16px 6px 28px" : "6px 16px",
         fontSize: 13, borderRadius: 0, display: "flex", alignItems: "center", gap: 8,
-        background: dragOver ? "var(--accent-light)" : active ? "var(--accent-light)" : "transparent",
-        color: dragOver ? "var(--accent)" : active ? "var(--accent)" : "var(--text-secondary)",
-        fontWeight: active || dragOver ? 500 : 400,
+        background: lit ? "var(--accent-light)" : active ? "var(--accent-light)" : "transparent",
+        color: lit ? "var(--accent)" : active ? "var(--accent)" : "var(--text-secondary)",
+        fontWeight: active || lit ? 500 : 400,
         cursor: "pointer", transition: "background var(--transition)",
-        outline: dragOver ? "2px solid var(--accent)" : "none",
+        outline: lit ? "2px solid var(--accent)" : "none",
         outlineOffset: "-2px",
       }}
     >

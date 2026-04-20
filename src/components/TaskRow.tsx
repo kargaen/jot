@@ -56,7 +56,7 @@ export default function TaskRow({
             ? "var(--bg-primary)"
             : "transparent",
         transition: "background var(--transition)",
-        cursor: onClick ? "pointer" : "default",
+        cursor: isDraggable ? "grab" : onClick ? "pointer" : "default",
       }}
     >
       {isDraggable && (
@@ -66,7 +66,7 @@ export default function TaskRow({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            opacity: hovered ? 0.35 : 0,
+            opacity: hovered ? 0.5 : 0.15,
             transition: "opacity var(--transition)",
             cursor: "grab",
             flexShrink: 0,
