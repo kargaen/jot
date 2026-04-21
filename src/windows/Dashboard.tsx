@@ -277,7 +277,7 @@ function TaskList({
       setDropIdx(target);
     };
 
-    const onUp = (e: PointerEvent) => {
+    const onUp = (_e: PointerEvent) => {
       pendingRef.current = null;
       const src = dragIdxRef.current;
 

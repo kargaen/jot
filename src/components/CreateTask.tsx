@@ -91,7 +91,7 @@ function MetaField({
   value: string;
   placeholder: string;
   color: string;
-  inputRef: React.RefObject<HTMLInputElement | null>;
+  inputRef: React.RefObject<HTMLInputElement>;
   readOnly?: boolean;
   onFocus?: () => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
