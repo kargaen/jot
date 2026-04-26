@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Jot</string>
+    <string name="main_activity_title">Jot</string>
+    <string name="pulse_widget_label">Daily Pulse</string>
+    <string name="capture_widget_label">Quick Capture</string>
+    <string name="pulse_widget_description">See today&apos;s focus, overdue work, and all-clear states at a glance.</string>
+    <string name="capture_widget_description">Jump straight into typing or voice capture from the home screen.</string>
+</resources>

@@ -4,4 +4,7 @@ src-tauri/target/
 .env
 *.local
 .claude/
+.cargo/
 src-tauri/keys/update.key
+supabase/.temp/
+tmp/

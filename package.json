@@ -1,20 +1,25 @@
 {
   "name": "jot",
   "private": true,
-  "version": "0.7.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "ci": "npm run version:check && npm run build",
     "preview": "vite preview",
+    "release:prepare": "node scripts/sync-version.mjs",
     "tauri": "tauri",
-    "test:nlp": "TZ=UTC npx tsx tests/nlp.test.ts"
+    "test:nlp": "tsx tests/nlp.test.ts && tsx tests/nlp-natural.test.ts",
+    "version:check": "node scripts/sync-version.mjs --check",
+    "version:sync": "node scripts/sync-version.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.43.4",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-autostart": "^2.5.1",
     "@tauri-apps/plugin-global-shortcut": "^2.0.0",
+    "@tauri-apps/plugin-os": "^2.3.2",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-shell": "^2.0.0",
     "@tauri-apps/plugin-updater": "^2.10.1",
@@ -32,6 +37,7 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.4.5",
     "vite": "^5.3.1"
   }

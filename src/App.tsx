@@ -1,12 +1,16 @@
+import { useEffect, useState } from "react";
 import { useAuth } from "./lib/auth";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
+import { platform } from "@tauri-apps/plugin-os";
 import QuickCapture from "./windows/QuickCapture";
 import Dashboard from "./windows/Dashboard";
 import TaskDetailWindow from "./windows/TaskDetailWindow";
 import ReminderWindow from "./windows/ReminderWindow";
 import AboutWindow from "./windows/AboutWindow";
+import MobileApp from "./mobile/MobileApp";
 import { logger } from "./lib/logger";
+import { startThemeSync } from "./lib/theme";
 
 const windowLabel = getCurrentWebviewWindow().label;
 logger.info("app", `window started: ${windowLabel}`);
@@ -18,8 +22,21 @@ document.addEventListener("keydown", (e) => {
 
 export default function App() {
   const { loading, user } = useAuth();
+  const [os, setOs] = useState<string | null>(null);
 
-  if (loading) {
+  useEffect(() => {
+    try {
+      setOs(platform());
+    } catch {
+      setOs("unknown");
+    }
+  }, []);
+
+  useEffect(() => startThemeSync(), []);
+
+  const isMobile = os === "android" || os === "ios";
+
+  if (loading || os === null) {
     return (
       <div
         style={{
@@ -32,14 +49,15 @@ export default function App() {
           fontSize: 14,
         }}
       >
-        Loading…
+        Loading...
       </div>
     );
   }
 
-  // Quick Capture requires auth — open Dashboard for login instead
+  if (isMobile) return <MobileApp />;
+
   if (windowLabel === "quick-capture" && !user) {
-    logger.info("app", "quick-capture: not logged in → opening dashboard");
+    logger.info("app", "quick-capture: not logged in -> opening dashboard");
     invoke("open_dashboard");
     getCurrentWebviewWindow().hide();
     return null;

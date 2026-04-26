@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { UserAttentionType } from "@tauri-apps/api/window";
+import { UserAttentionType, availableMonitors, type Monitor } from "@tauri-apps/api/window";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { useAuth } from "../lib/auth";
 import { supabase, fetchAllTasks, fetchProjects, fetchAreas, completeTask } from "../lib/supabase";
 import { spaceColor, projectColor } from "../lib/colors";
 import { loadHiddenAreas, filterVisibleTasks } from "../lib/tasks";
+import { getResolvedTheme, loadThemePreference } from "../lib/theme";
 import Toggle from "../components/Toggle";
 import type { Area, TaskWithTags, Project } from "../types";
 
@@ -16,6 +17,25 @@ const IDLE_PAUSE_MS = 30_000;
 const IDLE_POLL_MS  = 3_000;
 const MAX_PER_SECTION = 4;
 const PULSE_THRESHOLD = 10;
+const FALLBACK_WINDOW_HEIGHT = 480;
+const EMPTY_AUTO_DURATION = 30;
+const CLEARED_DURATION = 10;
+const RELAX_IMAGES = [
+  "/zen-beach1.png",
+  "/zen-beach2.png",
+  "/zen-beach3.png",
+  "/zen-beach4.png",
+  "/zen-beach5.png",
+  "/zen-beach6.png",
+  "/zen-beach7.png",
+];
+const RELAX_QUOTES = [
+  "Enjoy the quiet. It counts too.",
+  "No rush. The day has room.",
+  "Clear skies, clear list.",
+  "A quiet Pulse is still progress.",
+  "Nothing due right now. Breathe.",
+];
 
 function loadDuration(): number {
   return parseInt(localStorage.getItem("jot_reminder_duration") ?? "180", 10);
@@ -36,6 +56,78 @@ function fmtCountdown(s: number) {
 
 function barColor(progress: number): string {
   return `hsl(${Math.round(progress * 120)}, 72%, 42%)`;
+}
+
+function LoadingPulse() {
+  return (
+    <div style={{ padding: "18px 12px", display: "grid", gap: 10 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", textAlign: "center" }}>
+        Loading today's Pulse...
+      </div>
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          style={{
+            height: 34,
+            borderRadius: "var(--radius-sm)",
+            background: "var(--bg-secondary)",
+            border: "1px solid var(--border-subtle)",
+            opacity: 1 - i * 0.18,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function monitorBounds(monitor: Monitor) {
+  const area = monitor.workArea ?? { position: monitor.position, size: monitor.size };
+  const scale = monitor.scaleFactor || 1;
+  return {
+    x: area.position.x / scale,
+    y: area.position.y / scale,
+    width: area.size.width / scale,
+    height: area.size.height / scale,
+  };
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), Math.max(min, max));
+}
+
+function resolvePosition(savedX: string | null, savedY: string | null, monitors: Monitor[]) {
+  const width = window.outerWidth || WINDOW_WIDTH;
+  const height = window.outerHeight || FALLBACK_WINDOW_HEIGHT;
+  const fallback = () => {
+    const monitor = monitors[0];
+    if (!monitor) {
+      return {
+        x: window.screen.width - WINDOW_WIDTH - MARGIN_X,
+        y: Math.round(window.screen.height * 0.3),
+      };
+    }
+    const bounds = monitorBounds(monitor);
+    return {
+      x: bounds.x + bounds.width - width - MARGIN_X,
+      y: bounds.y + Math.round(bounds.height * 0.3),
+    };
+  };
+
+  const x = savedX ? parseInt(savedX, 10) : NaN;
+  const y = savedY ? parseInt(savedY, 10) : NaN;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return fallback();
+
+  const current = monitors.find((monitor) => {
+    const bounds = monitorBounds(monitor);
+    return x >= bounds.x && x < bounds.x + bounds.width && y >= bounds.y && y < bounds.y + bounds.height;
+  });
+  if (!current) return fallback();
+
+  const bounds = monitorBounds(current);
+  return {
+    x: clamp(x, bounds.x, bounds.x + bounds.width - width),
+    y: clamp(y, bounds.y, bounds.y + bounds.height - height),
+  };
 }
 
 async function openTask(task: TaskWithTags) {
@@ -168,8 +260,14 @@ export default function ReminderWindow() {
   const [hasMica,  setHasMica]  = useState(false);
 
   const duration = useRef(loadDuration());
+  const previousPulseCount = useRef<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(duration.current);
   const [paused,      setPaused]      = useState(false);
+  const [loaded,      setLoaded]      = useState(false);
+  const [relax] = useState(() => ({
+    image: RELAX_IMAGES[Math.floor(Math.random() * RELAX_IMAGES.length)],
+    quote: RELAX_QUOTES[Math.floor(Math.random() * RELAX_QUOTES.length)],
+  }));
 
   // Inject pulse keyframe
   useEffect(() => {
@@ -189,9 +287,10 @@ export default function ReminderWindow() {
     const win = getCurrentWebviewWindow();
     const savedX = localStorage.getItem("jot_reminder_x");
     const savedY = localStorage.getItem("jot_reminder_y");
-    const x = savedX ? parseInt(savedX, 10) : window.screen.width - WINDOW_WIDTH - MARGIN_X;
-    const y = savedY ? parseInt(savedY, 10) : Math.round(window.screen.height * 0.3);
-    win.setPosition(new LogicalPosition(x, y))
+    availableMonitors()
+      .then((monitors) => resolvePosition(savedX, savedY, monitors))
+      .catch(() => resolvePosition(savedX, savedY, []))
+      .then(({ x, y }) => win.setPosition(new LogicalPosition(x, y)))
       .then(() => win.show())
       .catch(() => {});
   }, []);
@@ -231,9 +330,10 @@ export default function ReminderWindow() {
   // Load data
   useEffect(() => {
     if (!user) return;
+    setLoaded(false);
     Promise.all([fetchAllTasks(), fetchProjects(), fetchAreas()])
-      .then(([t, p, a]) => { setTasks(t); setProjects(p); setAreas(a); })
-      .catch(() => {});
+      .then(([t, p, a]) => { setTasks(t); setProjects(p); setAreas(a); setLoaded(true); })
+      .catch(() => { setLoaded(true); });
   }, [user?.id]);
 
   // Realtime: reload when tasks change in any window (dashboard completions, edits)
@@ -313,14 +413,34 @@ export default function ReminderWindow() {
   const todayT   = visibleTasks.filter((t) => t.due_date === today);
   const overdueT = visibleTasks.filter((t) => t.due_date && t.due_date < today);
   const upcomingT= visibleTasks.filter((t) => t.due_date && t.due_date > today);
+  const pulseCount = todayT.length + overdueT.length;
 
-  const progress   = secondsLeft / duration.current;
-  const urgent     = !paused && secondsLeft <= PULSE_THRESHOLD;
+  const progress   = loaded ? secondsLeft / duration.current : 1;
+  const urgent     = loaded && !paused && secondsLeft <= PULSE_THRESHOLD;
   const color      = paused ? "var(--border-default)" : barColor(progress);
   const isEmpty    = todayT.length === 0 && overdueT.length === 0 && upcomingT.length === 0;
   const pulseStyle: React.CSSProperties = urgent ? { animation: "jot-pulse 0.7s ease-in-out infinite" } : {};
 
-  const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  useEffect(() => {
+    if (isManual || !loaded) return;
+    const previous = previousPulseCount.current;
+    previousPulseCount.current = pulseCount;
+
+    if (previous === null) {
+      if (isEmpty) {
+        duration.current = EMPTY_AUTO_DURATION;
+        setSecondsLeft(EMPTY_AUTO_DURATION);
+      }
+      return;
+    }
+
+    if (previous > 0 && pulseCount === 0) {
+      duration.current = CLEARED_DURATION;
+      setSecondsLeft(CLEARED_DURATION);
+    }
+  }, [isManual, loaded, pulseCount, isEmpty]);
+
+  const isDark = getResolvedTheme(loadThemePreference()) === "dark";
   const bgRgb  = isDark ? "30,30,28" : "255,255,255";
 
   return (
@@ -365,12 +485,76 @@ export default function ReminderWindow() {
 
       {/* Task sections */}
       <div style={{ flex: 1, overflowY: "auto" }}>
-        {isEmpty ? (
-          <div style={{ padding: "18px 12px", fontSize: 12, color: "var(--text-tertiary)", textAlign: "center" }}>
+        {!loaded ? (
+          <LoadingPulse />
+        ) : isEmpty ? (
+          !isManual ? (
+            <div style={{ padding: "14px 12px 16px", textAlign: "center" }}>
+              <img
+                src={relax.image}
+                alt=""
+                style={{
+                  width: "100%",
+                  height: 150,
+                  objectFit: "cover",
+                  borderRadius: "var(--radius-md)",
+                  marginBottom: 10,
+                }}
+              />
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
+                All clear
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.45 }}>
+                {relax.quote}
+              </div>
+            </div>
+          ) : (
+            <div style={{ padding: "18px 12px", fontSize: 12, color: "var(--text-tertiary)", textAlign: "center" }}>
             All clear — nothing due today.
-          </div>
+            </div>
+          )
         ) : (
           <>
+            <div style={{ padding: "10px 12px 8px", borderBottom: "1px solid var(--border-subtle)" }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)" }}>
+                Morning summary
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4, lineHeight: 1.45 }}>
+                Today&apos;s focus across overdue and due-today tasks.
+              </div>
+              <div style={{ display: "flex", gap: 6, marginTop: 9, flexWrap: "wrap" }}>
+                <span style={{
+                  padding: "4px 8px",
+                  borderRadius: 999,
+                  background: "var(--accent-light)",
+                  color: "var(--accent)",
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}>
+                  Due today {todayT.length}
+                </span>
+                <span style={{
+                  padding: "4px 8px",
+                  borderRadius: 999,
+                  background: "rgba(217,119,6,0.12)",
+                  color: "var(--priority-medium)",
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}>
+                  Overdue {overdueT.length}
+                </span>
+                <span style={{
+                  padding: "4px 8px",
+                  borderRadius: 999,
+                  background: "var(--bg-secondary)",
+                  color: "var(--text-secondary)",
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}>
+                  Upcoming {upcomingT.length}
+                </span>
+              </div>
+            </div>
             <Section label="Today"    color="var(--accent)"         tasks={todayT}    projects={projects} areas={areas} onCompleted={(id) => setTasks((prev) => prev.filter((t) => t.id !== id))} />
             <Section label="Overdue"  color="var(--priority-high)"  tasks={overdueT}  projects={projects} areas={areas} divider={todayT.length > 0} onCompleted={(id) => setTasks((prev) => prev.filter((t) => t.id !== id))} />
             <Section label="Upcoming" color="var(--text-secondary)"  tasks={upcomingT} projects={projects} areas={areas} divider={todayT.length + overdueT.length > 0} onCompleted={(id) => setTasks((prev) => prev.filter((t) => t.id !== id))} />

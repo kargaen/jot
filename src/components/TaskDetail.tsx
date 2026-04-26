@@ -4,7 +4,8 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import * as LucideIcons from "lucide-react";
 import { ChevronDown } from "lucide-react";
 import type { TaskWithTags, Project, Tag, Area } from "../types";
@@ -63,6 +64,14 @@ function parseMins(raw: string): number | null {
   const minsOnly = s.match(/^(\d+)\s*m?$/);
   if (minsOnly) return parseInt(minsOnly[1]);
   return null;
+}
+
+function normalizeTaskLink(raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (/^[^\s]+\.[^\s]+/.test(value)) return `https://${value}`;
+  return value;
 }
 
 async function openTaskWindow(task: TaskWithTags) {
@@ -218,6 +227,7 @@ export default function TaskDetail({
   const [areaId, setAreaId] = useState<string | null>(task.area_id);
   const [priority, setPriority] = useState(task.priority);
   const [dueDate, setDueDate] = useState(task.due_date ?? "");
+  const [link, setLink] = useState(task.notes ?? "");
   const [estimatedMins, setEstimatedMins] = useState(
     formatMins(task.estimated_mins),
   );
@@ -225,6 +235,7 @@ export default function TaskDetail({
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">(
     "idle",
   );
+  const [completing, setCompleting] = useState(false);
 
   // ── Autosave ──────────────────────────────────────────────────────────────
 
@@ -232,22 +243,24 @@ export default function TaskDetail({
   const saveRef = useRef<() => void>(() => {});
   const editorRef = useRef<ReturnType<typeof useEditor> | null>(null);
   const scheduleRef = useRef(() => {});
+  const buildTaskFields = useCallback(() => ({
+    title,
+    icon,
+    project_id: projectId,
+    area_id: projectId ? null : areaId ?? areas[0]?.id ?? null,
+    priority,
+    due_date: dueDate || null,
+    notes: normalizeTaskLink(link),
+    estimated_mins: parseMins(estimatedMins),
+    description: (editorRef.current?.getJSON() ??
+      null) as Record<string, unknown> | null,
+  }), [title, icon, projectId, areaId, areas, priority, dueDate, link, estimatedMins]);
 
   const save = useCallback(async () => {
     logger.debug("task-detail", `autosave: "${title}" [${task.id}]`);
     setSaveStatus("saving");
     try {
-      await updateTask(task.id, {
-        title,
-        icon,
-        project_id: projectId,
-        area_id: projectId ? null : areaId,  // area_id only persisted for inbox tasks
-        priority,
-        due_date: dueDate || null,
-        estimated_mins: parseMins(estimatedMins),
-        description: (editorRef.current?.getJSON() ??
-          null) as Record<string, unknown> | null,
-      });
+      await updateTask(task.id, buildTaskFields());
       onUpdated();
       setSaveStatus("saved");
       logger.info("task-detail", `saved: ${task.id}`);
@@ -260,7 +273,7 @@ export default function TaskDetail({
       setSaveStatus("error");
       setTimeout(() => setSaveStatus((s) => (s === "error" ? "idle" : s)), 4000);
     }
-  }, [task.id, title, icon, projectId, areaId, priority, dueDate, estimatedMins, onUpdated]);
+  }, [task.id, title, buildTaskFields, onUpdated]);
 
   useEffect(() => {
     saveRef.current = save;
@@ -307,6 +320,24 @@ export default function TaskDetail({
 
   // ── Tiptap editor ─────────────────────────────────────────────────────────
 
+  async function handleCompleteTask() {
+    logger.info("task-detail", `complete: ${task.id}`);
+    setCompleting(true);
+    setSaveStatus("saving");
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    try {
+      await updateTask(task.id, buildTaskFields());
+      await completeTask(task.id);
+      onUpdated();
+      await getCurrentWebviewWindow().close();
+    } catch (err) {
+      logger.error("task-detail", `complete failed`, err instanceof Error ? err.message : err);
+      setSaveStatus("error");
+      setCompleting(false);
+      setTimeout(() => setSaveStatus((s) => (s === "error" ? "idle" : s)), 4000);
+    }
+  }
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -339,7 +370,6 @@ export default function TaskDetail({
     ...projects.map((p) => ({ value: p.id, label: p.name })),
   ];
   const areaOptions = [
-    { value: "", label: "No area", color: "var(--text-tertiary)" },
     ...areas.map((a) => ({ value: a.id, label: a.name })),
   ];
 
@@ -405,6 +435,26 @@ export default function TaskDetail({
 
       {/* Scrollable body */}
       <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+          <button
+            onClick={() => { void handleCompleteTask(); }}
+            disabled={completing}
+            style={{
+              padding: "7px 14px",
+              borderRadius: "var(--radius-sm)",
+              border: "1px solid rgba(15,139,104,0.2)",
+              background: "rgba(15,139,104,0.1)",
+              color: "#0f8b68",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: completing ? "wait" : "pointer",
+              opacity: completing ? 0.7 : 1,
+            }}
+          >
+            {completing ? "Completing..." : "Mark Complete"}
+          </button>
+        </div>
+
         {/* Title + icon */}
         <div
           style={{
@@ -546,6 +596,50 @@ export default function TaskDetail({
                 outline: "none",
               }}
             />
+          </FieldRow>
+
+          <FieldRow label="Link">
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                value={link}
+                onChange={(e) => {
+                  setLink(e.target.value);
+                  scheduleAutosave();
+                }}
+                placeholder="paste a URL"
+                style={{
+                  flex: 1,
+                  padding: "4px 8px",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--border-default)",
+                  background: "var(--bg-secondary)",
+                  fontSize: 13,
+                  color: "var(--text-primary)",
+                  fontFamily: "inherit",
+                  outline: "none",
+                }}
+              />
+              {normalizeTaskLink(link) && (
+                <button
+                  onClick={() => {
+                    const url = normalizeTaskLink(link);
+                    if (url) void shellOpen(url);
+                  }}
+                  style={{
+                    padding: "5px 10px",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--border-default)",
+                    background: "var(--bg-secondary)",
+                    fontSize: 12,
+                    color: "var(--accent)",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  Open
+                </button>
+              )}
+            </div>
           </FieldRow>
         </div>
 

@@ -18,6 +18,7 @@ import {
   fetchCompletionDates,
   completeTask,
   updateTask,
+  updateProject,
   reorderTasks,
   reorderProjects,
   deleteProject,
@@ -33,6 +34,7 @@ import LogbookRow from "../components/LogbookRow";
 import CreateTask from "../components/CreateTask";
 import CompletionHeatmap from "../components/CompletionHeatmap";
 import { logger } from "../lib/logger";
+import { syncWidgets } from "../lib/widgetSync";
 import { loadHiddenAreas, saveHiddenAreas, filterVisibleTasks, filterVisibleProjects } from "../lib/tasks";
 import type { Area, Project, Tag, TaskWithTags } from "../types";
 
@@ -426,7 +428,7 @@ export default function Dashboard() {
   const [updateVersion, setUpdateVersion] = useState("");
   const [updateProgress, setUpdateProgress] = useState(0);
   const updateRef = useRef<Awaited<ReturnType<typeof check>> | null>(null);
-  const [draggingTask, setDraggingTask] = useState<TaskWithTags | null>(null);
+  const [, setDraggingTask] = useState<TaskWithTags | null>(null);
   const [sidebarHover, setSidebarHover] = useState<{ projectId: string | null; areaId: string | null } | null>(null);
   const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
   const [projectDropTarget, setProjectDropTarget] = useState<{ id: string; before: boolean } | null>(null);
@@ -451,7 +453,8 @@ export default function Dashboard() {
       if (a.length === 0 && !localStorage.getItem("jot_onboarding_done")) {
         setShowOnboarding(true);
       }
-      if (!loadDefaultAreaId() && a.length > 0) {
+      const savedDefaultAreaId = loadDefaultAreaId();
+      if (a.length > 0 && (!savedDefaultAreaId || !a.some((area) => area.id === savedDefaultAreaId))) {
         setDefaultAreaId(a[0].id);
         saveDefaultAreaId(a[0].id);
       }
@@ -459,6 +462,7 @@ export default function Dashboard() {
       setTags(t);
       setAllTasks(tasks);
       logger.info("dashboard", `loadData #${id}: ${tasks.length} tasks, ${p.length} projects`);
+      syncWidgets();
     } catch (err) {
       if (id !== loadIdRef.current) return;
       logger.error("dashboard", "loadData failed", err instanceof Error ? err.message : err);
@@ -885,6 +889,16 @@ export default function Dashboard() {
     await updateTask(taskId, { project_id: projectId, area_id: areaId });
   }
 
+  async function handleMoveProject(projectId: string, areaId: string) {
+    const area = areas.find((a) => a.id === areaId);
+    setProjects((prev) => prev.map((p) => p.id === projectId ? { ...p, area_id: areaId } : p));
+    if (selectedProject?.id === projectId) {
+      setSelectedProject((project) => project ? { ...project, area_id: areaId } : project);
+    }
+    await updateProject(projectId, { area_id: areaId });
+    logger.info("dashboard", `moved project ${projectId} to space ${area?.name ?? areaId}`);
+  }
+
   async function handleOnboardingCreate() {
     if (!onboardingName.trim()) return;
     const area = await createArea(onboardingName.trim());
@@ -985,17 +999,6 @@ export default function Dashboard() {
                   </button>
                 ))}
               </div>
-            ))}
-            {visibleProjects.filter((p) => !p.area_id).map((project) => (
-              <button
-                key={project.id}
-                onClick={() => { setSelectedProject(project); setView("project"); setShowSpacePicker(false); }}
-                onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
-                style={{ width: "100%", textAlign: "left", padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, fontSize: 14, color: selectedProject?.id === project.id ? projectColor(project.id) : "var(--text-primary)", background: "transparent" }}
-              >
-                <span style={{ width: 10, height: 10, borderRadius: "50%", background: projectColor(project.id), flexShrink: 0 }} />
-                <span>{project.name}</span>
-              </button>
             ))}
           </div>
         </>
@@ -1122,6 +1125,26 @@ export default function Dashboard() {
             >
               Close project
             </button>
+            {areas.length > 1 && (
+              <>
+                <div style={{ padding: "6px 14px 3px", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Move to space
+                </div>
+                {areas.map((area) => (
+                  <button
+                    key={area.id}
+                    onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); void handleMoveProject(id, area.id); }}
+                    style={{
+                      width: "100%", textAlign: "left", padding: "6px 14px", fontSize: 13,
+                      color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8,
+                    }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: 3, background: spaceColor(area.id), flexShrink: 0 }} />
+                    {area.name}
+                  </button>
+                ))}
+              </>
+            )}
             <button
               onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); handleDeleteProject(id); }}
               style={{
@@ -1261,43 +1284,6 @@ export default function Dashboard() {
             );
           })}
 
-          {visibleProjects.filter((p) => !p.area_id).length > 0 && <SectionHeader label="Projects" />}
-          {(() => {
-            const standaloneProjects = visibleProjects.filter((p) => !p.area_id);
-            return standaloneProjects.map((project) => (
-              <div key={project.id}>
-                {projectDropTarget?.id === project.id && projectDropTarget.before && (
-                  <div style={{ height: 2, margin: "1px 16px", borderRadius: 1, background: "var(--accent)", pointerEvents: "none" }} />
-                )}
-                <div
-                  data-drop-project-id={project.id}
-                  data-drop-area-id={project.area_id ?? ""}
-                  draggable
-                  onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("projectId", project.id); setDraggingProjectId(project.id); }}
-                  onDragOver={draggingProjectId ? (e) => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setProjectDropTarget({ id: project.id, before: e.clientY < r.top + r.height / 2 }); } : undefined}
-                  onDragLeave={draggingProjectId ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setProjectDropTarget((p) => p?.id === project.id ? null : p); } : undefined}
-                  onDrop={draggingProjectId ? (e) => handleProjectDrop(e, project.id, standaloneProjects) : undefined}
-                  onDragEnd={() => { setDraggingProjectId(null); setProjectDropTarget(null); }}
-                  onPointerEnter={draggingTask ? () => setSidebarHover({ projectId: project.id, areaId: project.area_id ?? null }) : undefined}
-                  onPointerLeave={draggingTask ? () => setSidebarHover(null) : undefined}
-                  style={{ opacity: draggingProjectId === project.id ? 0.4 : 1, cursor: "grab" }}
-                >
-                  <NavItem
-                    label={project.name}
-                    urgentCount={projectUrgentCounts.get(project.id) ?? 0}
-                    dot={projectColor(project.id)}
-                    active={selectedProject?.id === project.id}
-                    highlighted={sidebarHover?.projectId === project.id}
-                    onClick={() => { setSelectedProject(project); setView("project"); }}
-                    onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
-                  />
-                </div>
-                {projectDropTarget?.id === project.id && !projectDropTarget.before && (
-                  <div style={{ height: 2, margin: "1px 16px", borderRadius: 1, background: "var(--accent)", pointerEvents: "none" }} />
-                )}
-              </div>
-            ));
-          })()}
         </nav>
 
         <div style={{ padding: "12px 12px 0", borderTop: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", gap: 2 }}>
@@ -1506,6 +1492,26 @@ export default function Dashboard() {
             >
               Close project
             </button>
+            {areas.length > 1 && (
+              <>
+                <div style={{ padding: "6px 14px 3px", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Move to space
+                </div>
+                {areas.map((area) => (
+                  <button
+                    key={area.id}
+                    onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); void handleMoveProject(id, area.id); }}
+                    style={{
+                      width: "100%", textAlign: "left", padding: "6px 14px", fontSize: 13,
+                      color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8,
+                    }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: 3, background: spaceColor(area.id), flexShrink: 0 }} />
+                    {area.name}
+                  </button>
+                ))}
+              </>
+            )}
             <button
               onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); handleDeleteProject(id); }}
               style={{

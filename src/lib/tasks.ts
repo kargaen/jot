@@ -24,10 +24,9 @@ export function filterVisibleTasks(
   projects: Project[],
   hiddenAreaIds: string[],
 ): TaskWithTags[] {
-  if (hiddenAreaIds.length === 0) return tasks;
   const hiddenProjectIds = new Set(
     projects
-      .filter((p) => p.area_id && hiddenAreaIds.includes(p.area_id))
+      .filter((p) => !p.area_id || hiddenAreaIds.includes(p.area_id))
       .map((p) => p.id),
   );
   return tasks.filter((t) => {
@@ -39,12 +38,11 @@ export function filterVisibleTasks(
 
 /**
  * Filter projects to only those in visible (non-hidden) areas.
- * Projects with no area are always visible.
+ * Projects without an area are considered invalid and hidden until repaired.
  */
 export function filterVisibleProjects(
   projects: Project[],
   hiddenAreaIds: string[],
 ): Project[] {
-  if (hiddenAreaIds.length === 0) return projects;
-  return projects.filter((p) => !p.area_id || !hiddenAreaIds.includes(p.area_id));
+  return projects.filter((p) => p.area_id && !hiddenAreaIds.includes(p.area_id));
 }

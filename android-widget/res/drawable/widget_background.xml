@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Destination: src-tauri/gen/android/app/src/main/res/drawable/widget_background.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="270"
+        android:startColor="#FFFFFFFF"
+        android:endColor="#FFF7F6FF" />
+    <corners android:radius="20dp" />
+    <stroke android:width="1dp" android:color="#14655BE8" />
+    <padding
+        android:left="1dp"
+        android:top="1dp"
+        android:right="1dp"
+        android:bottom="1dp" />
+</shape>

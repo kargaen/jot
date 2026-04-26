@@ -99,6 +99,8 @@ export interface ParsedInput {
   projectMatchConfidence: number;
 }
 
+export type NlpLanguageMode = "auto" | "en" | "da";
+
 export type QuickActionId =
   | "new-task"
   | "open-dashboard"

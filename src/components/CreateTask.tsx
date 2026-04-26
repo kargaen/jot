@@ -7,6 +7,7 @@ import {
 } from "react";
 import { createTask, createProject } from "../lib/supabase";
 import { parseInput } from "../lib/nlp";
+import { loadNlpLanguageMode } from "../lib/nlpSettings";
 import { suggestIcon } from "../lib/icons";
 import { logger } from "../lib/logger";
 import { SquarePen } from "lucide-react";
@@ -220,11 +221,13 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
     const parseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const inputEl = useRef<HTMLInputElement>(null);
-    const titleFieldRef = useRef<HTMLInputElement>(null);
+    const titleFieldRef = useRef<HTMLTextAreaElement>(null);
     const projectFieldRef = useRef<HTMLInputElement>(null);
     const dateFieldRef = useRef<HTMLInputElement>(null);
     const priorityFieldRef = useRef<HTMLInputElement>(null);
     const recurrenceFieldRef = useRef<HTMLInputElement>(null);
+    const editButtonRef = useRef<HTMLButtonElement>(null);
+    const languageMode = loadNlpLanguageMode();
 
     // When NLP result changes, propagate to fields (skip user-edited ones)
     useEffect(() => {
@@ -289,7 +292,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
         return;
       }
       parseTimer.current = setTimeout(() => {
-        setParsed(parseInput(value, projects, allTags));
+        setParsed(parseInput(value, projects, allTags, { languageMode }));
       }, 150);
     }
 
@@ -321,7 +324,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
         setMetaDueTime(null);
         return;
       }
-      const reParsed = parseInput(metaDateText, [], []);
+      const reParsed = parseInput(metaDateText, [], [], { languageMode });
       if (reParsed.dueDate) {
         setMetaDueDate(reParsed.dueDate);
         setMetaDueTime(reParsed.dueTime);
@@ -355,7 +358,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
         let resolvedProjectId = projectId ?? matchedProject?.id ?? null;
 
         if (canCreateProjectsAndTags && !resolvedProjectId && suggestedProject) {
-          const newProject = await createProject(suggestedProject);
+          const newProject = await createProject(suggestedProject, areaId);
           resolvedProjectId = newProject.id;
           onProjectCreated?.(newProject);
         }
@@ -394,8 +397,8 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
 
     // Shared key handler for all meta fields
     function metaKeyDown(
-      e: React.KeyboardEvent<HTMLInputElement>,
-      nextRef: React.RefObject<HTMLInputElement | null> | null,
+      e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+      nextRef: React.RefObject<{ focus: () => void } | null> | null,
       onCommit?: () => void,
     ) {
       if (e.key === "Escape") {
@@ -574,27 +577,6 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
           )}
           {!saving && (input || metaTitle) && (
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              {onSavedWithEdit && (
-                <button
-                  title="Save and edit"
-                  onClick={() => handleSave(false, true)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 24,
-                    height: 24,
-                    borderRadius: 4,
-                    border: "1px solid var(--border-default)",
-                    background: "var(--bg-secondary)",
-                    color: "var(--text-tertiary)",
-                    cursor: "pointer",
-                    padding: 0,
-                  }}
-                >
-                  <SquarePen size={13} />
-                </button>
-              )}
               <kbd
                 style={{
                   fontSize: 11,
@@ -632,7 +614,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
           >
             Title
           </span>
-          <input
+          <textarea
             ref={titleFieldRef}
             value={metaTitle}
             placeholder="Task title…"
@@ -641,6 +623,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
               markEdited("title");
             }}
             onKeyDown={(e) => metaKeyDown(e, projectFieldRef)}
+            rows={Math.min(4, Math.max(1, Math.ceil((metaTitle.length || 12) / 48)))}
             style={{
               flex: 1,
               background: "transparent",
@@ -648,11 +631,14 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
               borderBottom: "1px solid var(--border-subtle)",
               outline: "none",
               fontSize: 13,
+              lineHeight: 1.35,
               color: metaTitle
                 ? "var(--text-primary)"
                 : "var(--text-quaternary, #9ca3af)",
               fontFamily: "inherit",
               paddingBottom: 2,
+              resize: "none",
+              overflow: "hidden",
             }}
           />
         </div>
@@ -727,8 +713,37 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(
             color="#059669"
             inputRef={recurrenceFieldRef}
             readOnly
-            onKeyDown={(e) => metaKeyDown(e, null)}
+            onKeyDown={(e) => metaKeyDown(e, onSavedWithEdit ? editButtonRef : null)}
           />
+          {onSavedWithEdit && !saving && (input || metaTitle) && (
+            <button
+              ref={editButtonRef}
+              title="Save and edit"
+              onClick={() => handleSave(false, true)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape" || (e.key === "Tab" && !e.shiftKey)) {
+                  e.preventDefault();
+                  inputEl.current?.focus();
+                }
+              }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "3px 8px",
+                borderRadius: 20,
+                border: "1px solid var(--border-subtle)",
+                background: "var(--bg-secondary)",
+                color: "var(--text-tertiary)",
+                cursor: "pointer",
+                fontSize: 12,
+                fontFamily: "inherit",
+              }}
+            >
+              <SquarePen size={12} />
+              Edit
+            </button>
+          )}
         </div>
 
         {error && (

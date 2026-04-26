@@ -1,4 +1,4 @@
-import type { ParsedInput, Project, Tag } from "../types";
+import type { NlpLanguageMode, ParsedInput, Project, Tag } from "../types";
 
 function toISODate(d: Date): string {
   const y = d.getFullYear();
@@ -52,6 +52,28 @@ const WEEKDAYS: Record<string, number> = {
   lørdag: 6, lør: 6,
 };
 
+const ENGLISH_DAY_KEYS = [
+  "sunday", "sun",
+  "monday", "mon",
+  "tuesday", "tue", "tues",
+  "wednesday", "wed",
+  "thursday", "thu", "thur", "thurs",
+  "friday", "fri",
+  "saturday", "sat",
+];
+
+const DANISH_DAY_KEYS = [
+  "sÃ¸ndag", "sÃ¸n",
+  "s\u00f8ndag", "s\u00f8n",
+  "mandag",
+  "tirsdag", "tir",
+  "onsdag", "ons",
+  "torsdag", "tor",
+  "fredag", "fre",
+  "lÃ¸rdag", "lÃ¸r",
+  "l\u00f8rdag", "l\u00f8r",
+];
+
 // ── Months (EN + DA) ────────────────────────────────────────────
 const MONTHS: Record<string, number> = {
   // English
@@ -75,6 +97,27 @@ const MONTHS: Record<string, number> = {
   okt: 9, oktober: 9,
 };
 
+const ENGLISH_MONTH_KEYS = [
+  "jan", "january",
+  "feb", "february",
+  "mar", "march",
+  "apr", "april",
+  "may",
+  "jun", "june",
+  "jul", "july",
+  "aug", "august",
+  "sep", "sept", "september",
+  "oct", "october",
+  "nov", "november",
+  "dec", "december",
+];
+
+const DANISH_MONTH_KEYS = [
+  "januar", "februar", "marts",
+  "maj", "juni", "juli",
+  "okt", "oktober",
+];
+
 // ── Weekday → RRULE BYDAY mapping ──────────────────────────────
 const WEEKDAY_BYDAY: Record<string, string> = {
   sunday: "SU", sun: "SU", søndag: "SU", søn: "SU",
@@ -86,20 +129,360 @@ const WEEKDAY_BYDAY: Record<string, string> = {
   saturday: "SA", sat: "SA", lørdag: "SA", lør: "SA",
 };
 
+const ENGLISH_BYDAY_KEYS = [
+  "sunday", "sun",
+  "monday", "mon",
+  "tuesday", "tue", "tues",
+  "wednesday", "wed",
+  "thursday", "thu", "thur", "thurs",
+  "friday", "fri",
+  "saturday", "sat",
+];
+
+const DANISH_BYDAY_KEYS = [
+  "sÃ¸ndag", "sÃ¸n",
+  "mandag",
+  "tirsdag", "tir",
+  "onsdag", "ons",
+  "torsdag", "tor",
+  "fredag", "fre",
+  "lÃ¸rdag", "lÃ¸r",
+];
+
 interface DateResult {
   date: string;
   time: string | null;
   consumed: string;
 }
 
+interface ParseOptions {
+  languageMode?: NlpLanguageMode;
+}
+
+function allowsEnglish(mode: NlpLanguageMode) {
+  return mode !== "da";
+}
+
+function allowsDanish(mode: NlpLanguageMode) {
+  return mode !== "en";
+}
+
+function keysForMode(
+  mode: NlpLanguageMode,
+  english: string[],
+  danish: string[],
+) {
+  if (mode === "en") return english;
+  if (mode === "da") return danish;
+  return [...english, ...danish];
+}
+
+function resolveWeekday(key: string): number | undefined {
+  if (key in WEEKDAYS) return WEEKDAYS[key];
+  if (key === "s\u00f8ndag" || key === "s\u00f8n") return 0;
+  if (key === "l\u00f8rdag" || key === "l\u00f8r") return 6;
+  return undefined;
+}
+
+function timePrefixPattern(mode: NlpLanguageMode) {
+  if (mode === "en") return "(?:at)";
+  if (mode === "da") return "(?:kl\\.?|klokken)";
+  return "(?:at|kl\\.?|klokken)";
+}
+
+function literalTimePattern(mode: NlpLanguageMode) {
+  if (mode === "en") return "(?:noon|midnight)";
+  if (mode === "da") return "(?:middag|midnat)";
+  return "(?:noon|midnight|middag|midnat)";
+}
+
+function parseLiteralTime(value: string): string | null {
+  const normalized = value.toLowerCase();
+  if (normalized === "noon" || normalized === "middag") return "12:00";
+  if (normalized === "midnight" || normalized === "midnat") return "00:00";
+  return null;
+}
+
+function parseDateEnglishOnly(input: string): DateResult | null {
+  const lower = input.toLowerCase();
+  const today = new Date();
+  let m: RegExpMatchArray | null;
+
+  m = lower.match(/(^|\s)@([\w-]+)/i);
+  if (m) {
+    const inner = parseDateEnglishOnly(m[2].replace(/-/g, " ").trim());
+    if (inner) {
+      const rest = input.slice((m.index ?? 0) + m[0].length);
+      const { time, consumed } = parseTimeSuffix(rest, "en");
+      return { date: inner.date, time, consumed: m[0] + consumed };
+    }
+  }
+
+  m = lower.match(/(^|\s)(today)(?=\s|$)/);
+  if (m) return withTime(input, m, today, "en");
+
+  m = lower.match(/(^|\s)((?:the\s+)?day\s+after\s+tomorrow)(?=\s|$)/);
+  if (m) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + 2);
+    return withTime(input, m, d, "en");
+  }
+
+  m = lower.match(/(^|\s)(tomorrow)(?=\s|$)/);
+  if (m) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + 1);
+    return withTime(input, m, d, "en");
+  }
+
+  m = lower.match(/(^|\s)(tonight|this\s+evening)(?=\s|$)/);
+  if (m) return { date: toISODate(today), time: "19:00", consumed: m[0] };
+
+  m = lower.match(/(^|\s)(this\s+afternoon)(?=\s|$)/);
+  if (m) return { date: toISODate(today), time: "15:00", consumed: m[0] };
+
+  m = lower.match(/(^|\s)(next\s+week)(?=\s|$)/);
+  if (m) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + 7);
+    return { date: toISODate(d), time: null, consumed: m[0] };
+  }
+
+  m = lower.match(/(^|\s)(next\s+month)(?=\s|$)/);
+  if (m) {
+    const d = new Date(today);
+    d.setMonth(d.getMonth() + 1);
+    return { date: toISODate(d), time: null, consumed: m[0] };
+  }
+
+  m = lower.match(/(^|\s)(next\s+year)(?=\s|$)/);
+  if (m) {
+    const d = new Date(today);
+    d.setFullYear(d.getFullYear() + 1);
+    return { date: toISODate(d), time: null, consumed: m[0] };
+  }
+
+  m = lower.match(/(^|\s)(end\s+of\s+(?:the\s+)?week)(?=\s|$)/);
+  if (m) return { date: toISODate(nextWeekday(5)), time: null, consumed: m[0] };
+
+  m = lower.match(/(^|\s)(end\s+of\s+(?:the\s+)?month)(?=\s|$)/);
+  if (m) {
+    const d = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    return { date: toISODate(d), time: null, consumed: m[0] };
+  }
+
+  m = lower.match(/(^|\s)(?:in)\s+(\d+)\s+(minutes?|hours?|days?|weeks?|months?|years?)/);
+  if (m) {
+    const n = parseInt(m[2]);
+    const unit = m[3];
+    const d = new Date(today);
+    if (/^(minutes?)$/.test(unit)) {
+      d.setMinutes(d.getMinutes() + n);
+      return { date: toISODate(d), time: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`, consumed: m[0] };
+    }
+    if (/^(hours?)$/.test(unit)) {
+      d.setHours(d.getHours() + n);
+      return { date: toISODate(d), time: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`, consumed: m[0] };
+    }
+    if (/^(days?)$/.test(unit)) d.setDate(d.getDate() + n);
+    else if (/^(weeks?)$/.test(unit)) d.setDate(d.getDate() + n * 7);
+    else if (/^(years?)$/.test(unit)) d.setFullYear(d.getFullYear() + n);
+    else d.setMonth(d.getMonth() + n);
+    return { date: toISODate(d), time: null, consumed: m[0] };
+  }
+
+  for (const day of ENGLISH_DAY_KEYS.sort((a, b) => b.length - a.length)) {
+    m = lower.match(new RegExp(`(^|\\s)(?:next|this|on)\\s+(${day})(?=\\s|$)`, "i"));
+    if (m) return withTime(input, m, nextWeekday(resolveWeekday(day) ?? 0), "en");
+  }
+
+  for (const day of ENGLISH_DAY_KEYS.sort((a, b) => b.length - a.length)) {
+    m = lower.match(new RegExp(`(^|\\s)(${day})(?=\\s|$)`, "i"));
+    if (m) return withTime(input, m, nextWeekday(resolveWeekday(day) ?? 0), "en");
+  }
+
+  for (const mon of ENGLISH_MONTH_KEYS.sort((a, b) => b.length - a.length)) {
+    m = lower.match(new RegExp(`(^|\\s)(${mon})\\s+(\\d{1,2})(?:st|nd|rd|th|\\.)?(?=\\s|$)`, "i"));
+    if (m) {
+      const d = new Date(today.getFullYear(), MONTHS[mon], parseInt(m[3]));
+      if (d < today) d.setFullYear(d.getFullYear() + 1);
+      return { date: toISODate(d), time: null, consumed: m[0] };
+    }
+    m = lower.match(new RegExp(`(^|\\s)(\\d{1,2})(?:st|nd|rd|th)?\\.?\\s+(${mon})(?=\\s|$)`, "i"));
+    if (m) {
+      const d = new Date(today.getFullYear(), MONTHS[mon], parseInt(m[2]));
+      if (d < today) d.setFullYear(d.getFullYear() + 1);
+      return { date: toISODate(d), time: null, consumed: m[0] };
+    }
+  }
+
+  m = lower.match(/(^|\s)(\d{4})-(\d{2})-(\d{2})(?=\s|$)/);
+  if (m) return { date: toISODate(new Date(parseInt(m[2]), parseInt(m[3]) - 1, parseInt(m[4]))), time: null, consumed: m[0] };
+
+  m = lower.match(/(due)\s+/);
+  if (m) {
+    const inner = parseDateEnglishOnly(input.slice(m.index! + m[0].length));
+    if (inner) return { ...inner, consumed: m[0] + inner.consumed };
+  }
+
+  return null;
+}
+
+function parseDateDanishOnly(input: string): DateResult | null {
+  const lower = input.toLowerCase();
+  const today = new Date();
+  let m: RegExpMatchArray | null;
+
+  m = lower.match(/(^|\s)@([\wÃ¦Ã¸Ã¥Ã†Ã˜Ã…-]+)/i);
+  if (m) {
+    const inner = parseDateDanishOnly(m[2].replace(/-/g, " ").trim());
+    if (inner) {
+      const rest = input.slice((m.index ?? 0) + m[0].length);
+      const { time, consumed } = parseTimeSuffix(rest, "da");
+      return { date: inner.date, time, consumed: m[0] + consumed };
+    }
+  }
+
+  m = lower.match(/(^|\s)(i\s+dag)(?=\s|$)/);
+  if (m) return withTime(input, m, today, "da");
+
+  m = lower.match(/(^|\s)(i\s+overmorgen|overmorgen)(?=\s|$)/);
+  if (m) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + 2);
+    return withTime(input, m, d, "da");
+  }
+
+  m = lower.match(/(^|\s)(i\s+morgen)(?=\s|$)/);
+  if (m) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + 1);
+    return withTime(input, m, d, "da");
+  }
+
+  m = lower.match(/(^|\s)(i\s+aften)(?=\s|$)/);
+  if (m) return { date: toISODate(today), time: "19:00", consumed: m[0] };
+
+  m = lower.match(/(^|\s)(i\s+eftermiddag)(?=\s|$)/);
+  if (m) return { date: toISODate(today), time: "15:00", consumed: m[0] };
+
+  m = lower.match(/(^|\s)(nÃ¦ste\s+uge)(?=\s|$)/);
+  if (m) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + 7);
+    return { date: toISODate(d), time: null, consumed: m[0] };
+  }
+
+  m = lower.match(/(^|\s)(nÃ¦ste\s+mÃ¥ned)(?=\s|$)/);
+  if (m) {
+    const d = new Date(today);
+    d.setMonth(d.getMonth() + 1);
+    return { date: toISODate(d), time: null, consumed: m[0] };
+  }
+
+  m = lower.match(/(^|\s)(nÃ¦ste\s+Ã¥r)(?=\s|$)/);
+  if (m) {
+    const d = new Date(today);
+    d.setFullYear(d.getFullYear() + 1);
+    return { date: toISODate(d), time: null, consumed: m[0] };
+  }
+
+  m = lower.match(/(^|\s)((?:i\s+)?slutningen\s+af\s+ugen)(?=\s|$)/);
+  if (m) return { date: toISODate(nextWeekday(5)), time: null, consumed: m[0] };
+
+  m = lower.match(/(^|\s)((?:i\s+)?slutningen\s+af\s+mÃ¥neden)(?=\s|$)/);
+  if (m) {
+    const d = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    return { date: toISODate(d), time: null, consumed: m[0] };
+  }
+
+  m = lower.match(/(^|\s)(?:om)\s+(\d+)\s+(minutter?|timer?|dage?|uger?|mÃ¥ned(?:er)?|Ã¥r)/);
+  if (m) {
+    const n = parseInt(m[2]);
+    const unit = m[3];
+    const d = new Date(today);
+    if (/^(minutter?)$/.test(unit)) {
+      d.setMinutes(d.getMinutes() + n);
+      return { date: toISODate(d), time: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`, consumed: m[0] };
+    }
+    if (/^(timer?)$/.test(unit)) {
+      d.setHours(d.getHours() + n);
+      return { date: toISODate(d), time: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`, consumed: m[0] };
+    }
+    if (/^(dage?)$/.test(unit)) d.setDate(d.getDate() + n);
+    else if (/^(uger?)$/.test(unit)) d.setDate(d.getDate() + n * 7);
+    else if (/^(Ã¥r)$/.test(unit)) d.setFullYear(d.getFullYear() + n);
+    else d.setMonth(d.getMonth() + n);
+    return { date: toISODate(d), time: null, consumed: m[0] };
+  }
+
+  for (const day of DANISH_DAY_KEYS.sort((a, b) => b.length - a.length)) {
+    m = lower.match(new RegExp(`(^|\\s)(?:nÃ¦ste|denne|pÃ¥)\\s+(${day})(?=\\s|$)`, "i"));
+    if (m) return withTime(input, m, nextWeekday(resolveWeekday(day) ?? 0), "da");
+  }
+
+  for (const day of DANISH_DAY_KEYS.sort((a, b) => b.length - a.length)) {
+    m = lower.match(new RegExp(`(^|\\s)(${day})(?=\\s|$)`, "i"));
+    if (m) return withTime(input, m, nextWeekday(resolveWeekday(day) ?? 0), "da");
+  }
+
+  for (const mon of DANISH_MONTH_KEYS.sort((a, b) => b.length - a.length)) {
+    m = lower.match(new RegExp(`(^|\\s)(${mon})\\s+(\\d{1,2})(?:\\.)?(?=\\s|$)`, "i"));
+    if (m) {
+      const d = new Date(today.getFullYear(), MONTHS[mon], parseInt(m[3]));
+      if (d < today) d.setFullYear(d.getFullYear() + 1);
+      return { date: toISODate(d), time: null, consumed: m[0] };
+    }
+    m = lower.match(new RegExp(`(^|\\s)(?:den|d\\.?)?\\s*(\\d{1,2})\\.?\\s+(${mon})(?=\\s|$)`, "i"));
+    if (m) {
+      const d = new Date(today.getFullYear(), MONTHS[mon], parseInt(m[2]));
+      if (d < today) d.setFullYear(d.getFullYear() + 1);
+      return { date: toISODate(d), time: null, consumed: m[0] };
+    }
+  }
+
+  m = lower.match(/(^|\s)(?:den|d\.?)\s+(\d{1,2})\.?(?=\s|$)/);
+  if (m) {
+    const day = parseInt(m[2]);
+    if (day >= 1 && day <= 31) {
+      const d = new Date(today.getFullYear(), today.getMonth(), day);
+      if (d <= today) d.setMonth(d.getMonth() + 1);
+      return { date: toISODate(d), time: null, consumed: m[0] };
+    }
+  }
+
+  m = lower.match(/(^|\s)(\d{4})-(\d{2})-(\d{2})(?=\s|$)/);
+  if (m) return { date: toISODate(new Date(parseInt(m[2]), parseInt(m[3]) - 1, parseInt(m[4]))), time: null, consumed: m[0] };
+
+  m = lower.match(/(inden|til)\s+/);
+  if (m) {
+    const inner = parseDateDanishOnly(input.slice(m.index! + m[0].length));
+    if (inner) return { ...inner, consumed: m[0] + inner.consumed };
+  }
+
+  return null;
+}
+
 // ── Time suffix: "at 14:00" / "kl 14" / "klokken 14:30" ────────
-function parseTimeSuffix(after: string): {
+function parseTimeSuffix(after: string, mode: NlpLanguageMode = "auto"): {
   time: string | null;
   consumed: string;
 } {
-  const m = after.match(
-    /^\s+(?:at|kl\.?|klokken)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i,
+  const prefix = timePrefixPattern(mode);
+  const literal = after.match(
+    new RegExp(`^\\s+${prefix}\\s+(${literalTimePattern(mode)})(?=\\s|$)`, "i"),
   );
+  if (literal) {
+    const time = parseLiteralTime(literal[1]);
+    return {
+      time,
+      consumed: literal[0],
+    };
+  }
+  const m = after.match(new RegExp(
+    `^\\s+${prefix}\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?`,
+    "i",
+  ));
   if (!m) return { time: null, consumed: "" };
   let h = parseInt(m[1]);
   const min = m[2] ? parseInt(m[2]) : 0;
@@ -115,25 +498,28 @@ function withTime(
   input: string,
   match: RegExpMatchArray,
   d: Date,
+  mode: NlpLanguageMode = "auto",
 ): DateResult {
   const rest = input.slice(match.index! + match[0].length);
-  const { time, consumed } = parseTimeSuffix(rest);
+  const { time, consumed } = parseTimeSuffix(rest, mode);
   return { date: toISODate(d), time, consumed: match[0] + consumed };
 }
 
 // We use (?=\\s|$) instead of \\b because \\b breaks on Danish chars (ø, å).
 // Weekday/month keys sorted longest-first so "thursday" matches before "thu".
-const sortedDayKeys = Object.keys(WEEKDAYS).sort(
-  (a, b) => b.length - a.length,
-);
-const sortedMonthKeys = Object.keys(MONTHS).sort(
-  (a, b) => b.length - a.length,
-);
-const sortedBydayKeys = Object.keys(WEEKDAY_BYDAY).sort(
-  (a, b) => b.length - a.length,
-);
-
-export function parseDate(input: string): DateResult | null {
+export function parseDate(
+  input: string,
+  options: ParseOptions = {},
+): DateResult | null {
+  const mode = options.languageMode ?? "auto";
+  if (mode === "en") return parseDateEnglishOnly(input);
+  if (mode === "da") return parseDateDanishOnly(input);
+  const sortedDayKeys = keysForMode(mode, ENGLISH_DAY_KEYS, DANISH_DAY_KEYS).sort(
+    (a, b) => b.length - a.length,
+  );
+  const sortedMonthKeys = keysForMode(mode, ENGLISH_MONTH_KEYS, DANISH_MONTH_KEYS).sort(
+    (a, b) => b.length - a.length,
+  );
   const lower = input.toLowerCase();
   const today = new Date();
 
@@ -146,10 +532,10 @@ export function parseDate(input: string): DateResult | null {
   m = lower.match(/(^|\s)@([\wæøåÆØÅ-]+)/i);
   if (m) {
     const candidate = m[2].replace(/-/g, " ").trim();
-    const inner = parseDate(candidate);
+    const inner = parseDate(candidate, options);
     if (inner) {
       const rest = input.slice((m.index ?? 0) + m[0].length);
-      const { time, consumed: timeSuffix } = parseTimeSuffix(rest);
+      const { time, consumed: timeSuffix } = parseTimeSuffix(rest, mode);
       return { date: inner.date, time, consumed: m[0] + timeSuffix };
     }
   }
@@ -157,25 +543,69 @@ export function parseDate(input: string): DateResult | null {
   // ── 1. Relative dates (EN + DA) ───────────────────────────────
 
   // today / i dag
-  m = lower.match(/(^|\s)(today|i\s+dag)(?=\s|$)/);
-  if (m) return withTime(input, m, today);
+  if (allowsEnglish(mode)) {
+    m = lower.match(/(^|\s)(today)(?=\s|$)/);
+    if (m) return withTime(input, m, today, mode);
+  }
+  if (allowsDanish(mode)) {
+    m = lower.match(/(^|\s)(i\s+dag)(?=\s|$)/);
+    if (m) return withTime(input, m, today, mode);
+  }
 
   // day after tomorrow / i overmorgen / overmorgen — checked BEFORE tomorrow
-  m = lower.match(
-    /(^|\s)((?:the\s+)?day\s+after\s+tomorrow|i\s+overmorgen|overmorgen)(?=\s|$)/,
-  );
-  if (m) {
-    const d = new Date(today);
-    d.setDate(d.getDate() + 2);
-    return withTime(input, m, d);
+  if (allowsEnglish(mode)) {
+    m = lower.match(/(^|\s)((?:the\s+)?day\s+after\s+tomorrow)(?=\s|$)/);
+    if (m) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + 2);
+      return withTime(input, m, d, mode);
+    }
+  }
+  if (allowsDanish(mode)) {
+    m = lower.match(/(^|\s)(i\s+overmorgen|overmorgen)(?=\s|$)/);
+    if (m) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + 2);
+      return withTime(input, m, d, mode);
+    }
   }
 
   // tomorrow / i morgen
-  m = lower.match(/(^|\s)(tomorrow|i\s+morgen)(?=\s|$)/);
-  if (m) {
-    const d = new Date(today);
-    d.setDate(d.getDate() + 1);
-    return withTime(input, m, d);
+  if (allowsEnglish(mode)) {
+    m = lower.match(/(^|\s)(tomorrow)(?=\s|$)/);
+    if (m) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + 1);
+      return withTime(input, m, d, mode);
+    }
+  }
+  if (allowsDanish(mode)) {
+    m = lower.match(/(^|\s)(i\s+morgen)(?=\s|$)/);
+    if (m) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + 1);
+      return withTime(input, m, d, mode);
+    }
+  }
+
+  // tonight / this evening / i aften
+  if (allowsEnglish(mode)) {
+    m = lower.match(/(^|\s)(tonight|this\s+evening)(?=\s|$)/);
+    if (m) return { date: toISODate(today), time: "19:00", consumed: m[0] };
+  }
+  if (allowsDanish(mode)) {
+    m = lower.match(/(^|\s)(i\s+aften)(?=\s|$)/);
+    if (m) return { date: toISODate(today), time: "19:00", consumed: m[0] };
+  }
+
+  // this afternoon / i eftermiddag
+  if (allowsEnglish(mode)) {
+    m = lower.match(/(^|\s)(this\s+afternoon)(?=\s|$)/);
+    if (m) return { date: toISODate(today), time: "15:00", consumed: m[0] };
+  }
+  if (allowsDanish(mode)) {
+    m = lower.match(/(^|\s)(i\s+eftermiddag)(?=\s|$)/);
+    if (m) return { date: toISODate(today), time: "15:00", consumed: m[0] };
   }
 
   // ── 2. Relative periods (EN + DA) ─────────────────────────────
@@ -257,7 +687,7 @@ export function parseDate(input: string): DateResult | null {
     );
     m = lower.match(re);
     if (m) {
-      const d = nextWeekday(WEEKDAYS[day]);
+      const d = nextWeekday(resolveWeekday(day) ?? 0);
       return withTime(input, m, d);
     }
   }
@@ -268,7 +698,7 @@ export function parseDate(input: string): DateResult | null {
     const re = new RegExp(`(^|\\s)(${day})(?=\\s|$)`, "i");
     m = lower.match(re);
     if (m) {
-      const d = nextWeekday(WEEKDAYS[day]);
+      const d = nextWeekday(resolveWeekday(day) ?? 0);
       return withTime(input, m, d);
     }
   }
@@ -342,12 +772,45 @@ export function parseDate(input: string): DateResult | null {
 
 export function parseRecurrence(
   input: string,
+  options: ParseOptions = {},
 ): { rule: string; consumed: string } | null {
+  const mode = options.languageMode ?? "auto";
   const lower = input.toLowerCase();
+  const sortedBydayKeys = keysForMode(mode, ENGLISH_BYDAY_KEYS, DANISH_BYDAY_KEYS).sort(
+    (a, b) => b.length - a.length,
+  );
 
-  // Fixed patterns (EN + DA)
-  const patterns: Array<{ re: RegExp; rule: string }> = [
+  const patterns: Array<{ re: RegExp; rule: string }> = [];
+  if (allowsEnglish(mode)) {
+    patterns.push(
+      { re: /every\s+day|daily/, rule: "FREQ=DAILY" },
+      { re: /every\s+weekday|each\s+weekday/, rule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" },
+      { re: /every\s+weekend|each\s+weekend/, rule: "FREQ=WEEKLY;BYDAY=SA,SU" },
+      { re: /every\s+week|weekly/, rule: "FREQ=WEEKLY" },
+      { re: /every\s+month|monthly/, rule: "FREQ=MONTHLY" },
+      { re: /every\s+year|yearly|annually/, rule: "FREQ=YEARLY" },
+      { re: /every\s+(\d+)\s+days?/, rule: "FREQ=DAILY" },
+      { re: /every\s+(\d+)\s+weeks?/, rule: "FREQ=WEEKLY" },
+      { re: /every\s+(\d+)\s+months?/, rule: "FREQ=MONTHLY" },
+    );
+  }
+  if (allowsDanish(mode)) {
+    patterns.push(
+      { re: /hver\s+dag|dagligt/, rule: "FREQ=DAILY" },
+      { re: /hver\s+hverdag/, rule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" },
+      { re: /hver\s+weekend/, rule: "FREQ=WEEKLY;BYDAY=SA,SU" },
+      { re: /hver\s+uge|ugentligt/, rule: "FREQ=WEEKLY" },
+      { re: /hver\s+m(?:\u00e5|aa)ned|m(?:\u00e5|aa)nedligt/, rule: "FREQ=MONTHLY" },
+      { re: /hver\s+(?:\u00e5|aa)r|(?:\u00e5|aa)rligt/, rule: "FREQ=YEARLY" },
+      { re: /hver\s+(\d+)\.\s*(dag|dage?)/, rule: "FREQ=DAILY" },
+      { re: /hver\s+(\d+)\.\s*(uge|uger?)/, rule: "FREQ=WEEKLY" },
+      { re: /hver\s+(\d+)\.\s*m(?:\u00e5|aa)ned(?:er)?/, rule: "FREQ=MONTHLY" },
+    );
+  }
+  /*
     { re: /every\s+day|daily|hver\s+dag|dagligt/, rule: "FREQ=DAILY" },
+    { re: /every\s+weekday|each\s+weekday|hver\s+hverdag/, rule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" },
+    { re: /every\s+weekend|each\s+weekend|hver\s+weekend/, rule: "FREQ=WEEKLY;BYDAY=SA,SU" },
     { re: /every\s+week|weekly|hver\s+uge|ugentligt/, rule: "FREQ=WEEKLY" },
     {
       re: /every\s+month|monthly|hver\s+måned|månedligt/,
@@ -365,6 +828,7 @@ export function parseRecurrence(
     { re: /hver\s+(\d+)\.\s*måned(?:er)?/, rule: "FREQ=MONTHLY" },
   ];
 
+  */
   for (const { re, rule } of patterns) {
     const m = lower.match(re);
     if (m) {
@@ -380,9 +844,10 @@ export function parseRecurrence(
     }
   }
 
-  // every/hver [weekday]
+  const weekdayPrefix =
+    mode === "en" ? "every" : mode === "da" ? "hver" : "(?:every|hver)";
   for (const day of sortedBydayKeys) {
-    const re = new RegExp(`(?:every|hver)\\s+(${day})(?=\\s|$)`, "i");
+    const re = new RegExp(`${weekdayPrefix}\\s+(${day})(?=\\s|$)`, "i");
     const m = lower.match(re);
     if (m) {
       return {
@@ -401,7 +866,9 @@ type Priority = "high" | "medium" | "low" | "none";
 
 export function parsePriority(
   input: string,
+  options: ParseOptions = {},
 ): { priority: Priority; consumed: string } | null {
+  const mode = options.languageMode ?? "auto";
   // Trailing ! (one or more) = high priority — check first so it's consumed
   // and doesn't end up in the task title.
   const trailingBang = input.match(/\s*!+\s*$/);
@@ -410,15 +877,20 @@ export function parsePriority(
   }
 
   const patterns: Array<{ re: RegExp; priority: Priority }> = [
-    {
-      re: /(^|\s)!?(urgent|asap|critical|haster|akut|!!|!1)(?=\s|$)/i,
-      priority: "high",
-    },
-    { re: /(^|\s)(important|vigtig|vigtigt|!2)(?=\s|$)/i, priority: "medium" },
-    {
-      re: /(^|\s)(low\s+priority|lav\s+prioritet|someday|en\s+dag|!3|!4)(?=\s|$)/i,
-      priority: "low",
-    },
+    ...(allowsEnglish(mode)
+      ? [
+          { re: /(^|\s)!?(urgent|asap|critical|!!|!1)(?=\s|$)/i, priority: "high" as Priority },
+          { re: /(^|\s)(important|!2)(?=\s|$)/i, priority: "medium" as Priority },
+          { re: /(^|\s)(low\s+priority|someday|!3|!4)(?=\s|$)/i, priority: "low" as Priority },
+        ]
+      : []),
+    ...(allowsDanish(mode)
+      ? [
+          { re: /(^|\s)!?(haster|akut|!!|!1)(?=\s|$)/i, priority: "high" as Priority },
+          { re: /(^|\s)(vigtig|vigtigt|!2)(?=\s|$)/i, priority: "medium" as Priority },
+          { re: /(^|\s)(lav\s+prioritet|en\s+dag|!3|!4)(?=\s|$)/i, priority: "low" as Priority },
+        ]
+      : []),
   ];
 
   for (const { re, priority } of patterns) {
@@ -560,18 +1032,20 @@ export function parseInput(
   raw: string,
   projects: Project[],
   _tags: Tag[],
+  options: ParseOptions = {},
 ): ParsedInput {
+  const mode = options.languageMode ?? "auto";
   let working = raw.trim();
 
   // Recurrence runs first so "every monday" isn't consumed as a bare weekday date.
-  const recResult = parseRecurrence(working);
+  const recResult = parseRecurrence(working, options);
   let recurrenceRule: string | null = null;
   if (recResult) {
     recurrenceRule = recResult.rule;
     working = working.replace(new RegExp(escapeRegex(recResult.consumed), "i"), " ");
   }
 
-  const dateResult = parseDate(working);
+  const dateResult = parseDate(working, options);
   let dueDate: string | null = null;
   let dueTime: string | null = null;
   if (dateResult) {
@@ -583,20 +1057,28 @@ export function parseInput(
   // Extract a time that appears anywhere in the string (e.g. "at 12am today",
   // "at klokken 14" with no date, or any other position before/after the date).
   if (!dueTime) {
-    const timeRe = /(?:^|\s)(?:at\s+klokken|at\s+kl\.?|at|kl\.?|klokken)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?(?=\s|$)/i;
+    const timeRe = new RegExp(
+      `(?:^|\\s)${timePrefixPattern(mode)}\\s+((?:\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?|${literalTimePattern(mode)})(?=\\s|$)`,
+      "i",
+    );
     const tm = working.match(timeRe);
     if (tm) {
-      let h = parseInt(tm[1]);
-      const min = tm[2] ? parseInt(tm[2]) : 0;
-      const ampm = tm[3]?.toLowerCase();
-      if (ampm === "pm" && h < 12) h += 12;
-      if (ampm === "am" && h === 12) h = 0;
-      dueTime = `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+      const literalTime = parseLiteralTime(tm[1]);
+      if (literalTime) {
+        dueTime = literalTime;
+      } else {
+        let h = parseInt(tm[1]);
+        const min = tm[2] ? parseInt(tm[2]) : 0;
+        const ampm = tm[3]?.toLowerCase();
+        if (ampm === "pm" && h < 12) h += 12;
+        if (ampm === "am" && h === 12) h = 0;
+        dueTime = `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+      }
       working = working.replace(new RegExp(escapeRegex(tm[0]), "i"), " ");
     }
   }
 
-  const priResult = parsePriority(working);
+  const priResult = parsePriority(working, options);
   let priority: Priority = "none";
   if (priResult) {
     priority = priResult.priority;

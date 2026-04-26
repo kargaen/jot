@@ -70,6 +70,35 @@ async function getCurrentUserId(): Promise<string> {
   return data.session.user.id;
 }
 
+const DEFAULT_AREA_KEY = "jot_default_area";
+
+function readDefaultAreaId(): string | null {
+  return typeof localStorage === "undefined" ? null : localStorage.getItem(DEFAULT_AREA_KEY);
+}
+
+function writeDefaultAreaId(id: string) {
+  if (typeof localStorage !== "undefined") localStorage.setItem(DEFAULT_AREA_KEY, id);
+}
+
+async function resolveRequiredAreaId(areaId?: string | null): Promise<string> {
+  if (areaId) return areaId;
+
+  const areas = await fetchAreas();
+  const savedAreaId = readDefaultAreaId();
+  if (savedAreaId && areas.some((area) => area.id === savedAreaId)) {
+    return savedAreaId;
+  }
+
+  if (areas[0]) {
+    writeDefaultAreaId(areas[0].id);
+    return areas[0].id;
+  }
+
+  const firstArea = await createArea("Personal");
+  writeDefaultAreaId(firstArea.id);
+  return firstArea.id;
+}
+
 export async function fetchAreas(): Promise<Area[]> {
   const { data, error } = await supabase
     .from("areas")
@@ -96,8 +125,29 @@ export async function updateArea(id: string, fields: Partial<{ name: string; col
 }
 
 export async function deleteArea(id: string): Promise<void> {
+  const areas = await fetchAreas();
+  let fallbackArea = areas.find((area) => area.id !== id) ?? null;
+  if (!fallbackArea) {
+    fallbackArea = await createArea("Personal");
+  }
+
+  const { error: projectError } = await supabase
+    .from("projects")
+    .update({ area_id: fallbackArea.id })
+    .eq("area_id", id);
+  if (projectError) logErr("deleteArea(projects)", projectError);
+
+  const { error: taskError } = await supabase
+    .from("tasks")
+    .update({ area_id: fallbackArea.id, updated_at: new Date().toISOString() })
+    .eq("area_id", id)
+    .is("project_id", null);
+  if (taskError) logErr("deleteArea(tasks)", taskError);
+
   const { error } = await supabase.from("areas").delete().eq("id", id);
   if (error) logErr("deleteArea", error);
+
+  if (readDefaultAreaId() === id) writeDefaultAreaId(fallbackArea.id);
 }
 
 export async function updatePassword(newPassword: string): Promise<string | null> {
@@ -167,7 +217,20 @@ export async function fetchProjects(): Promise<Project[]> {
     .eq("status", "active")
     .order("sort_order");
   if (error) throw error;
-  return data;
+  const projects = data ?? [];
+  const orphanProjects = projects.filter((project) => !project.area_id);
+  if (orphanProjects.length === 0) return projects;
+
+  const fallbackAreaId = await resolveRequiredAreaId(null);
+  const { error: repairError } = await supabase
+    .from("projects")
+    .update({ area_id: fallbackAreaId })
+    .in("id", orphanProjects.map((project) => project.id));
+  if (repairError) logErr("fetchProjects(repairOrphans)", repairError);
+
+  return projects.map((project) =>
+    project.area_id ? project : { ...project, area_id: fallbackAreaId },
+  );
 }
 
 export async function deleteProject(id: string): Promise<void> {
@@ -181,6 +244,14 @@ export async function closeProject(id: string): Promise<void> {
     .update({ status: "completed" })
     .eq("id", id);
   if (error) logErr("closeProject", error);
+}
+
+export async function updateProject(
+  id: string,
+  fields: Partial<{ name: string; color: string; area_id: string; status: Project["status"]; sort_order: number }>,
+): Promise<void> {
+  const { error } = await supabase.from("projects").update(fields).eq("id", id);
+  if (error) logErr("updateProject", error);
 }
 
 /** Close a project and handle its remaining tasks */
@@ -207,13 +278,14 @@ export async function closeProjectAndReleaseTasks(projectId: string): Promise<vo
 
 export async function createProject(
   name: string,
-  areaId?: string,
+  areaId?: string | null,
   color = "#6B7280",
 ): Promise<Project> {
   const user_id = await getCurrentUserId();
+  const resolvedAreaId = await resolveRequiredAreaId(areaId);
   const { data, error } = await supabase
     .from("projects")
-    .insert({ name, area_id: areaId ?? localStorage.getItem("jot_default_area") ?? null, color, user_id })
+    .insert({ name, area_id: resolvedAreaId, color, user_id })
     .select()
     .single();
   if (error) throw error;
@@ -286,11 +358,21 @@ export async function completeTask(taskId: string): Promise<void> {
   if (error) logErr("completeTask", error);
 }
 
+export async function deleteTask(taskId: string): Promise<void> {
+  logger.info("supabase", `deleteTask: ${taskId}`);
+  const { error } = await supabase
+    .from("tasks")
+    .delete()
+    .eq("id", taskId);
+  if (error) logErr("deleteTask", error);
+}
+
 export async function updateTask(
   id: string,
   fields: Partial<{
     title: string;
     description: Record<string, unknown> | null;
+    notes: string | null;
     icon: string | null;
     project_id: string | null;
     area_id: string | null;
@@ -351,6 +433,9 @@ export interface CreateTaskInput {
 export async function createTask(input: CreateTaskInput): Promise<Task> {
   const { tagIds = [], ...taskFields } = input;
   const user_id = await getCurrentUserId();
+  const resolvedAreaId = taskFields.projectId
+    ? null
+    : await resolveRequiredAreaId(taskFields.areaId);
   logger.info("supabase", `createTask: "${taskFields.title}"`, {
     project: taskFields.projectId,
     priority: taskFields.priority,
@@ -363,7 +448,7 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
     .insert({
       title: taskFields.title,
       project_id: taskFields.projectId ?? null,
-      area_id: taskFields.areaId ?? localStorage.getItem("jot_default_area") ?? null,
+      area_id: resolvedAreaId,
       parent_task_id: taskFields.parentTaskId ?? null,
       icon: taskFields.icon ?? null,
       due_date: taskFields.dueDate ?? null,

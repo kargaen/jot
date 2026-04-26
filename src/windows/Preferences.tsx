@@ -17,10 +17,17 @@ import {
 import { spaceColor } from "../lib/colors";
 import Toggle from "../components/Toggle";
 import { useAuth } from "../lib/auth";
-import type { Area, AreaMember, Feedback } from "../types";
+import {
+  type AppThemePreference,
+  applyThemePreference,
+  loadThemePreference,
+  saveThemePreference,
+} from "../lib/theme";
+import { loadNlpLanguageMode, saveNlpLanguageMode } from "../lib/nlpSettings";
+import type { Area, AreaMember, Feedback, NlpLanguageMode } from "../types";
 
 import { enable as enableAutostart, disable as disableAutostart, isEnabled as isAutostart } from "@tauri-apps/plugin-autostart";
-type Tab = "spaces" | "sharing" | "reminders" | "feedback" | "account";
+type Tab = "spaces" | "sharing" | "reminders" | "appearance" | "capture" | "feedback" | "account";
 
 export default function Preferences({
   areas,
@@ -55,7 +62,7 @@ export default function Preferences({
 
         {/* Tabs */}
         <div style={{ display: "flex", borderBottom: "1px solid var(--border-subtle)", padding: "0 24px" }}>
-          {(["spaces", "sharing", "reminders", "feedback", "account"] as Tab[]).map((t) => (
+          {(["spaces", "sharing", "reminders", "appearance", "capture", "feedback", "account"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -75,6 +82,8 @@ export default function Preferences({
             <SharingTab areas={areas} currentUserId={user?.id ?? ""} />
           )}
           {tab === "reminders" && <RemindersTab />}
+          {tab === "appearance" && <AppearanceTab />}
+          {tab === "capture" && <CaptureTab />}
           {tab === "feedback" && <FeedbackTab currentUserId={user?.id ?? ""} />}
           {tab === "account" && (
             <AccountTab user={user} signOut={signOut} />
@@ -109,7 +118,7 @@ function AreasTab({ areas, hiddenAreaIds, onHiddenChange, onAreasChange }: {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this space? Projects in it will become unassigned.")) return;
+    if (!confirm("Delete this space? Its projects and inbox tasks will move to another space.")) return;
     setBusy(true);
     await deleteArea(id);
     onHiddenChange(hiddenAreaIds.filter((x) => x !== id));
@@ -507,7 +516,86 @@ function RemindersTab() {
   );
 }
 
+function AppearanceTab() {
+  const [theme, setTheme] = useState<AppThemePreference>(loadThemePreference);
+
+  function selectTheme(next: AppThemePreference) {
+    setTheme(next);
+    saveThemePreference(next);
+    applyThemePreference(next);
+  }
+
+  const optionStyle = (active: boolean): React.CSSProperties => ({
+    width: "100%",
+    textAlign: "left",
+    padding: "12px 14px",
+    borderRadius: "var(--radius-md)",
+    border: `1px solid ${active ? "var(--accent)" : "var(--border-default)"}`,
+    background: active ? "var(--accent-light)" : "var(--bg-secondary)",
+    color: active ? "var(--accent)" : "var(--text-primary)",
+  });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <p style={{ fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+        Choose how Jot should look on this device. System follows your OS appearance automatically.
+      </p>
+      {([
+        ["system", "System", "Follow your device setting."],
+        ["light", "Light", "Keep the interface bright."],
+        ["dark", "Dark", "Use the darker contrast-safe theme."],
+      ] as const).map(([value, label, hint]) => (
+        <button key={value} onClick={() => selectTheme(value)} style={optionStyle(theme === value)}>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>{label}</div>
+          <div style={{ fontSize: 12, color: theme === value ? "var(--accent)" : "var(--text-secondary)", marginTop: 4 }}>
+            {hint}
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ─── Feedback tab ────────────────────────────────────────────────────────────
+
+function CaptureTab() {
+  const [languageMode, setLanguageMode] = useState<NlpLanguageMode>(loadNlpLanguageMode);
+
+  function selectLanguageMode(next: NlpLanguageMode) {
+    setLanguageMode(next);
+    saveNlpLanguageMode(next);
+  }
+
+  const optionStyle = (active: boolean): React.CSSProperties => ({
+    width: "100%",
+    textAlign: "left",
+    padding: "12px 14px",
+    borderRadius: "var(--radius-md)",
+    border: `1px solid ${active ? "var(--accent)" : "var(--border-default)"}`,
+    background: active ? "var(--accent-light)" : "var(--bg-secondary)",
+    color: active ? "var(--accent)" : "var(--text-primary)",
+  });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <p style={{ fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+        Keep capture strict. Auto keeps the current parser behavior. English only and Danish only prevent mixed-language shortcuts from being interpreted.
+      </p>
+      {([
+        ["auto", "Auto", "Use the current broad parser behavior."],
+        ["en", "English only", "Only accept English date, time, recurrence, and priority phrases."],
+        ["da", "Danish only", "Only accept Danish date, time, recurrence, and priority phrases."],
+      ] as const).map(([value, label, hint]) => (
+        <button key={value} onClick={() => selectLanguageMode(value)} style={optionStyle(languageMode === value)}>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>{label}</div>
+          <div style={{ fontSize: 12, color: languageMode === value ? "var(--accent)" : "var(--text-secondary)", marginTop: 4 }}>
+            {hint}
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 const STATUS_LABELS: Record<Feedback["status"], string> = {
   new: "New",

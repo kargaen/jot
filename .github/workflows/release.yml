@@ -1,31 +1,136 @@
-name: Release
+name: Build, Release, and Website
 
 on:
   push:
+    branches:
+      - master
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Release tag to build and upload to (e.g. v0.7.0)'
-        required: true
+      version:
+        description: "Optional version to build, e.g. 0.9.0. Leave empty to use package.json."
+        required: false
+      publish_release:
+        description: "Build installers and publish the GitHub release"
+        type: boolean
+        default: true
+      deploy_pages:
+        description: "Deploy the website from docs/"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
 
 jobs:
+  validate:
+    name: Validate Version and Frontend
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      should_release: ${{ steps.release.outputs.should_release }}
+      should_deploy_pages: ${{ steps.release.outputs.should_deploy_pages }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Apply workflow-dispatch version
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.version != '' }}
+        run: npm run version:sync -- ${{ inputs.version }}
+
+      - name: Check version sync
+        run: npm run version:check
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Decide release and website actions
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="$(node -p "require('./package.json').version")"
+          TAG="v${VERSION}"
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            if [[ "${TAG}" != "v${VERSION}" ]]; then
+              echo "::error::Tag ${TAG} does not match package version v${VERSION}."
+              exit 1
+            fi
+          fi
+
+          TAG_EXISTS="false"
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            TAG_EXISTS="true"
+          fi
+
+          SHOULD_RELEASE="false"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            SHOULD_RELEASE="true"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            SHOULD_RELEASE="${{ inputs.publish_release }}"
+          elif [[ "${GITHUB_REF_NAME}" == "master" && "${TAG_EXISTS}" == "false" ]]; then
+            SHOULD_RELEASE="true"
+          fi
+
+          SHOULD_DEPLOY_PAGES="false"
+          if [[ "${GITHUB_REF_NAME}" == "master" || "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            SHOULD_DEPLOY_PAGES="true"
+          fi
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            SHOULD_DEPLOY_PAGES="${{ inputs.deploy_pages }}"
+          fi
+
+          {
+            echo "version=${VERSION}"
+            echo "tag=${TAG}"
+            echo "should_release=${SHOULD_RELEASE}"
+            echo "should_deploy_pages=${SHOULD_DEPLOY_PAGES}"
+          } >> "${GITHUB_OUTPUT}"
+
+          echo "Version: ${VERSION}"
+          echo "Tag: ${TAG}"
+          echo "Tag exists: ${TAG_EXISTS}"
+          echo "Release: ${SHOULD_RELEASE}"
+          echo "Deploy Pages: ${SHOULD_DEPLOY_PAGES}"
+
   build-windows:
+    name: Build Windows Installer and Publish Release
+    needs: validate
+    if: ${{ needs.validate.outputs.should_release == 'true' }}
     runs-on: windows-latest
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -33,12 +138,23 @@ jobs:
       - name: Cache Rust build artifacts
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: "./src-tauri -> target"
 
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build and upload release assets
+      - name: Apply workflow-dispatch version
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.version != '' }}
+        run: npm run version:sync -- ${{ inputs.version }}
+
+      - name: Check version sync
+        run: npm run version:check
+
+      - name: Check Rust compile
+        run: cargo check
+        working-directory: src-tauri
+
+      - name: Build installer and upload release assets
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -47,8 +163,51 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         with:
-          tagName: ${{ github.event.inputs.tag || github.ref_name }}
-          releaseName: 'Jot ${{ github.event.inputs.tag || github.ref_name }}'
-          releaseBody: 'See the assets below to download and install this version.'
+          tagName: ${{ needs.validate.outputs.tag }}
+          releaseName: "Jot ${{ needs.validate.outputs.tag }}"
+          releaseBody: "Automated Jot release for ${{ needs.validate.outputs.tag }}. Download the installer assets below."
           releaseDraft: false
-          prerelease: false
+          prerelease: ${{ contains(needs.validate.outputs.version, '-') }}
+
+  deploy-pages:
+    name: Deploy Website
+    needs:
+      - validate
+      - build-windows
+    if: ${{ always() && needs.validate.result == 'success' && needs.validate.outputs.should_deploy_pages == 'true' && (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Apply workflow-dispatch version
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.version != '' }}
+        run: npm run version:sync -- ${{ inputs.version }}
+
+      - name: Sync website version
+        run: npm run version:sync
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload website artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@v4

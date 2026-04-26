@@ -1,6 +1,6 @@
 {
   "productName": "Jot",
-  "version": "0.8.0",
+  "version": "1.0.0",
   "identifier": "com.jot.app",
   "build": {
     "frontendDist": "../dist",
@@ -33,8 +33,8 @@
         "resizable": false,
         "skipTaskbar": true,
         "center": true
-      }
-      ,{
+      },
+      {
         "label": "about",
         "title": "About Jot",
         "width": 380,
@@ -45,7 +45,7 @@
         "center": true
       }
     ],
-"security": {
+    "security": {
       "csp": null,
       "dangerousDisableAssetCspModification": true
     }
@@ -70,7 +70,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRFNzFFNDA1NEY0REQwNUIKUldSYjBFMVBCZVJ4VG1iZ2JNejZTUDdRN0pzdzlDaURnZDYvVUR6cnpKaG1XTHpKeWpxc213d1AK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYxQTdDQ0M5NUY5MTlDNTkKUldSWm5KRmZ5Y3luOFRRbDA0WG1pTDBOQ1Z4N2JkM25BS0JRalM4ZVlydnpJeVJKeEl2NCtOUVQK",
       "endpoints": [
         "https://github.com/kargaen/jot/releases/latest/download/latest.json"
       ]

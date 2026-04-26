@@ -1,0 +1,47 @@
+<!-- Add inside the <application> element of:
+     src-tauri/gen/android/app/src/main/AndroidManifest.xml
+-->
+
+<!-- Quick Capture widget -->
+<receiver
+    android:name=".widget.QuickCaptureWidget"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/widget_quick_capture_info" />
+</receiver>
+
+<!-- Pulse widget -->
+<receiver
+    android:name=".widget.PulseWidget"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/widget_pulse_info" />
+</receiver>
+
+<!-- RemoteViewsService for the pulse list — needs BIND_REMOTEVIEWS -->
+<service
+    android:name=".widget.PulseWidgetService"
+    android:exported="false"
+    android:permission="android.permission.BIND_REMOTEVIEWS" />
+
+<!-- Internal broadcast receiver for post-sync widget refresh -->
+<receiver
+    android:name=".widget.WidgetUpdateReceiver"
+    android:exported="false">
+    <intent-filter>
+        <action android:name="com.jot.app.UPDATE_WIDGETS" />
+    </intent-filter>
+</receiver>
+
+<!-- strings.xml additions (res/values/strings.xml):
+<string name="pulse_widget_description">Shows today\'s tasks and overdue items</string>
+<string name="capture_widget_description">Quickly add a task or capture by voice</string>
+-->
