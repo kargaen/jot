@@ -21,6 +21,7 @@ import {
   updateProject,
   reorderTasks,
   reorderProjects,
+  mergeProjects,
   deleteProject,
   closeProject,
   closeProjectAndCompleteTasks,
@@ -431,7 +432,7 @@ export default function Dashboard() {
   const [, setDraggingTask] = useState<TaskWithTags | null>(null);
   const [sidebarHover, setSidebarHover] = useState<{ projectId: string | null; areaId: string | null } | null>(null);
   const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
-  const [projectDropTarget, setProjectDropTarget] = useState<{ id: string; before: boolean } | null>(null);
+  const [projectDropTarget, setProjectDropTarget] = useState<{ id: string; mode: "before" | "after" | "merge" } | null>(null);
   const [suggestClose, setSuggestClose] = useState<{ projectId: string; projectName: string } | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
@@ -614,6 +615,7 @@ export default function Dashboard() {
       width: savedW,
       height: savedH,
       decorations: false,
+      shadow: false,
       alwaysOnTop: true,
       resizable: true,
       skipTaskbar: false,
@@ -861,14 +863,47 @@ export default function Dashboard() {
 
   function handleProjectDrop(e: React.DragEvent, targetId: string, group: Project[]) {
     const sourceId = e.dataTransfer.getData("projectId");
+    const dropMode = projectDropTarget?.id === targetId ? projectDropTarget.mode : "after";
     setDraggingProjectId(null);
     setProjectDropTarget(null);
     if (!sourceId || sourceId === targetId) return;
+    if (dropMode === "merge") {
+      const sourceProject = projects.find((p) => p.id === sourceId);
+      const targetProject = projects.find((p) => p.id === targetId);
+      if (!sourceProject || !targetProject) return;
+      const accepted = window.confirm(
+        `Merge "${sourceProject.name}" into "${targetProject.name}"?\n\nAll open tasks from "${sourceProject.name}" will move into "${targetProject.name}", and the source project will be deleted.`,
+      );
+      if (!accepted) return;
+
+      setAllTasks((prev) =>
+        prev.map((task) =>
+          task.project_id === sourceId
+            ? { ...task, project_id: targetId, area_id: null }
+            : task,
+        ),
+      );
+      setProjects((prev) => prev.filter((project) => project.id !== sourceId));
+      if (selectedProject?.id === sourceId) {
+        setSelectedProject(targetProject);
+        setView("project");
+      }
+
+      mergeProjects(sourceId, targetId)
+        .then(() => {
+          logger.info("dashboard", `merged project ${sourceId} into ${targetId}`);
+          loadData();
+        })
+        .catch((err) => {
+          logger.error("dashboard", "mergeProjects failed", err instanceof Error ? err.message : err);
+          loadData();
+        });
+      return;
+    }
     const srcIdx = group.findIndex((p) => p.id === sourceId);
     const tgtIdx = group.findIndex((p) => p.id === targetId);
     if (srcIdx === -1 || tgtIdx === -1) return;
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const insertAt = e.clientY < rect.top + rect.height / 2 ? tgtIdx : tgtIdx + 1;
+    const insertAt = dropMode === "before" ? tgtIdx : tgtIdx + 1;
     const next = [...group];
     const [moved] = next.splice(srcIdx, 1);
     next.splice(insertAt > srcIdx ? insertAt - 1 : insertAt, 0, moved);
@@ -1250,7 +1285,7 @@ export default function Dashboard() {
                 </div>
                 {areaProjects.map((project) => (
                   <div key={project.id}>
-                    {projectDropTarget?.id === project.id && projectDropTarget.before && (
+                    {projectDropTarget?.id === project.id && projectDropTarget.mode === "before" && (
                       <div style={{ height: 2, margin: "1px 28px", borderRadius: 1, background: "var(--accent)", pointerEvents: "none" }} />
                     )}
                     <div
@@ -1258,11 +1293,28 @@ export default function Dashboard() {
                       data-drop-area-id={project.area_id ?? ""}
                       draggable
                       onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("projectId", project.id); setDraggingProjectId(project.id); }}
-                      onDragOver={draggingProjectId ? (e) => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setProjectDropTarget({ id: project.id, before: e.clientY < r.top + r.height / 2 }); } : undefined}
+                      onDragOver={draggingProjectId ? (e) => {
+                        e.preventDefault();
+                        const r = e.currentTarget.getBoundingClientRect();
+                        const y = e.clientY - r.top;
+                        const ratio = r.height > 0 ? y / r.height : 0.5;
+                        const mode = ratio < 0.28 ? "before" : ratio > 0.72 ? "after" : "merge";
+                        setProjectDropTarget({ id: project.id, mode });
+                      } : undefined}
                       onDragLeave={draggingProjectId ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setProjectDropTarget((p) => p?.id === project.id ? null : p); } : undefined}
                       onDrop={draggingProjectId ? (e) => handleProjectDrop(e, project.id, areaProjects) : undefined}
                       onDragEnd={() => { setDraggingProjectId(null); setProjectDropTarget(null); }}
-                      style={{ opacity: draggingProjectId === project.id ? 0.4 : 1, cursor: "grab" }}
+                      style={{
+                        opacity: draggingProjectId === project.id ? 0.4 : 1,
+                        cursor: "grab",
+                        borderRadius: "var(--radius-sm)",
+                        background: projectDropTarget?.id === project.id && projectDropTarget.mode === "merge"
+                          ? "rgba(34,197,94,0.10)"
+                          : "transparent",
+                        outline: projectDropTarget?.id === project.id && projectDropTarget.mode === "merge"
+                          ? "1px solid rgba(34,197,94,0.35)"
+                          : "none",
+                      }}
                     >
                       <NavItem
                         label={project.name}
@@ -1275,8 +1327,13 @@ export default function Dashboard() {
                         onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
                       />
                     </div>
-                    {projectDropTarget?.id === project.id && !projectDropTarget.before && (
+                    {projectDropTarget?.id === project.id && projectDropTarget.mode === "after" && (
                       <div style={{ height: 2, margin: "1px 28px", borderRadius: 1, background: "var(--accent)", pointerEvents: "none" }} />
+                    )}
+                    {projectDropTarget?.id === project.id && projectDropTarget.mode === "merge" && (
+                      <div style={{ margin: "2px 28px 4px 44px", fontSize: 10, color: "var(--accent)", pointerEvents: "none" }}>
+                        Drop to merge into {project.name}
+                      </div>
                     )}
                   </div>
                 ))}

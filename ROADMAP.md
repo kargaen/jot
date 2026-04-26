@@ -18,9 +18,9 @@ This roadmap reflects the current product direction: fast short-horizon task cap
   Keep the same core framing, states, and voice so the feature feels like one product.
 - [x] Add link support on tasks.
   A lightweight link field or smart URL detection adds real utility without turning tasks into documents.
-- [ ] Add project merge via drag-and-drop semantics.
+- [x] Add project merge via drag-and-drop semantics.
   Dragging one project onto another can become the merge affordance, with a strong confirmation step.
-- [ ] Add a simple attachments spike.
+- [x] Add a simple attachments spike.
   Validate storage costs, file-size limits, and sync ergonomics before committing to a bigger media feature.
 
 ## Medium Bets

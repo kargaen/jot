@@ -257,7 +257,6 @@ export default function ReminderWindow() {
   const [pin,      setPin]      = useState(loadPin);
   const [onStart,  setOnStart]  = useState(loadOnStart);
   const [opacity,  setOpacity]  = useState(loadOpacity);
-  const [hasMica,  setHasMica]  = useState(false);
 
   const duration = useRef(loadDuration());
   const previousPulseCount = useRef<number | null>(null);
@@ -277,9 +276,15 @@ export default function ReminderWindow() {
     return () => el.remove();
   }, []);
 
-  // Try native translucency (Mica, Windows 11+)
   useEffect(() => {
-    invoke<boolean>("apply_vibrancy").then((ok) => setHasMica(ok)).catch(() => {});
+    const prevBodyBg = document.body.style.background;
+    const prevHtmlBg = document.documentElement.style.background;
+    document.body.style.background = "transparent";
+    document.documentElement.style.background = "transparent";
+    return () => {
+      document.body.style.background = prevBodyBg;
+      document.documentElement.style.background = prevHtmlBg;
+    };
   }, []);
 
   // Restore saved position (or default mid-right), then reveal
@@ -441,25 +446,46 @@ export default function ReminderWindow() {
   }, [isManual, loaded, pulseCount, isEmpty]);
 
   const isDark = getResolvedTheme(loadThemePreference()) === "dark";
-  const bgRgb  = isDark ? "30,30,28" : "255,255,255";
+  const shellAlpha = 0.12 + opacity * 0.68;
+  const surfaceAlpha = 0.18 + opacity * 0.72;
+  const shellBg = isDark ? `rgba(29,31,28,${shellAlpha})` : `rgba(244,245,241,${shellAlpha})`;
+  const surfaceBg = isDark ? `rgba(37,40,36,${surfaceAlpha})` : `rgba(255,255,255,${surfaceAlpha})`;
+  const surfaceBorder = isDark ? "rgba(255,255,255,0.08)" : "#d8dccc";
+  const shellShadow = isDark ? "0 18px 42px rgba(0,0,0,0.42)" : "0 10px 28px rgba(0,0,0,0.16)";
 
   return (
     <div
       style={{
-        width: "100%", height: "100vh",
-        background: hasMica ? `rgba(${bgRgb},${opacity})` : "var(--bg-primary)",
-        display: "flex", flexDirection: "column",
-        overflow: "hidden", fontFamily: "inherit",
+        width: "100%",
+        height: "100vh",
+        padding: 8,
+        boxSizing: "border-box",
+        background: "transparent",
+        fontFamily: "inherit",
       }}
     >
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: shellBg,
+          border: `1px solid ${surfaceBorder}`,
+          borderRadius: 10,
+          boxShadow: shellShadow,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
       {/* Header — drag region */}
       <div
         data-tauri-drag-region
         style={{
           display: "flex", alignItems: "center", gap: 7,
           padding: "8px 10px",
-          borderBottom: "1px solid var(--border-subtle)",
+          borderBottom: `1px solid ${surfaceBorder}`,
           flexShrink: 0, userSelect: "none",
+          background: surfaceBg,
         }}
       >
         {/* App icon */}
@@ -484,7 +510,7 @@ export default function ReminderWindow() {
       </div>
 
       {/* Task sections */}
-      <div style={{ flex: 1, overflowY: "auto" }}>
+      <div style={{ flex: 1, overflowY: "auto", background: surfaceBg }}>
         {!loaded ? (
           <LoadingPulse />
         ) : isEmpty ? (
@@ -515,7 +541,7 @@ export default function ReminderWindow() {
           )
         ) : (
           <>
-            <div style={{ padding: "10px 12px 8px", borderBottom: "1px solid var(--border-subtle)" }}>
+            <div style={{ padding: "10px 12px 8px", borderBottom: `1px solid ${surfaceBorder}` }}>
               <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)" }}>
                 Morning summary
               </div>
@@ -563,7 +589,7 @@ export default function ReminderWindow() {
       </div>
 
       {/* Footer */}
-      <div style={{ flexShrink: 0, borderTop: "1px solid var(--border-subtle)", padding: "7px 12px" }}>
+      <div style={{ flexShrink: 0, borderTop: `1px solid ${surfaceBorder}`, padding: "7px 12px", background: surfaceBg }}>
         {/* Always-on-top row */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
           <span style={{ fontSize: 11, color: "var(--text-tertiary)", flex: 1 }}>Always on top</span>
@@ -579,8 +605,7 @@ export default function ReminderWindow() {
             else      localStorage.removeItem("jot_reminder_on_start");
           }} />
         </div>
-        {/* Opacity row — only when native translucency is available (W11+) */}
-        {hasMica && (
+        {/* Opacity row */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 7 }}>
             <span style={{ fontSize: 11, color: "var(--text-tertiary)", flex: 1 }}>Opacity</span>
             <input
@@ -597,7 +622,6 @@ export default function ReminderWindow() {
               {Math.round(opacity * 100)}%
             </span>
           </div>
-        )}
 
         {isManual ? (
           <button
@@ -646,6 +670,7 @@ export default function ReminderWindow() {
             </div>
           </>
         )}
+      </div>
       </div>
     </div>
   );

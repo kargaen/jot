@@ -415,6 +415,22 @@ export async function reorderProjects(
   );
 }
 
+export async function mergeProjects(sourceProjectId: string, targetProjectId: string): Promise<void> {
+  const now = new Date().toISOString();
+  const { error: taskErr } = await supabase
+    .from("tasks")
+    .update({ project_id: targetProjectId, area_id: null, updated_at: now })
+    .eq("project_id", sourceProjectId)
+    .eq("status", "todo");
+  if (taskErr) logErr("mergeProjects(tasks)", taskErr);
+
+  const { error: projectErr } = await supabase
+    .from("projects")
+    .delete()
+    .eq("id", sourceProjectId);
+  if (projectErr) logErr("mergeProjects(deleteProject)", projectErr);
+}
+
 export interface CreateTaskInput {
   title: string;
   projectId?: string | null;
