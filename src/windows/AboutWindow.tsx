@@ -6,10 +6,12 @@ import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 export default function AboutWindow() {
+  const releasesUrl = "https://github.com/kargaen/jot/releases";
   const [version, setVersion] = useState("");
-  const [updateState, setUpdateState] = useState<"checking" | "up-to-date" | "available" | "downloading" | "ready">("checking");
+  const [updateState, setUpdateState] = useState<"checking" | "up-to-date" | "available" | "downloading" | "ready" | "failed">("checking");
   const [updateVersion, setUpdateVersion] = useState("");
   const [updateProgress, setUpdateProgress] = useState(0);
+  const [updateError, setUpdateError] = useState("");
   const updateRef = useRef<Awaited<ReturnType<typeof check>> | null>(null);
 
   useEffect(() => {
@@ -29,13 +31,20 @@ export default function AboutWindow() {
     const update = updateRef.current;
     if (!update) return;
     setUpdateState("downloading");
+    setUpdateError("");
+    setUpdateProgress(0);
     let totalBytes = 0;
-    await update.downloadAndInstall((event) => {
-      if (event.event === "Started" && event.data.contentLength) totalBytes = event.data.contentLength;
-      else if (event.event === "Progress" && totalBytes > 0) setUpdateProgress((prev) => Math.min(prev + event.data.chunkLength / totalBytes * 100, 100));
-      else if (event.event === "Finished") setUpdateState("ready");
-    });
-    await relaunch();
+    try {
+      await update.downloadAndInstall((event) => {
+        if (event.event === "Started" && event.data.contentLength) totalBytes = event.data.contentLength;
+        else if (event.event === "Progress" && totalBytes > 0) setUpdateProgress((prev) => Math.min(prev + event.data.chunkLength / totalBytes * 100, 100));
+        else if (event.event === "Finished") setUpdateState("ready");
+      });
+      await relaunch();
+    } catch (error) {
+      setUpdateState("failed");
+      setUpdateError(error instanceof Error ? error.message : "Automatic update failed.");
+    }
   }
 
   const row: React.CSSProperties = {
@@ -112,8 +121,24 @@ export default function AboutWindow() {
             {updateState === "ready" && (
               <span style={{ fontSize: 12, color: "#16a34a", fontWeight: 500 }}>Restarting...</span>
             )}
+            {updateState === "failed" && (
+              <>
+                <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 500 }}>Auto update failed</span>
+                <button
+                  onClick={() => shellOpen(releasesUrl)}
+                  style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "#dc2626", color: "#fff", cursor: "pointer" }}
+                >
+                  Download manually
+                </button>
+              </>
+            )}
           </div>
         </div>
+        {updateState === "failed" && (
+          <div style={{ marginTop: 8, fontSize: 12, color: "var(--text-tertiary)" }}>
+            {updateError || "Please download the latest installer manually from Releases."}
+          </div>
+        )}
 
         {/* Created by */}
         <div style={{ ...row, borderBottom: "none" }}>

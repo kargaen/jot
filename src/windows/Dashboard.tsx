@@ -7,6 +7,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import Toggle from "../components/Toggle";
 import Preferences from "./Preferences";
 import {
@@ -38,6 +39,8 @@ import { logger } from "../lib/logger";
 import { syncWidgets } from "../lib/widgetSync";
 import { loadHiddenAreas, saveHiddenAreas, filterVisibleTasks, filterVisibleProjects } from "../lib/tasks";
 import type { Area, Project, Tag, TaskWithTags } from "../types";
+
+const RELEASES_URL = "https://github.com/kargaen/jot/releases";
 
 type View = "overdue" | "today" | "inbox" | "upcoming" | "project" | "logbook";
 
@@ -425,9 +428,10 @@ export default function Dashboard() {
   const projectsSeenWithTasks = useRef(new Set<string>());
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingName, setOnboardingName] = useState("Personal");
-  const [updateStatus, setUpdateStatus] = useState<"idle" | "available" | "downloading" | "ready">("idle");
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "available" | "downloading" | "ready" | "failed">("idle");
   const [updateVersion, setUpdateVersion] = useState("");
   const [updateProgress, setUpdateProgress] = useState(0);
+  const [updateError, setUpdateError] = useState("");
   const updateRef = useRef<Awaited<ReturnType<typeof check>> | null>(null);
   const [, setDraggingTask] = useState<TaskWithTags | null>(null);
   const [sidebarHover, setSidebarHover] = useState<{ projectId: string | null; areaId: string | null } | null>(null);
@@ -573,17 +577,25 @@ export default function Dashboard() {
     const update = updateRef.current;
     if (!update) return;
     setUpdateStatus("downloading");
+    setUpdateError("");
+    setUpdateProgress(0);
     let totalBytes = 0;
-    await update.downloadAndInstall((event) => {
-      if (event.event === "Started" && event.data.contentLength) {
-        totalBytes = event.data.contentLength;
-      } else if (event.event === "Progress" && totalBytes > 0) {
-        setUpdateProgress((prev) => Math.min(prev + event.data.chunkLength / totalBytes * 100, 100));
-      } else if (event.event === "Finished") {
-        setUpdateStatus("ready");
-      }
-    });
-    await relaunch();
+    try {
+      await update.downloadAndInstall((event) => {
+        if (event.event === "Started" && event.data.contentLength) {
+          totalBytes = event.data.contentLength;
+        } else if (event.event === "Progress" && totalBytes > 0) {
+          setUpdateProgress((prev) => Math.min(prev + event.data.chunkLength / totalBytes * 100, 100));
+        } else if (event.event === "Finished") {
+          setUpdateStatus("ready");
+        }
+      });
+      await relaunch();
+    } catch (error) {
+      logger.error("dashboard", "update install failed", error instanceof Error ? error.message : error);
+      setUpdateStatus("failed");
+      setUpdateError(error instanceof Error ? error.message : "Update could not be installed automatically.");
+    }
   }
 
   // ── Reminder scheduler ────────────────────────────────────────────────────
@@ -1401,14 +1413,22 @@ export default function Dashboard() {
         {updateStatus !== "idle" && (
           <div style={{
             margin: "0 32px", padding: "10px 14px", borderRadius: "var(--radius-md)",
-            background: updateStatus === "downloading" ? "rgba(139,92,246,0.08)" : "rgba(34,197,94,0.08)",
-            border: `1px solid ${updateStatus === "downloading" ? "rgba(139,92,246,0.2)" : "rgba(34,197,94,0.2)"}`,
+            background:
+              updateStatus === "downloading" ? "rgba(139,92,246,0.08)"
+              : updateStatus === "failed" ? "rgba(220,38,38,0.08)"
+              : "rgba(34,197,94,0.08)",
+            border: `1px solid ${
+              updateStatus === "downloading" ? "rgba(139,92,246,0.2)"
+              : updateStatus === "failed" ? "rgba(220,38,38,0.2)"
+              : "rgba(34,197,94,0.2)"
+            }`,
             display: "flex", alignItems: "center", gap: 10, fontSize: 13,
           }}>
             <span style={{ flex: 1, color: "var(--text-primary)" }}>
               {updateStatus === "available" && `Jot ${updateVersion} is available.`}
               {updateStatus === "downloading" && `Downloading update… ${Math.round(updateProgress)}%`}
               {updateStatus === "ready" && "Update installed. Restarting…"}
+              {updateStatus === "failed" && `Automatic update failed. Please download Jot manually from Releases.${updateError ? ` (${updateError})` : ""}`}
             </span>
             {updateStatus === "available" && (
               <>
@@ -1420,6 +1440,12 @@ export default function Dashboard() {
               <div style={{ width: 80, height: 4, borderRadius: 2, background: "var(--bg-tertiary)", overflow: "hidden" }}>
                 <div style={{ height: "100%", width: `${updateProgress}%`, background: "#8b5cf6", borderRadius: 2, transition: "width 0.3s" }} />
               </div>
+            )}
+            {updateStatus === "failed" && (
+              <>
+                <button onClick={() => shellOpen(RELEASES_URL)} style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "#dc2626", color: "#fff", cursor: "pointer" }}>Download manually</button>
+                <button onClick={() => setUpdateStatus("idle")} style={{ padding: "4px 8px", fontSize: 12, color: "var(--text-tertiary)", cursor: "pointer" }}>Dismiss</button>
+              </>
             )}
           </div>
         )}

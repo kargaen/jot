@@ -1,4 +1,3 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 pub mod widget_sync;
 
 #[cfg(target_os = "android")]
