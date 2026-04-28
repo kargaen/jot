@@ -61,16 +61,35 @@ export async function signOut() {
 
 export async function getSession() {
   const { data } = await supabase.auth.getSession();
+  const candidate = data.session?.user as { email_confirmed_at?: string | null; confirmed_at?: string | null } | undefined;
+  if (data.session && !candidate?.email_confirmed_at && !candidate?.confirmed_at) return null;
   return data.session;
 }
 
-async function getCurrentUserId(): Promise<string> {
+async function getCurrentSessionOrRefresh() {
   const { data } = await supabase.auth.getSession();
-  if (!data.session) throw new Error("Not authenticated");
-  return data.session.user.id;
+  const candidate = data.session?.user as { email_confirmed_at?: string | null; confirmed_at?: string | null } | undefined;
+  if (data.session && (candidate?.email_confirmed_at || candidate?.confirmed_at)) return data.session;
+
+  const { data: refreshed, error } = await supabase.auth.refreshSession();
+  if (error) {
+    logger.error("supabase", `refreshSession: ${error.message}`);
+    return null;
+  }
+  const refreshedCandidate = refreshed.session?.user as { email_confirmed_at?: string | null; confirmed_at?: string | null } | undefined;
+  if (refreshed.session && !refreshedCandidate?.email_confirmed_at && !refreshedCandidate?.confirmed_at) return null;
+  return refreshed.session;
+}
+
+async function getCurrentUserId(): Promise<string> {
+  const session = await getCurrentSessionOrRefresh();
+  if (!session) throw new Error("Not authenticated");
+  return session.user.id;
 }
 
 async function getCurrentUser() {
+  const session = await getCurrentSessionOrRefresh();
+  if (session?.user) return session.user;
   const { data } = await supabase.auth.getUser();
   return data.user;
 }
@@ -114,14 +133,11 @@ export async function fetchAreas(): Promise<Area[]> {
 }
 
 export async function createArea(name: string, color = "#6B7280"): Promise<Area> {
-  const user_id = await getCurrentUserId();
   const { data, error } = await supabase
-    .from("areas")
-    .insert({ name, color, user_id })
-    .select()
+    .rpc("create_area", { p_name: name, p_color: color })
     .single();
-  if (error) throw error;
-  return data;
+  if (error) logErr("createArea", error);
+  return data as Area;
 }
 
 export async function updateArea(id: string, fields: Partial<{ name: string; color: string }>): Promise<void> {

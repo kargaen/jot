@@ -34,6 +34,7 @@ import {
   removeAreaMember,
   inviteProjectMember,
   removeProjectMember,
+  getSession,
 } from "../lib/supabase";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -55,6 +56,14 @@ type SidebarContextMenu =
 type ShareTarget =
   | { kind: "area"; id: string; name: string }
   | { kind: "project"; id: string; name: string };
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return JSON.stringify(error);
+}
 
 function sortTasks(tasks: TaskWithTags[], byOrder = false): TaskWithTags[] {
   return [...tasks].sort((a, b) => {
@@ -98,7 +107,8 @@ async function openTaskWindow(task: TaskWithTags) {
 // ─── Auth screen ──────────────────────────────────────────────────────────────
 
 function AuthScreen({ launchNotice }: { launchNotice: string | null }) {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resendSignupConfirmation } = useAuth();
+  const RESEND_COOLDOWN_SECONDS = 30;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
@@ -106,24 +116,74 @@ function AuthScreen({ launchNotice }: { launchNotice: string | null }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState<{
+    email: string;
+    password: string;
+    rememberMe: boolean;
+  } | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
     if (launchNotice) setNotice(launchNotice);
   }, [launchNotice]);
+
+  useEffect(() => {
+    if (!awaitingConfirmation || resendCooldown <= 0) return;
+    const id = window.setInterval(() => {
+      setResendCooldown((current) => (current <= 1 ? 0 : current - 1));
+    }, 1_000);
+    return () => window.clearInterval(id);
+  }, [awaitingConfirmation, resendCooldown]);
+
+  function enterAwaitingConfirmation(nextNotice: string, nextRememberMe: boolean) {
+    setAwaitingConfirmation({
+      email: email.trim(),
+      password,
+      rememberMe: nextRememberMe,
+    });
+    setNotice(nextNotice);
+    setError("");
+    setResendCooldown(RESEND_COOLDOWN_SECONDS);
+  }
+
+  function leaveAwaitingConfirmation() {
+    setAwaitingConfirmation(null);
+    setNotice("");
+    setError("");
+    setResendCooldown(0);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
     setNotice("");
-    const err = isSignUp
+    const result = isSignUp
       ? await signUp(email, password)
       : await signIn(email, password, rememberMe);
-    if (err) setError(err);
-    else if (isSignUp) {
-      setNotice("Check your email to confirm your account. The link will bring you back to Jot's website after confirmation.");
-      setPassword("");
+    if (!result.ok) {
+      if (result.kind === "email_not_confirmed") {
+        enterAwaitingConfirmation("Check your email to continue.", rememberMe);
+      } else {
+        setError(result.message);
+      }
+    } else if (isSignUp) {
+      enterAwaitingConfirmation("Check your email to finish creating your account.", true);
     }
+    setLoading(false);
+  }
+
+  async function handleResend() {
+    const resendEmail = awaitingConfirmation?.email ?? email.trim();
+    if (!resendEmail || resendCooldown > 0) return;
+    setLoading(true);
+    setError("");
+    const result = await resendSignupConfirmation(resendEmail);
+    if (result.ok) {
+      setNotice("Confirmation email sent.");
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    }
+    else setError(result.message);
     setLoading(false);
   }
 
@@ -153,25 +213,36 @@ function AuthScreen({ launchNotice }: { launchNotice: string | null }) {
             Jot
           </h1>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4 }}>
-            {isSignUp ? "Create an account" : "Sign in to continue"}
+            {awaitingConfirmation ? "Confirm your email to continue" : isSignUp ? "Create an account" : "Sign in to continue"}
           </p>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <FormInput label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" />
-          <FormInput label="Password" type="password" value={password} onChange={setPassword} placeholder="••••••••" />
-        </div>
+        {awaitingConfirmation ? (
+          <div style={{ display: "grid", gap: 12 }}>
+            <div style={{ padding: "10px 12px", borderRadius: "var(--radius-sm)", background: "var(--bg-secondary)", border: "1px solid var(--border-default)" }}>
+              <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginBottom: 4 }}>Awaiting confirmation for</div>
+              <div style={{ fontSize: 14, color: "var(--text-primary)", fontWeight: 500 }}>{awaitingConfirmation.email}</div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <FormInput label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" />
+              <FormInput label="Password" type="password" value={password} onChange={setPassword} placeholder="••••••••" />
+            </div>
 
-        {!isSignUp && (
-          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, cursor: "pointer", userSelect: "none" }}>
-            <input
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              style={{ width: 15, height: 15, cursor: "pointer", accentColor: "var(--accent)" }}
-            />
-            <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Keep me signed in</span>
-          </label>
+            {!isSignUp && (
+              <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, cursor: "pointer", userSelect: "none" }}>
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  style={{ width: 15, height: 15, cursor: "pointer", accentColor: "var(--accent)" }}
+                />
+                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Keep me signed in</span>
+              </label>
+            )}
+          </>
         )}
 
         {error && (
@@ -185,20 +256,37 @@ function AuthScreen({ launchNotice }: { launchNotice: string | null }) {
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{ marginTop: 20, width: "100%", padding: "10px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius-md)", fontSize: 14, fontWeight: 500, cursor: loading ? "wait" : "pointer", opacity: loading ? 0.7 : 1 }}
-        >
-          {loading ? "Please wait…" : isSignUp ? "Create account" : "Sign in"}
-        </button>
+        {awaitingConfirmation ? (
+          <button
+            type="button"
+            onClick={() => { void handleResend(); }}
+            disabled={loading || resendCooldown > 0}
+            style={{ marginTop: 20, width: "100%", padding: "10px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius-md)", fontSize: 14, fontWeight: 500, cursor: loading ? "wait" : "pointer", opacity: loading || resendCooldown > 0 ? 0.7 : 1 }}
+          >
+            {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Send confirmation again"}
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={loading}
+            style={{ marginTop: 20, width: "100%", padding: "10px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius-md)", fontSize: 14, fontWeight: 500, cursor: loading ? "wait" : "pointer", opacity: loading ? 0.7 : 1 }}
+          >
+            {loading ? "Please wait…" : isSignUp ? "Create account" : "Sign in"}
+          </button>
+        )}
 
         <button
           type="button"
-          onClick={() => setIsSignUp((v) => !v)}
+          onClick={() => {
+            if (awaitingConfirmation) {
+              leaveAwaitingConfirmation();
+              return;
+            }
+            setIsSignUp((v) => !v);
+          }}
           style={{ marginTop: 12, width: "100%", fontSize: 13, color: "var(--text-secondary)", padding: "4px" }}
         >
-          {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+          {awaitingConfirmation ? "Back" : isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
         </button>
       </form>
     </div>
@@ -456,6 +544,8 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
   const projectsSeenWithTasks = useRef(new Set<string>());
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingName, setOnboardingName] = useState("Personal");
+  const [onboardingBusy, setOnboardingBusy] = useState(false);
+  const [onboardingError, setOnboardingError] = useState("");
   const [updateStatus, setUpdateStatus] = useState<"idle" | "available" | "downloading" | "ready" | "failed">("idle");
   const [updateVersion, setUpdateVersion] = useState("");
   const [updateProgress, setUpdateProgress] = useState(0);
@@ -483,9 +573,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
       ]);
       if (id !== loadIdRef.current) return; // stale — a newer load is in flight
       setAreas(a);
-      if (a.length === 0 && !localStorage.getItem("jot_onboarding_done")) {
-        setShowOnboarding(true);
-      }
+      setShowOnboarding(a.length === 0);
       const savedDefaultAreaId = loadDefaultAreaId();
       if (a.length > 0 && (!savedDefaultAreaId || !a.some((area) => area.id === savedDefaultAreaId))) {
         setDefaultAreaId(a[0].id);
@@ -976,12 +1064,31 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
 
   async function handleOnboardingCreate() {
     if (!onboardingName.trim()) return;
-    const area = await createArea(onboardingName.trim());
-    setDefaultAreaId(area.id);
-    saveDefaultAreaId(area.id);
-    localStorage.setItem("jot_onboarding_done", "1");
-    setShowOnboarding(false);
-    loadData();
+    setOnboardingBusy(true);
+    setOnboardingError("");
+    try {
+      const session = await getSession();
+      if (!session) {
+        setOnboardingError("Your session is not ready yet. Please sign out and sign back in now that your email is confirmed.");
+        return;
+      }
+      const area = await createArea(onboardingName.trim());
+      setDefaultAreaId(area.id);
+      saveDefaultAreaId(area.id);
+      setShowOnboarding(false);
+      loadData();
+    } catch (error) {
+      const message = errorMessage(error);
+      if (message.includes("42501") || message.toLowerCase().includes("row-level security")) {
+        setOnboardingError("Jot could not create your first space because the session was rejected by the server. Please sign out and sign back in, then try again.");
+      } else if (message.toLowerCase().includes("not authenticated")) {
+        setOnboardingError("You need to be signed in before creating your first space. Please sign in again and retry.");
+      } else {
+        setOnboardingError(message);
+      }
+    } finally {
+      setOnboardingBusy(false);
+    }
   }
 
   async function handleDeleteProject(id: string) {
@@ -1613,17 +1720,22 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
 
       {/* Onboarding — first-run space creation */}
       {showOnboarding && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 250, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ width: 380, background: "var(--bg-primary)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-lg)", padding: "32px 28px", textAlign: "center" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 250, background: "linear-gradient(180deg, rgba(15,15,15,0.88), rgba(15,15,15,0.96))", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ width: 420, maxWidth: "100%", background: "var(--bg-primary)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-lg)", padding: "36px 30px", textAlign: "center" }}>
             <div style={{ fontSize: 28, marginBottom: 8 }}>Welcome to Jot</div>
             <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 20 }}>
-              Create your first space to organize tasks. You can add more later in Preferences.
+              Projects and inbox tasks live inside spaces. Create your first one to start using Jot.
             </p>
+            {onboardingError && (
+              <div style={{ marginBottom: 14, padding: "10px 12px", borderRadius: "var(--radius-md)", background: "rgba(220,38,38,0.08)", color: "#b91c1c", fontSize: 12, lineHeight: 1.5 }}>
+                {onboardingError}
+              </div>
+            )}
             <input
               autoFocus
               value={onboardingName}
               onChange={(e) => setOnboardingName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && onboardingName.trim()) handleOnboardingCreate(); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && onboardingName.trim() && !onboardingBusy) handleOnboardingCreate(); }}
               placeholder="e.g. Personal, Work, Side Project…"
               style={{
                 width: "100%", padding: "10px 14px", fontSize: 14,
@@ -1633,20 +1745,17 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
                 textAlign: "center",
               }}
             />
-            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button
-                onClick={() => { localStorage.setItem("jot_onboarding_done", "1"); setShowOnboarding(false); }}
-                style={{ padding: "8px 18px", fontSize: 13, borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)", background: "var(--bg-secondary)", color: "var(--text-secondary)", cursor: "pointer" }}
-              >
-                Skip
-              </button>
+            <div style={{ display: "grid", gap: 10, justifyContent: "center" }}>
               <button
                 onClick={handleOnboardingCreate}
-                disabled={!onboardingName.trim()}
-                style={{ padding: "8px 24px", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius-md)", background: "var(--accent)", color: "#fff", cursor: "pointer", opacity: onboardingName.trim() ? 1 : 0.5 }}
+                disabled={!onboardingName.trim() || onboardingBusy}
+                style={{ padding: "10px 24px", width: "100%", fontSize: 13, fontWeight: 600, borderRadius: "var(--radius-md)", background: "var(--accent)", color: "#fff", cursor: "pointer", opacity: onboardingName.trim() && !onboardingBusy ? 1 : 0.5 }}
               >
-                Create space
+                {onboardingBusy ? "Creating..." : "Create space"}
               </button>
+              <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+                You can rename it later and add more spaces in Preferences.
+              </div>
             </div>
           </div>
         </div>

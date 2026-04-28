@@ -27,6 +27,7 @@ import {
   updateArea,
   updatePassword,
   updateTask,
+  getSession,
 } from "../lib/supabase";
 import { syncWidgets } from "../lib/widgetSync";
 import { projectColor, spaceColor } from "../lib/colors";
@@ -158,6 +159,14 @@ function normalizeTaskLink(raw: string): string | null {
   if (/^https?:\/\//i.test(value)) return value;
   if (/^[^\s]+\.[^\s]+/.test(value)) return `https://${value}`;
   return value;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return JSON.stringify(error);
 }
 
 function sectionLabel(iso: string | null) {
@@ -345,31 +354,82 @@ function SpaceCard({
 }
 
 function MobileAuthScreen({ launchNotice }: { launchNotice: string | null }) {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resendSignupConfirmation } = useAuth();
+  const RESEND_COOLDOWN_SECONDS = 30;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState<{
+    email: string;
+    password: string;
+    rememberMe: boolean;
+  } | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
     if (launchNotice) setNotice(launchNotice);
   }, [launchNotice]);
+
+  useEffect(() => {
+    if (!awaitingConfirmation || resendCooldown <= 0) return;
+    const id = window.setInterval(() => {
+      setResendCooldown((current) => (current <= 1 ? 0 : current - 1));
+    }, 1_000);
+    return () => window.clearInterval(id);
+  }, [awaitingConfirmation, resendCooldown]);
+
+  function enterAwaitingConfirmation(nextNotice: string, nextRememberMe: boolean) {
+    setAwaitingConfirmation({
+      email: email.trim(),
+      password,
+      rememberMe: nextRememberMe,
+    });
+    setNotice(nextNotice);
+    setError("");
+    setResendCooldown(RESEND_COOLDOWN_SECONDS);
+  }
+
+  function leaveAwaitingConfirmation() {
+    setAwaitingConfirmation(null);
+    setNotice("");
+    setError("");
+    setResendCooldown(0);
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
     setNotice("");
-    const err = isSignUp
+    const result = isSignUp
       ? await signUp(email, password)
       : await signIn(email, password, true);
-    if (err) setError(err);
-    else if (isSignUp) {
-      setNotice("Check your email to confirm your account. After confirmation, the link will land on Jot's website.");
-      setPassword("");
+    if (!result.ok) {
+      if (result.kind === "email_not_confirmed") {
+        enterAwaitingConfirmation("Check your email to continue.", true);
+      } else {
+        setError(result.message);
+      }
+    } else if (isSignUp) {
+      enterAwaitingConfirmation("Check your email to finish creating your account.", true);
     }
+    setLoading(false);
+  }
+
+  async function handleResend() {
+    const resendEmail = awaitingConfirmation?.email ?? email.trim();
+    if (!resendEmail || resendCooldown > 0) return;
+    setLoading(true);
+    setError("");
+    const result = await resendSignupConfirmation(resendEmail);
+    if (result.ok) {
+      setNotice("Confirmation email sent.");
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    }
+    else setError(result.message);
     setLoading(false);
   }
 
@@ -392,27 +452,36 @@ function MobileAuthScreen({ launchNotice }: { launchNotice: string | null }) {
           <div>
             <div style={{ fontSize: 30, fontWeight: 800, color: "var(--text-primary)" }}>Jot</div>
             <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4 }}>
-              {isSignUp ? "Create your mobile workspace" : "Sign in to your daily flow"}
+              {awaitingConfirmation ? "Confirm your email to continue" : isSignUp ? "Create your mobile workspace" : "Sign in to your daily flow"}
             </div>
           </div>
         </div>
 
-        <div style={{ display: "grid", gap: 12 }}>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            style={inputStyle()}
-          />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            style={inputStyle()}
-          />
-        </div>
+        {awaitingConfirmation ? (
+          <div style={{ display: "grid", gap: 12 }}>
+            <div style={{ ...cardStyle(), padding: 14, borderRadius: 18 }}>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Awaiting confirmation for</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>{awaitingConfirmation.email}</div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 12 }}>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email"
+              style={inputStyle()}
+            />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              style={inputStyle()}
+            />
+          </div>
+        )}
 
         {error && (
           <div style={{
@@ -440,15 +509,32 @@ function MobileAuthScreen({ launchNotice }: { launchNotice: string | null }) {
         )}
 
         <div style={{ display: "grid", gap: 10, marginTop: 18 }}>
-          <button type="submit" disabled={loading} style={buttonStyle("primary")}>
-            {loading ? "Working..." : isSignUp ? "Create account" : "Sign in"}
-          </button>
+          {awaitingConfirmation ? (
+            <button
+              type="button"
+              onClick={() => { void handleResend(); }}
+              disabled={loading || resendCooldown > 0}
+              style={buttonStyle("primary")}
+            >
+              {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Send confirmation again"}
+            </button>
+          ) : (
+            <button type="submit" disabled={loading} style={buttonStyle("primary")}>
+              {loading ? "Working..." : isSignUp ? "Create account" : "Sign in"}
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => setIsSignUp((v) => !v)}
+            onClick={() => {
+              if (awaitingConfirmation) {
+                leaveAwaitingConfirmation();
+                return;
+              }
+              setIsSignUp((v) => !v);
+            }}
             style={buttonStyle()}
           >
-            {isSignUp ? "I already have an account" : "Create a new account"}
+            {awaitingConfirmation ? "Back" : isSignUp ? "I already have an account" : "Create a new account"}
           </button>
         </div>
       </form>
@@ -1559,6 +1645,9 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const [userSection, setUserSection] = useState<UserSectionId | null>(null);
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("today");
   const [areas, setAreas] = useState<Area[]>([]);
+  const [firstAreaName, setFirstAreaName] = useState("Personal");
+  const [firstAreaBusy, setFirstAreaBusy] = useState(false);
+  const [firstAreaError, setFirstAreaError] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [tasks, setTasks] = useState<TaskWithTags[]>([]);
@@ -1651,6 +1740,33 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   useEffect(() => {
     saveAreaSchedules(areaSchedules);
   }, [areaSchedules]);
+
+  async function handleCreateFirstArea() {
+    if (!firstAreaName.trim()) return;
+    setFirstAreaBusy(true);
+    setFirstAreaError("");
+    try {
+      const session = await getSession();
+      if (!session) {
+        setFirstAreaError("Your session is not ready yet. Please sign out and sign back in now that your email is confirmed.");
+        return;
+      }
+      const area = await createArea(firstAreaName.trim());
+      saveDefaultAreaId(area.id);
+      await loadData();
+    } catch (error) {
+      const message = errorMessage(error);
+      if (message.includes("42501") || message.toLowerCase().includes("row-level security")) {
+        setFirstAreaError("Jot could not create your first space because the session was rejected by the server. Please sign out and sign back in, then try again.");
+      } else if (message.toLowerCase().includes("not authenticated")) {
+        setFirstAreaError("You need to be signed in before creating your first space. Please sign in again and retry.");
+      } else {
+        setFirstAreaError(message);
+      }
+    } finally {
+      setFirstAreaBusy(false);
+    }
+  }
 
   const inactiveScheduledAreaIds = useMemo(
     () => areas.filter((area) => !isAreaVisibleNow(areaSchedules[area.id])).map((area) => area.id),
@@ -1839,6 +1955,52 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   }
 
   if (!user) return <MobileAuthScreen launchNotice={launchNotice} />;
+
+  if (!loadingData && areas.length === 0) {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        background: "var(--bg-shell)",
+        color: "var(--text-primary)",
+        display: "grid",
+        placeItems: "center",
+        padding: 20,
+        boxSizing: "border-box",
+      }}>
+        <div style={{ ...cardStyle(), width: "100%", maxWidth: 420, padding: 22, display: "grid", gap: 14 }}>
+          <div>
+            <div style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05 }}>Welcome to Jot</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 8, lineHeight: 1.6 }}>
+              Projects and inbox tasks live inside spaces. Create your first one to start using Jot.
+            </div>
+          </div>
+          {firstAreaError && (
+            <div style={{ padding: "10px 12px", borderRadius: 14, background: "rgba(220,38,38,0.08)", color: "#b91c1c", fontSize: 12, lineHeight: 1.5 }}>
+              {firstAreaError}
+            </div>
+          )}
+          <input
+            autoFocus
+            value={firstAreaName}
+            onChange={(e) => setFirstAreaName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && firstAreaName.trim() && !firstAreaBusy) void handleCreateFirstArea(); }}
+            placeholder="e.g. Personal, Work, Side Project..."
+            style={inputStyle()}
+          />
+          <button
+            onClick={() => void handleCreateFirstArea()}
+            disabled={!firstAreaName.trim() || firstAreaBusy}
+            style={{ ...buttonStyle("primary"), opacity: !firstAreaName.trim() || firstAreaBusy ? 0.7 : 1 }}
+          >
+            {firstAreaBusy ? "Creating..." : "Create first space"}
+          </button>
+          <div style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+            You can rename it later and add more spaces in settings.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const activeProject = visibleProjects.find((project) => project.id === selectedProjectId) ?? null;
 

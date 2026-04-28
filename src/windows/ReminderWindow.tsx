@@ -287,6 +287,11 @@ export default function ReminderWindow() {
     };
   }, []);
 
+  useEffect(() => {
+    if (user) return;
+    getCurrentWebviewWindow().close().catch(() => {});
+  }, [user]);
+
   // Restore saved position (or default mid-right), then reveal
   useEffect(() => {
     const win = getCurrentWebviewWindow();
