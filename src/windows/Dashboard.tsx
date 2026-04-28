@@ -97,23 +97,33 @@ async function openTaskWindow(task: TaskWithTags) {
 
 // ─── Auth screen ──────────────────────────────────────────────────────────────
 
-function AuthScreen() {
+function AuthScreen({ launchNotice }: { launchNotice: string | null }) {
   const { signIn, signUp } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (launchNotice) setNotice(launchNotice);
+  }, [launchNotice]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setNotice("");
     const err = isSignUp
       ? await signUp(email, password)
       : await signIn(email, password, rememberMe);
     if (err) setError(err);
+    else if (isSignUp) {
+      setNotice("Check your email to confirm your account. The link will bring you back to Jot's website after confirmation.");
+      setPassword("");
+    }
     setLoading(false);
   }
 
@@ -167,6 +177,11 @@ function AuthScreen() {
         {error && (
           <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: "var(--radius-sm)", background: "rgba(220,38,38,0.08)", color: "#dc2626", fontSize: 13 }}>
             {error}
+          </div>
+        )}
+        {notice && (
+          <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: "var(--radius-sm)", background: "rgba(22,163,74,0.10)", color: "#166534", fontSize: 13 }}>
+            {notice}
           </div>
         )}
 
@@ -418,7 +433,7 @@ function saveDefaultAreaId(id: string | null) {
   else localStorage.removeItem(DEFAULT_AREA_KEY);
 }
 
-export default function Dashboard() {
+export default function Dashboard({ launchNotice = null }: { launchNotice?: string | null }) {
   const { user, signOut } = useAuth();
   const [view, setView] = useState<View>("today");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -1121,7 +1136,7 @@ export default function Dashboard() {
     view === "logbook"  ? "Logbook" :
     view === "project" && selectedProject ? selectedProject.name : "";
 
-  if (!user) return <AuthScreen />;
+  if (!user) return <AuthScreen launchNotice={launchNotice} />;
 
   // ── Compact / mobile layout ────────────────────────────────────────────────
   if (compact) return (
@@ -1519,6 +1534,20 @@ export default function Dashboard() {
                 <button onClick={() => setUpdateStatus("idle")} style={{ padding: "4px 8px", fontSize: 12, color: "var(--text-tertiary)", cursor: "pointer" }}>Dismiss</button>
               </>
             )}
+          </div>
+        )}
+
+        {launchNotice && (
+          <div style={{
+            margin: "12px 32px 0",
+            padding: "10px 14px",
+            borderRadius: "var(--radius-md)",
+            background: "rgba(22,197,94,0.08)",
+            border: "1px solid rgba(22,197,94,0.18)",
+            color: "#166534",
+            fontSize: 13,
+          }}>
+            {launchNotice}
           </div>
         )}
 

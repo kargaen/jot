@@ -69,6 +69,17 @@
     "createUpdaterArtifacts": true
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["jot"]
+      },
+      "mobile": [
+        {
+          "scheme": ["jot"],
+          "appLink": false
+        }
+      ]
+    },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYxQTdDQ0M5NUY5MTlDNTkKUldSWm5KRmZ5Y3luOFRRbDA0WG1pTDBOQ1Z4N2JkM25BS0JRalM4ZVlydnpJeVJKeEl2NCtOUVQK",
       "endpoints": [

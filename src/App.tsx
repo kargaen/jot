@@ -11,6 +11,7 @@ import AboutWindow from "./windows/AboutWindow";
 import MobileApp from "./mobile/MobileApp";
 import { logger } from "./lib/logger";
 import { startThemeSync } from "./lib/theme";
+import { listenForDeepLinks, parseDeepLink, takePendingDeepLink } from "./lib/deepLinks";
 
 const windowLabel = getCurrentWebviewWindow().label;
 logger.info("app", `window started: ${windowLabel}`);
@@ -23,6 +24,7 @@ document.addEventListener("keydown", (e) => {
 export default function App() {
   const { loading, user } = useAuth();
   const [os, setOs] = useState<string | null>(null);
+  const [launchNotice, setLaunchNotice] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -33,6 +35,39 @@ export default function App() {
   }, []);
 
   useEffect(() => startThemeSync(), []);
+
+  useEffect(() => {
+    if (windowLabel !== "main") return;
+
+    const handleUrl = (url: string) => {
+      const route = parseDeepLink(url);
+      logger.info("deep-link", `received: ${url}`);
+      if (route.kind === "confirmed") {
+        setLaunchNotice("Your email is confirmed. You're all set to keep using Jot.");
+        return;
+      }
+      if (route.kind === "task" && route.id) {
+        setLaunchNotice("Jot opened from a task link. Task deep-link navigation is next on the roadmap.");
+        return;
+      }
+      if (route.kind === "project" && route.id) {
+        setLaunchNotice("Jot opened from a project link. Project deep-link navigation is next on the roadmap.");
+      }
+    };
+
+    void takePendingDeepLink().then((url) => {
+      if (url) handleUrl(url);
+    });
+
+    let unlisten: (() => void) | null = null;
+    void listenForDeepLinks(handleUrl).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      unlisten?.();
+    };
+  }, []);
 
   const isMobile = os === "android" || os === "ios";
 
@@ -54,7 +89,7 @@ export default function App() {
     );
   }
 
-  if (isMobile) return <MobileApp />;
+  if (isMobile) return <MobileApp launchNotice={launchNotice} />;
 
   if (windowLabel === "quick-capture" && !user) {
     logger.info("app", "quick-capture: not logged in -> opening dashboard");
@@ -67,5 +102,5 @@ export default function App() {
   if (windowLabel.startsWith("reminder")) return <ReminderWindow />;
   if (windowLabel.startsWith("task-")) return <TaskDetailWindow />;
   if (windowLabel === "about") return <AboutWindow />;
-  return <Dashboard />;
+  return <Dashboard launchNotice={launchNotice} />;
 }

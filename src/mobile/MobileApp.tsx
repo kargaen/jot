@@ -344,22 +344,32 @@ function SpaceCard({
   );
 }
 
-function MobileAuthScreen() {
+function MobileAuthScreen({ launchNotice }: { launchNotice: string | null }) {
   const { signIn, signUp } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    if (launchNotice) setNotice(launchNotice);
+  }, [launchNotice]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setNotice("");
     const err = isSignUp
       ? await signUp(email, password)
       : await signIn(email, password, true);
     if (err) setError(err);
+    else if (isSignUp) {
+      setNotice("Check your email to confirm your account. After confirmation, the link will land on Jot's website.");
+      setPassword("");
+    }
     setLoading(false);
   }
 
@@ -414,6 +424,18 @@ function MobileAuthScreen() {
             fontSize: 13,
           }}>
             {error}
+          </div>
+        )}
+        {notice && (
+          <div style={{
+            marginTop: 12,
+            padding: "10px 12px",
+            borderRadius: 12,
+            background: "rgba(22,163,74,0.10)",
+            color: "#166534",
+            fontSize: 13,
+          }}>
+            {notice}
           </div>
         )}
 
@@ -1530,7 +1552,7 @@ function MobileAccountSettings({
   );
 }
 
-export default function MobileApp() {
+export default function MobileApp({ launchNotice = null }: { launchNotice?: string | null }) {
   const { loading, user, signOut } = useAuth();
   const [tab, setTab] = useState<TabId>("pulse");
   const [captureAutofocusToken, setCaptureAutofocusToken] = useState(0);
@@ -1816,7 +1838,7 @@ export default function MobileApp() {
     );
   }
 
-  if (!user) return <MobileAuthScreen />;
+  if (!user) return <MobileAuthScreen launchNotice={launchNotice} />;
 
   const activeProject = visibleProjects.find((project) => project.id === selectedProjectId) ?? null;
 
@@ -1883,6 +1905,18 @@ export default function MobileApp() {
             fontSize: 13,
           }}>
             {error}
+          </div>
+        )}
+        {launchNotice && (
+          <div style={{
+            marginTop: 12,
+            padding: "10px 12px",
+            borderRadius: 14,
+            background: "rgba(22,163,74,0.10)",
+            color: "#166534",
+            fontSize: 13,
+          }}>
+            {launchNotice}
           </div>
         )}
       </div>

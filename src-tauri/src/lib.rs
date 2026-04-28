@@ -2,6 +2,7 @@ pub mod widget_sync;
 
 #[cfg(target_os = "android")]
 use jni::objects::{JObject, JString, JValue};
+use std::sync::Mutex;
 use tauri::Manager;
 #[cfg(desktop)]
 use tauri::{
@@ -9,6 +10,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter,
 };
+use tauri_plugin_deep_link::DeepLinkExt;
 #[cfg(all(desktop, not(debug_assertions)))]
 use tauri_plugin_autostart::ManagerExt;
 #[cfg(desktop)]
@@ -120,6 +122,33 @@ fn log_to_terminal(level: String, line: String) {
     }
 }
 
+struct PendingDeepLink(Mutex<Option<String>>);
+
+fn remember_deep_link(app: &tauri::AppHandle, url: String) {
+    if let Some(state) = app.try_state::<PendingDeepLink>() {
+        if let Ok(mut guard) = state.0.lock() {
+            *guard = Some(url.clone());
+        }
+    }
+    let _ = app.emit("deep-link-opened", url);
+}
+
+fn focus_main_for_deep_link(app: &tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
+}
+
+#[tauri::command]
+fn take_pending_deep_link(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let state = app
+        .try_state::<PendingDeepLink>()
+        .ok_or_else(|| "deep link state unavailable".to_string())?;
+    let mut guard = state.0.lock().map_err(|_| "deep link state poisoned".to_string())?;
+    Ok(guard.take())
+}
+
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -221,6 +250,8 @@ fn take_mobile_launch_action(app: tauri::AppHandle) -> Result<Option<String>, St
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
+        .manage(PendingDeepLink(Mutex::new(None)))
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_os::init());
 
     #[cfg(desktop)]
@@ -233,6 +264,22 @@ pub fn run() {
 
     builder
         .setup(|_app| {
+            let start_urls = _app.deep_link().get_current()?;
+            if let Some(urls) = start_urls {
+                if let Some(url) = urls.into_iter().next() {
+                    remember_deep_link(&_app.handle().clone(), url.to_string());
+                    focus_main_for_deep_link(&_app.handle().clone());
+                }
+            }
+
+            let app_handle = _app.handle().clone();
+            _app.deep_link().on_open_url(move |event| {
+                if let Some(url) = event.urls().first() {
+                    remember_deep_link(&app_handle, url.to_string());
+                    focus_main_for_deep_link(&app_handle);
+                }
+            });
+
             #[cfg(desktop)]
             {
                 let app = _app;
@@ -338,6 +385,7 @@ pub fn run() {
                 apply_vibrancy,
                 log_to_terminal,
                 get_idle_ms,
+                take_pending_deep_link,
                 take_mobile_launch_action,
                 widget_sync::sync_widget_db,
             ]}
@@ -345,6 +393,7 @@ pub fn run() {
             { tauri::generate_handler![
                 log_to_terminal,
                 get_idle_ms,
+                take_pending_deep_link,
                 take_mobile_launch_action,
                 widget_sync::sync_widget_db,
             ]}

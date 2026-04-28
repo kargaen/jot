@@ -27,6 +27,10 @@ This roadmap reflects the current product direction: fast short-horizon task cap
 
 - [ ] Refresh the default views model.
   Explore a stronger built-in set of views that feels natural out of the box, then layer optional saved views on top for power users.
+- [ ] Add mobile project-sharing parity.
+  Desktop project sharing is in place. Mobile can wait for now, but it should eventually support project invites and acceptance too.
+- [ ] Expand deep-link routes for app handoff.
+  Build on the confirmation flow so Jot can open directly into shared spaces, projects, and assignment-related surfaces from links.
 - [ ] Add widget configuration.
   Let users choose which spaces feed Pulse and how Quick Capture should behave.
 - [ ] Improve widget freshness feedback.
@@ -40,6 +44,8 @@ This roadmap reflects the current product direction: fast short-horizon task cap
 
 - [ ] Outlook integration research.
   Validate what is realistically possible in Microsoft enterprise environments before promising anything.
+- [ ] Adopt verified HTTPS app links / universal links.
+  Replace the first-pass custom scheme flow with stronger mobile-friendly links once hosting and domain control are ready.
 - [ ] Email capture research.
   Explore mailbox-to-Jot capture with strict scope and fallback parsing rules so it does not become an LLM dependency trap.
 - [ ] Attachments as a monetizable feature.
