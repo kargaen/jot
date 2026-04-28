@@ -91,7 +91,7 @@ jobs:
           fi
 
           SHOULD_DEPLOY_PAGES="false"
-          if [[ "${GITHUB_REF_NAME}" == "master" || "${GITHUB_REF_TYPE}" == "tag" ]]; then
+          if [[ "${GITHUB_REF_NAME}" == "master" ]]; then
             SHOULD_DEPLOY_PAGES="true"
           fi
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
