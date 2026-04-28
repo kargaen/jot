@@ -86,8 +86,8 @@ jobs:
             SHOULD_RELEASE="true"
           elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             SHOULD_RELEASE="${{ inputs.publish_release }}"
-          elif [[ "${GITHUB_REF_NAME}" == "master" && "${TAG_EXISTS}" == "false" ]]; then
-            SHOULD_RELEASE="true"
+          #elif [[ "${GITHUB_REF_NAME}" == "master" && "${TAG_EXISTS}" == "false" ]]; then
+            #SHOULD_RELEASE="true"
           fi
 
           SHOULD_DEPLOY_PAGES="false"
