@@ -8,11 +8,12 @@ import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewW
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import * as LucideIcons from "lucide-react";
 import { ChevronDown } from "lucide-react";
-import type { TaskWithTags, Project, Tag, Area } from "../types";
+import type { AssignablePerson, TaskWithTags, Project, Tag, Area } from "../types";
 import {
   updateTask,
   fetchSubtasks,
   completeTask,
+  fetchAssignablePeople,
 } from "../lib/supabase";
 import { logger } from "../lib/logger";
 import { suggestIcon } from "../lib/icons";
@@ -226,11 +227,14 @@ export default function TaskDetail({
   const [projectId, setProjectId] = useState<string | null>(task.project_id);
   const [areaId, setAreaId] = useState<string | null>(task.area_id);
   const [priority, setPriority] = useState(task.priority);
+  const [responsibleUserId, setResponsibleUserId] = useState(task.responsible_user_id);
+  const [responsibleEmail, setResponsibleEmail] = useState(task.responsible_email);
   const [dueDate, setDueDate] = useState(task.due_date ?? "");
   const [link, setLink] = useState(task.notes ?? "");
   const [estimatedMins, setEstimatedMins] = useState(
     formatMins(task.estimated_mins),
   );
+  const [assignablePeople, setAssignablePeople] = useState<AssignablePerson[]>([]);
   const [subtasks, setSubtasks] = useState<TaskWithTags[]>([]);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">(
     "idle",
@@ -249,12 +253,14 @@ export default function TaskDetail({
     project_id: projectId,
     area_id: projectId ? null : areaId ?? areas[0]?.id ?? null,
     priority,
+    responsible_user_id: responsibleUserId,
+    responsible_email: responsibleEmail,
     due_date: dueDate || null,
     notes: normalizeTaskLink(link),
     estimated_mins: parseMins(estimatedMins),
     description: (editorRef.current?.getJSON() ??
       null) as Record<string, unknown> | null,
-  }), [title, icon, projectId, areaId, areas, priority, dueDate, link, estimatedMins]);
+  }), [title, icon, projectId, areaId, areas, priority, responsibleUserId, responsibleEmail, dueDate, link, estimatedMins]);
 
   const save = useCallback(async () => {
     logger.debug("task-detail", `autosave: "${title}" [${task.id}]`);
@@ -365,12 +371,17 @@ export default function TaskDetail({
   // Effective area: from project if task has one, otherwise direct area_id
   const effectiveAreaId = project?.area_id ?? (projectId ? null : areaId);
   const area = areas.find((a) => a.id === effectiveAreaId) ?? null;
+  const canAssignResponsibility = assignablePeople.length > 1 || !!responsibleUserId || !!responsibleEmail;
   const projectOptions = [
     { value: "", label: "No project", color: "var(--text-tertiary)" },
     ...projects.map((p) => ({ value: p.id, label: p.name })),
   ];
   const areaOptions = [
     ...areas.map((a) => ({ value: a.id, label: a.name })),
+  ];
+  const responsibilityOptions = [
+    { value: "", label: "Unassigned", color: "var(--text-tertiary)" },
+    ...assignablePeople.map((person) => ({ value: person.user_id, label: person.email })),
   ];
 
   const isTopLevel = !task.parent_task_id;
@@ -385,6 +396,30 @@ export default function TaskDetail({
     : hasChildren
       ? "var(--accent)"
       : "var(--priority-medium)";
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchAssignablePeople({ projectId, areaId: effectiveAreaId })
+      .then((people) => {
+        if (cancelled) return;
+        setAssignablePeople(people);
+        if (people.length <= 1 && (responsibleUserId || responsibleEmail)) {
+          setResponsibleUserId(null);
+          setResponsibleEmail(null);
+          scheduleRef.current();
+          return;
+        }
+        if (responsibleUserId && !people.some((person) => person.user_id === responsibleUserId)) {
+          setResponsibleUserId(null);
+          setResponsibleEmail(null);
+          scheduleRef.current();
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAssignablePeople([]);
+      });
+    return () => { cancelled = true; };
+  }, [projectId, effectiveAreaId, responsibleUserId, responsibleEmail]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -555,6 +590,21 @@ export default function TaskDetail({
               }}
             />
           </FieldRow>
+
+          {canAssignResponsibility && (
+            <FieldRow label="Responsible">
+              <InlineSelect
+                value={responsibleUserId ?? ""}
+                options={responsibilityOptions}
+                onChange={(v) => {
+                  const selected = assignablePeople.find((person) => person.user_id === v);
+                  setResponsibleUserId(selected?.user_id ?? null);
+                  setResponsibleEmail(selected?.email ?? null);
+                  scheduleAutosave();
+                }}
+              />
+            </FieldRow>
+          )}
 
           <FieldRow label="Due date">
             <input

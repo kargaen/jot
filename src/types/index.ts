@@ -31,6 +31,8 @@ export interface Task {
   notes: string | null;
   status: "todo" | "completed" | "cancelled";
   priority: "none" | "low" | "medium" | "high";
+  responsible_user_id: string | null;
+  responsible_email: string | null;
   due_date: string | null;
   due_time: string | null;
   scheduled_date: string | null;
@@ -75,10 +77,26 @@ export interface AreaMember {
   id: string;
   area_id: string;
   owner_user_id: string;
-  member_user_id: string | null;
+  user_id: string | null;
   invited_email: string;
   status: "pending" | "accepted";
   created_at: string;
+}
+
+export interface ProjectMember {
+  id: string;
+  project_id: string;
+  owner_user_id: string;
+  user_id: string | null;
+  invited_email: string;
+  status: "pending" | "accepted";
+  created_at: string;
+}
+
+export interface AssignablePerson {
+  user_id: string;
+  email: string;
+  source: "self" | "area" | "project";
 }
 
 export interface ProjectWithTasks extends Project {

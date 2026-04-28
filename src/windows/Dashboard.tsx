@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { spaceColor, projectColor } from "../lib/colors";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -12,7 +12,9 @@ import Toggle from "../components/Toggle";
 import Preferences from "./Preferences";
 import {
   fetchAreas,
+  fetchAreaMembers,
   fetchProjects,
+  fetchProjectMembers,
   fetchTags,
   fetchAllTasks,
   fetchLogbookTasks,
@@ -28,6 +30,10 @@ import {
   closeProjectAndCompleteTasks,
   closeProjectAndReleaseTasks,
   createArea,
+  inviteMember,
+  removeAreaMember,
+  inviteProjectMember,
+  removeProjectMember,
 } from "../lib/supabase";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
@@ -38,11 +44,17 @@ import CompletionHeatmap from "../components/CompletionHeatmap";
 import { logger } from "../lib/logger";
 import { syncWidgets } from "../lib/widgetSync";
 import { loadHiddenAreas, saveHiddenAreas, filterVisibleTasks, filterVisibleProjects } from "../lib/tasks";
-import type { Area, Project, Tag, TaskWithTags } from "../types";
+import type { Area, AreaMember, Project, ProjectMember, Tag, TaskWithTags } from "../types";
 
 const RELEASES_URL = "https://github.com/kargaen/jot/releases";
 
 type View = "overdue" | "today" | "inbox" | "upcoming" | "project" | "logbook";
+type SidebarContextMenu =
+  | { x: number; y: number; kind: "area"; areaId: string }
+  | { x: number; y: number; kind: "project"; projectId: string };
+type ShareTarget =
+  | { kind: "area"; id: string; name: string }
+  | { kind: "project"; id: string; name: string };
 
 function sortTasks(tasks: TaskWithTags[], byOrder = false): TaskWithTags[] {
   return [...tasks].sort((a, b) => {
@@ -423,7 +435,8 @@ export default function Dashboard() {
   const [compact, setCompact] = useState(() => localStorage.getItem("jot_compact") === "1");
   const [showSpacePicker, setShowSpacePicker] = useState(false);
   const [alwaysOnTop, setAlwaysOnTop] = useState(() => localStorage.getItem("jot_pin") === "1");
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; projectId: string } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<SidebarContextMenu | null>(null);
+  const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
   const [closeDialog, setCloseDialog] = useState<{ projectId: string; taskCount: number } | null>(null);
   const projectsSeenWithTasks = useRef(new Set<string>());
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -988,6 +1001,118 @@ export default function Dashboard() {
     loadData();
   }
 
+  function canManageArea(areaId: string) {
+    return areas.some((area) => area.id === areaId && area.user_id === userId);
+  }
+
+  function canManageProject(projectId: string) {
+    const project = projects.find((item) => item.id === projectId);
+    return !!project && (project.user_id === userId || (project.area_id ? canManageArea(project.area_id) : false));
+  }
+
+  function openShareTarget(target: ShareTarget) {
+    setCtxMenu(null);
+    setShareTarget(target);
+  }
+
+  function renderSidebarContextMenu() {
+    if (!ctxMenu) return null;
+    const menuStyle: CSSProperties = {
+      width: "100%",
+      textAlign: "left",
+      padding: "7px 14px",
+      fontSize: 13,
+      color: "var(--text-primary)",
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+    };
+    const area = ctxMenu.kind === "area" ? areas.find((item) => item.id === ctxMenu.areaId) ?? null : null;
+    const project = ctxMenu.kind === "project" ? projects.find((item) => item.id === ctxMenu.projectId) ?? null : null;
+    return (
+      <div onClick={() => setCtxMenu(null)} style={{ position: "fixed", inset: 0, zIndex: 300 }}>
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "fixed", left: ctxMenu.x, top: ctxMenu.y,
+            background: "var(--bg-primary)", border: "1px solid var(--border-default)",
+            borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-lg)",
+            padding: "4px 0", minWidth: 170, zIndex: 301,
+          }}
+        >
+          {ctxMenu.kind === "area" && area && (
+            <>
+              {canManageArea(area.id) && (
+                <button onClick={() => openShareTarget({ kind: "area", id: area.id, name: area.name })} style={menuStyle}>
+                  Share space...
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setCtxMenu(null);
+                  setView("inbox");
+                  setSelectedInboxAreaId(area.id);
+                  setSelectedProject(null);
+                }}
+                style={menuStyle}
+              >
+                Open inbox
+              </button>
+            </>
+          )}
+          {ctxMenu.kind === "project" && project && (
+            <>
+              {canManageProject(project.id) && (
+                <button onClick={() => openShareTarget({ kind: "project", id: project.id, name: project.name })} style={menuStyle}>
+                  Share project...
+                </button>
+              )}
+              <button
+                onClick={() => { const id = project.id; setCtxMenu(null); handleCloseProject(id); }}
+                style={menuStyle}
+              >
+                Close project
+              </button>
+              {areas.length > 1 && (
+                <>
+                  <div style={{ padding: "6px 14px 3px", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    Move to space
+                  </div>
+                  {areas.map((areaOption) => (
+                    <button
+                      key={areaOption.id}
+                      onClick={() => { const id = project.id; setCtxMenu(null); void handleMoveProject(id, areaOption.id); }}
+                      style={menuStyle}
+                    >
+                      <span style={{ width: 8, height: 8, borderRadius: 3, background: spaceColor(areaOption.id), flexShrink: 0 }} />
+                      {areaOption.name}
+                    </button>
+                  ))}
+                </>
+              )}
+              <button
+                onClick={() => { const id = project.id; setCtxMenu(null); handleDeleteProject(id); }}
+                style={{ ...menuStyle, color: "var(--priority-high)" }}
+              >
+                Delete project
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  function renderShareSheet() {
+    if (!shareTarget) return null;
+    return (
+      <ShareSheet
+        target={shareTarget}
+        onClose={() => setShareTarget(null)}
+      />
+    );
+  }
+
   const viewTitle =
     view === "overdue"  ? "Overdue" :
     view === "today"    ? "Today" :
@@ -1023,6 +1148,7 @@ export default function Dashboard() {
               <div key={area.id}>
                 <button
                   onClick={() => { setView("inbox"); setSelectedInboxAreaId(area.id); setSelectedProject(null); setShowSpacePicker(false); }}
+                  onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, kind: "area", areaId: area.id }); }}
                   style={{ width: "100%", textAlign: "left", padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, fontSize: 14, color: view === "inbox" && selectedInboxAreaId === area.id && !selectedProject ? spaceColor(area.id) : "var(--text-primary)", background: "transparent", fontWeight: view === "inbox" && selectedInboxAreaId === area.id && !selectedProject ? 600 : 400 }}
                 >
                   <span style={{ width: 10, height: 10, borderRadius: 3, background: spaceColor(area.id), flexShrink: 0 }} />
@@ -1035,7 +1161,7 @@ export default function Dashboard() {
                   <button
                     key={project.id}
                     onClick={() => { setSelectedProject(project); setView("project"); setShowSpacePicker(false); }}
-                    onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
+                    onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, kind: "project", projectId: project.id }); }}
                     style={{ width: "100%", textAlign: "left", padding: "10px 20px 10px 44px", display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: selectedProject?.id === project.id ? projectColor(project.id) : "var(--text-secondary)", background: "transparent", fontWeight: selectedProject?.id === project.id ? 600 : 400 }}
                   >
                     <span style={{ width: 8, height: 8, borderRadius: "50%", background: projectColor(project.id), flexShrink: 0 }} />
@@ -1147,63 +1273,8 @@ export default function Dashboard() {
       {showPrefs && (
         <Preferences areas={areas} hiddenAreaIds={hiddenAreaIds} onHiddenChange={handleHiddenChange} onAreasChange={loadData} onClose={() => setShowPrefs(false)} />
       )}
-
-      {/* Project context menu */}
-      {ctxMenu && (
-        <div
-          onClick={() => setCtxMenu(null)}
-          style={{ position: "fixed", inset: 0, zIndex: 300 }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "fixed", left: ctxMenu.x, top: ctxMenu.y,
-              background: "var(--bg-primary)", border: "1px solid var(--border-default)",
-              borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-lg)",
-              padding: "4px 0", minWidth: 140, zIndex: 301,
-            }}
-          >
-            <button
-              onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); handleCloseProject(id); }}
-              style={{
-                width: "100%", textAlign: "left", padding: "7px 14px", fontSize: 13,
-                color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8,
-              }}
-            >
-              Close project
-            </button>
-            {areas.length > 1 && (
-              <>
-                <div style={{ padding: "6px 14px 3px", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  Move to space
-                </div>
-                {areas.map((area) => (
-                  <button
-                    key={area.id}
-                    onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); void handleMoveProject(id, area.id); }}
-                    style={{
-                      width: "100%", textAlign: "left", padding: "6px 14px", fontSize: 13,
-                      color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8,
-                    }}
-                  >
-                    <span style={{ width: 8, height: 8, borderRadius: 3, background: spaceColor(area.id), flexShrink: 0 }} />
-                    {area.name}
-                  </button>
-                ))}
-              </>
-            )}
-            <button
-              onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); handleDeleteProject(id); }}
-              style={{
-                width: "100%", textAlign: "left", padding: "7px 14px", fontSize: 13,
-                color: "var(--priority-high)", display: "flex", alignItems: "center", gap: 8,
-              }}
-            >
-              Delete project
-            </button>
-          </div>
-        </div>
-      )}
+      {renderSidebarContextMenu()}
+      {renderShareSheet()}
 
       {/* Suggest closing a project when its last task is completed */}
       {suggestClose && (
@@ -1293,6 +1364,7 @@ export default function Dashboard() {
                   active={view === "inbox" && selectedInboxAreaId === area.id && !selectedProject}
                   highlighted={sidebarHover?.areaId === area.id && sidebarHover.projectId === null}
                   onClick={() => { setView("inbox"); setSelectedInboxAreaId(area.id); setSelectedProject(null); }}
+                  onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, kind: "area", areaId: area.id }); }}
                 />
                 </div>
                 {areaProjects.map((project) => (
@@ -1336,7 +1408,7 @@ export default function Dashboard() {
                         active={selectedProject?.id === project.id}
                         highlighted={sidebarHover?.projectId === project.id}
                         onClick={() => { setSelectedProject(project); setView("project"); }}
-                        onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, projectId: project.id }); }}
+                        onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, kind: "project", projectId: project.id }); }}
                       />
                     </div>
                     {projectDropTarget?.id === project.id && projectDropTarget.mode === "after" && (
@@ -1551,62 +1623,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Project context menu */}
-      {ctxMenu && (
-        <div
-          onClick={() => setCtxMenu(null)}
-          style={{ position: "fixed", inset: 0, zIndex: 300 }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "fixed", left: ctxMenu.x, top: ctxMenu.y,
-              background: "var(--bg-primary)", border: "1px solid var(--border-default)",
-              borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-lg)",
-              padding: "4px 0", minWidth: 140, zIndex: 301,
-            }}
-          >
-            <button
-              onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); handleCloseProject(id); }}
-              style={{
-                width: "100%", textAlign: "left", padding: "7px 14px", fontSize: 13,
-                color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8,
-              }}
-            >
-              Close project
-            </button>
-            {areas.length > 1 && (
-              <>
-                <div style={{ padding: "6px 14px 3px", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  Move to space
-                </div>
-                {areas.map((area) => (
-                  <button
-                    key={area.id}
-                    onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); void handleMoveProject(id, area.id); }}
-                    style={{
-                      width: "100%", textAlign: "left", padding: "6px 14px", fontSize: 13,
-                      color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8,
-                    }}
-                  >
-                    <span style={{ width: 8, height: 8, borderRadius: 3, background: spaceColor(area.id), flexShrink: 0 }} />
-                    {area.name}
-                  </button>
-                ))}
-              </>
-            )}
-            <button
-              onClick={() => { const id = ctxMenu.projectId; setCtxMenu(null); handleDeleteProject(id); }}
-              style={{
-                width: "100%", textAlign: "left", padding: "7px 14px", fontSize: 13,
-                color: "var(--priority-high)", display: "flex", alignItems: "center", gap: 8,
-              }}
-            >
-              Delete project
-            </button>
-          </div>
-        </div>
-      )}
+      {renderSidebarContextMenu()}
+      {renderShareSheet()}
 
       {/* Suggest closing a project when its last task is completed */}
       {suggestClose && (
@@ -1648,7 +1666,129 @@ export default function Dashboard() {
 
 // ─── Area filter dropdown ─────────────────────────────────────────────────────
 
-import { forwardRef } from "react";
+
+function ShareSheet({ target, onClose }: { target: ShareTarget; onClose: () => void }) {
+  const [members, setMembers] = useState<Array<AreaMember | ProjectMember>>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteError, setInviteError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const loadMembers = useCallback(async () => {
+    const next = target.kind === "area"
+      ? await fetchAreaMembers(target.id)
+      : await fetchProjectMembers(target.id);
+    setMembers(next);
+  }, [target]);
+
+  useEffect(() => {
+    void loadMembers().catch(() => {});
+  }, [loadMembers]);
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+    setBusy(true);
+    setInviteError("");
+    const err = target.kind === "area"
+      ? await inviteMember(target.id, inviteEmail.trim())
+      : await inviteProjectMember(target.id, inviteEmail.trim());
+    setBusy(false);
+    if (err) {
+      setInviteError(err);
+      return;
+    }
+    setInviteEmail("");
+    await loadMembers();
+  }
+
+  async function handleRemove(memberId: string) {
+    if (target.kind === "area") await removeAreaMember(memberId);
+    else await removeProjectMember(memberId);
+    setMembers((prev) => prev.filter((member) => member.id !== memberId));
+  }
+
+  const copy = target.kind === "area"
+    ? {
+        title: "Share space",
+        subtitle: "People invited here can see this space and collaborate on its inbox and projects.",
+      }
+    : {
+        title: "Share project",
+        subtitle: "People invited here can see this project and its tasks without exposing the whole space.",
+      };
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 320, background: "rgba(10,12,20,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ width: 460, maxWidth: "100%", background: "var(--bg-primary)", border: "1px solid var(--border-default)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)", overflow: "hidden" }}
+      >
+        <div style={{ padding: "18px 22px 14px", borderBottom: "1px solid var(--border-subtle)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: "var(--text-primary)", flex: 1 }}>{copy.title}</div>
+            <button onClick={onClose} style={{ fontSize: 18, color: "var(--text-tertiary)", lineHeight: 1, padding: "0 4px" }}>×</button>
+          </div>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 6, lineHeight: 1.5 }}>
+            <strong style={{ color: "var(--text-primary)" }}>{target.name}</strong>. {copy.subtitle}
+          </div>
+        </div>
+
+        <div style={{ padding: 22, display: "grid", gap: 16 }}>
+          <form onSubmit={handleInvite} style={{ display: "grid", gap: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Invite someone
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => { setInviteEmail(e.target.value); setInviteError(""); }}
+                placeholder="person@example.com"
+                style={{ flex: 1, padding: "9px 12px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-default)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontFamily: "inherit", outline: "none" }}
+              />
+              <button
+                type="submit"
+                disabled={busy || !inviteEmail.trim()}
+                style={{ padding: "9px 14px", borderRadius: "var(--radius-sm)", background: "var(--accent)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: busy || !inviteEmail.trim() ? 0.6 : 1 }}
+              >
+                {busy ? "Sending..." : "Invite"}
+              </button>
+            </div>
+            {inviteError && <div style={{ fontSize: 12, color: "var(--priority-high)" }}>{inviteError}</div>}
+          </form>
+
+          <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Members
+            </div>
+            {members.length === 0 ? (
+              <div style={{ fontSize: 13, color: "var(--text-secondary)", padding: "10px 0" }}>No one has been invited here yet.</div>
+            ) : (
+              members.map((member) => (
+                <div key={member.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "var(--radius-md)", background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {member.invited_email}
+                    </div>
+                    <div style={{ fontSize: 11, color: member.status === "accepted" ? "#16a34a" : "#d97706", marginTop: 3 }}>
+                      {member.status === "accepted" ? "Active" : "Pending"}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { void handleRemove(member.id); }}
+                    style={{ padding: "5px 10px", borderRadius: "var(--radius-sm)", border: "1px solid rgba(220,38,38,0.18)", background: "rgba(220,38,38,0.08)", color: "var(--priority-high)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const AreaFilterDropdown = forwardRef<HTMLDivElement, {
   areas: Area[];

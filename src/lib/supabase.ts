@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Area, AreaMember, Feedback, Project, Tag, Task, TaskWithTags } from "../types";
+import type { Area, AreaMember, AssignablePerson, Feedback, Project, ProjectMember, Tag, Task, TaskWithTags } from "../types";
 import { logger } from "./logger";
 
 function logErr(op: string, error: unknown): never {
@@ -68,6 +68,11 @@ async function getCurrentUserId(): Promise<string> {
   const { data } = await supabase.auth.getSession();
   if (!data.session) throw new Error("Not authenticated");
   return data.session.user.id;
+}
+
+async function getCurrentUser() {
+  const { data } = await supabase.auth.getUser();
+  return data.user;
 }
 
 const DEFAULT_AREA_KEY = "jot_default_area";
@@ -208,6 +213,83 @@ export async function acceptInvite(memberId: string): Promise<void> {
 export async function declineInvite(memberId: string): Promise<void> {
   const { error } = await supabase.from("area_members").delete().eq("id", memberId);
   if (error) logErr("declineInvite", error);
+}
+
+export async function fetchProjectMembers(projectId: string): Promise<ProjectMember[]> {
+  const { data, error } = await supabase
+    .from("project_members")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("created_at");
+  if (error) logErr("fetchProjectMembers", error);
+  return data ?? [];
+}
+
+export async function inviteProjectMember(projectId: string, email: string): Promise<string | null> {
+  const owner_user_id = await getCurrentUserId();
+  const { error } = await supabase
+    .from("project_members")
+    .insert({ project_id: projectId, owner_user_id, invited_email: email.toLowerCase().trim() });
+  if (error) { logger.error("supabase", `inviteProjectMember: ${error.message}`); return error.message; }
+  return null;
+}
+
+export async function removeProjectMember(memberId: string): Promise<void> {
+  const { error } = await supabase.from("project_members").delete().eq("id", memberId);
+  if (error) logErr("removeProjectMember", error);
+}
+
+export async function fetchPendingProjectInvites(): Promise<ProjectMember[]> {
+  const user = await getCurrentUser();
+  if (!user?.email) return [];
+  const { data, error } = await supabase
+    .from("project_members")
+    .select("*")
+    .eq("invited_email", user.email.toLowerCase())
+    .eq("status", "pending");
+  if (error) logErr("fetchPendingProjectInvites", error);
+  return data ?? [];
+}
+
+export async function acceptProjectInvite(memberId: string): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Not authenticated");
+  const { error } = await supabase
+    .from("project_members")
+    .update({ status: "accepted", user_id: user.id })
+    .eq("id", memberId);
+  if (error) logErr("acceptProjectInvite", error);
+}
+
+export async function declineProjectInvite(memberId: string): Promise<void> {
+  const { error } = await supabase.from("project_members").delete().eq("id", memberId);
+  if (error) logErr("declineProjectInvite", error);
+}
+
+export async function fetchAssignablePeople(input: { projectId?: string | null; areaId?: string | null }): Promise<AssignablePerson[]> {
+  const user = await getCurrentUser();
+  const [projectMembers, areaMembers] = await Promise.all([
+    input.projectId ? fetchProjectMembers(input.projectId) : Promise.resolve([]),
+    input.areaId ? fetchAreaMembers(input.areaId) : Promise.resolve([]),
+  ]);
+
+  const options = new Map<string, AssignablePerson>();
+  if (user?.id && user.email) {
+    options.set(user.id, { user_id: user.id, email: user.email.toLowerCase(), source: "self" });
+  }
+
+  for (const member of projectMembers) {
+    if (member.status === "accepted" && member.user_id) {
+      options.set(member.user_id, { user_id: member.user_id, email: member.invited_email.toLowerCase(), source: "project" });
+    }
+  }
+  for (const member of areaMembers) {
+    if (member.status === "accepted" && member.user_id && !options.has(member.user_id)) {
+      options.set(member.user_id, { user_id: member.user_id, email: member.invited_email.toLowerCase(), source: "area" });
+    }
+  }
+
+  return [...options.values()].sort((a, b) => a.email.localeCompare(b.email));
 }
 
 export async function fetchProjects(): Promise<Project[]> {
@@ -381,6 +463,8 @@ export async function updateTask(
     due_time: string | null;
     scheduled_date: string | null;
     priority: Task["priority"];
+    responsible_user_id: string | null;
+    responsible_email: string | null;
     recurrence_rule: string | null;
     estimated_mins: number | null;
     status: Task["status"];

@@ -11,6 +11,9 @@ import {
   fetchPendingInvites,
   acceptInvite,
   declineInvite,
+  fetchPendingProjectInvites,
+  acceptProjectInvite,
+  declineProjectInvite,
   fetchFeedback,
   submitFeedback,
 } from "../lib/supabase";
@@ -24,7 +27,7 @@ import {
   saveThemePreference,
 } from "../lib/theme";
 import { loadNlpLanguageMode, saveNlpLanguageMode } from "../lib/nlpSettings";
-import type { Area, AreaMember, Feedback, NlpLanguageMode } from "../types";
+import type { Area, AreaMember, Feedback, NlpLanguageMode, ProjectMember } from "../types";
 
 import { enable as enableAutostart, disable as disableAutostart, isEnabled as isAutostart } from "@tauri-apps/plugin-autostart";
 type Tab = "spaces" | "sharing" | "reminders" | "appearance" | "capture" | "feedback" | "account";
@@ -79,7 +82,7 @@ export default function Preferences({
             <AreasTab areas={areas} hiddenAreaIds={hiddenAreaIds} onHiddenChange={onHiddenChange} onAreasChange={onAreasChange} />
           )}
           {tab === "sharing" && (
-            <SharingTab areas={areas} currentUserId={user?.id ?? ""} />
+            <SharingTab areas={areas} currentUserId={user?.id ?? ""} onSharedChange={onAreasChange} />
           )}
           {tab === "reminders" && <RemindersTab />}
           {tab === "appearance" && <AppearanceTab />}
@@ -184,10 +187,11 @@ function AreasTab({ areas, hiddenAreaIds, onHiddenChange, onAreasChange }: {
 
 // ─── Sharing tab ──────────────────────────────────────────────────────────────
 
-function SharingTab({ areas, currentUserId }: { areas: Area[]; currentUserId: string }) {
+function SharingTab({ areas, currentUserId, onSharedChange }: { areas: Area[]; currentUserId: string; onSharedChange: () => void }) {
   const [selectedAreaId, setSelectedAreaId] = useState<string>(areas[0]?.id ?? "");
   const [members, setMembers] = useState<AreaMember[]>([]);
   const [pendingInvites, setPendingInvites] = useState<AreaMember[]>([]);
+  const [pendingProjectInvites, setPendingProjectInvites] = useState<ProjectMember[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -198,6 +202,7 @@ function SharingTab({ areas, currentUserId }: { areas: Area[]; currentUserId: st
 
   useEffect(() => {
     fetchPendingInvites().then(setPendingInvites).catch(() => {});
+    fetchPendingProjectInvites().then(setPendingProjectInvites).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -230,11 +235,23 @@ function SharingTab({ areas, currentUserId }: { areas: Area[]; currentUserId: st
   async function handleAccept(invite: AreaMember) {
     await acceptInvite(invite.id);
     setPendingInvites((prev) => prev.filter((i) => i.id !== invite.id));
+    onSharedChange();
   }
 
   async function handleDecline(invite: AreaMember) {
     await declineInvite(invite.id);
     setPendingInvites((prev) => prev.filter((i) => i.id !== invite.id));
+  }
+
+  async function handleAcceptProject(invite: ProjectMember) {
+    await acceptProjectInvite(invite.id);
+    setPendingProjectInvites((prev) => prev.filter((i) => i.id !== invite.id));
+    onSharedChange();
+  }
+
+  async function handleDeclineProject(invite: ProjectMember) {
+    await declineProjectInvite(invite.id);
+    setPendingProjectInvites((prev) => prev.filter((i) => i.id !== invite.id));
   }
 
   return (
@@ -252,6 +269,23 @@ function SharingTab({ areas, currentUserId }: { areas: Area[]; currentUserId: st
                 </span>
                 <Btn onClick={() => handleAccept(inv)} accent>Accept</Btn>
                 <Btn onClick={() => handleDecline(inv)} danger>Decline</Btn>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {pendingProjectInvites.length > 0 && (
+        <div>
+          <SectionLabel>Pending project invitations</SectionLabel>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+            {pendingProjectInvites.map((inv) => (
+              <div key={inv.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: "var(--radius-md)", background: "rgba(91,91,214,0.08)", border: "1px solid rgba(91,91,214,0.18)" }}>
+                <span style={{ flex: 1, fontSize: 13 }}>
+                  Invited to a shared project
+                </span>
+                <Btn onClick={() => handleAcceptProject(inv)} accent>Accept</Btn>
+                <Btn onClick={() => handleDeclineProject(inv)} danger>Decline</Btn>
               </div>
             ))}
           </div>

@@ -297,7 +297,7 @@ export default function TaskRow({
             )}
           </div>
 
-          {(task.due_date || task.tags.length > 0) && (
+          {(task.due_date || task.responsible_email || task.tags.length > 0) && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3, flexWrap: "wrap" }}>
               {task.due_date && (
                 <span
@@ -310,6 +310,20 @@ export default function TaskRow({
                   {isOverdue ? "!" : ""}
                   {isOverdue ? " " : ""}
                   {formatDate(task.due_date)}
+                </span>
+              )}
+              {task.responsible_email && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "var(--accent)",
+                    background: "rgba(91,91,214,0.12)",
+                    borderRadius: 10,
+                    padding: "1px 6px",
+                    border: "1px solid rgba(91,91,214,0.22)",
+                  }}
+                >
+                  {task.responsible_email}
                 </span>
               )}
               {task.tags.map((t) => (
