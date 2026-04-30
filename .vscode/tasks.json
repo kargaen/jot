@@ -1,0 +1,16 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Jot: Daily Cloud Backup",
+      "type": "shell",
+      "command": "git add .; $ts = Get-Date -Format 'yyyy-MM-ddTHH:mm:ss'; git commit -m ('WIP: ' + $ts)",
+      "options": {
+        "shell": {
+          "executable": "powershell.exe",
+          "args": ["-NoProfile", "-Command"]
+        }
+      }
+    }
+  ]
+}

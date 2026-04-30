@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "release:prepare": "node scripts/sync-version.mjs",
     "tauri": "tauri",
+    "test": "npm run test:nlp && npm run test:tasks",
     "test:nlp": "tsx tests/nlp.test.ts && tsx tests/nlp-natural.test.ts",
+    "test:tasks": "tsx tests/task-models.test.ts && tsx tests/task-create-controller.test.ts",
     "version:check": "node scripts/sync-version.mjs --check",
     "version:sync": "node scripts/sync-version.mjs"
   },
