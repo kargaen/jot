@@ -5,13 +5,16 @@ import {
   useState,
   useEffect,
 } from "react";
-import { createTask, createProject } from "../../lib/supabase";
-import { parseInput } from "../../lib/nlp";
-import { loadNlpLanguageMode } from "../../lib/nlpSettings";
-import { logger } from "../../lib/logger";
-import { saveCreateTaskDraft } from "../../controllers/tasks/saveCreateTask";
+import {
+  createProject,
+  createTask,
+} from "../../../services/backend/supabase.service";
+import { parseInput } from "../../../services/capture/nlp.service";
+import { loadNlpLanguageMode } from "../../../services/capture/nlpSettings.service";
+import { logger } from "../../../utils/observability/logger";
+import { saveCreateTaskDraft } from "../../../controllers/tasks/saveCreateTask.controller";
 import { SquarePen } from "lucide-react";
-import type { Task, Project, Tag } from "../../types";
+import type { Project, Tag, Task } from "../../../models/shared";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

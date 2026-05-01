@@ -1,10 +1,10 @@
-import { saveCreateTaskDraft } from "../src/controllers/tasks/saveCreateTask";
+import { saveCreateTaskDraft } from "../../../src/controllers/tasks/saveCreateTask.controller";
 import {
   buildCreateTaskInput,
   resolveTaskProjectSelection,
-} from "../src/models/tasks/taskCreation";
-import type { CreateTaskInput } from "../src/lib/supabase";
-import type { Project, Task } from "../src/types";
+} from "../../../src/models/tasks/taskCreation";
+import type { CreateTaskInput } from "../../../src/services/backend/supabase.service";
+import type { Project, Task } from "../../../src/models/shared";
 
 function assertEqual<T>(label: string, actual: T, expected: T) {
   const left = JSON.stringify(actual);

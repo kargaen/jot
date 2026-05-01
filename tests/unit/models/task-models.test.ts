@@ -5,12 +5,12 @@ import {
   normalizeTaskLink,
   sectionLabel,
   sortTasksBySchedule,
-} from "../src/models/tasks/taskPresentation";
+} from "../../../src/models/tasks/taskPresentation";
 import {
   filterVisibleProjects,
   filterVisibleTasks,
-} from "../src/models/tasks/taskVisibility";
-import type { Project, TaskWithTags } from "../src/types";
+} from "../../../src/models/tasks/taskVisibility";
+import type { Project, TaskWithTags } from "../../../src/models/shared";
 
 const RealDate = Date;
 const MOCK_NOW = new RealDate("2026-04-30T12:00:00Z");

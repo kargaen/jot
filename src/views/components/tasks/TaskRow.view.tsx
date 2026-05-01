@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { projectColor } from "../lib/colors";
-import type { Project, TaskWithTags } from "../types";
+import { projectColor } from "../../../utils/presentation/colors";
+import type { Project, TaskWithTags } from "../../../models/shared";
 
 function formatDate(iso: string): string {
   const d = new Date(iso + "T00:00:00");

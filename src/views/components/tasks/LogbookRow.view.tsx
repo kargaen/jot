@@ -1,5 +1,5 @@
-import { spaceColor, projectColor } from "../lib/colors";
-import type { Area, Project, TaskWithTags } from "../types";
+import { projectColor, spaceColor } from "../../../utils/presentation/colors";
+import type { Area, Project, TaskWithTags } from "../../../models/shared";
 
 const COMPLETION_MESSAGES = [
   "Executed with precision",

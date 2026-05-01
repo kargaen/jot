@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { spaceColor, projectColor } from "../lib/colors";
+import { projectColor, spaceColor } from "../../../utils/presentation/colors";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -8,18 +8,24 @@ import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewW
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import * as LucideIcons from "lucide-react";
 import { ChevronDown } from "lucide-react";
-import type { AssignablePerson, TaskWithTags, Project, Tag, Area } from "../types";
+import type {
+  Area,
+  AssignablePerson,
+  Project,
+  Tag,
+  TaskWithTags,
+} from "../../../models/shared";
 import {
-  updateTask,
-  fetchSubtasks,
   completeTask,
   fetchAssignablePeople,
-} from "../lib/supabase";
-import { logger } from "../lib/logger";
-import { suggestIcon } from "../lib/icons";
-import { normalizeTaskLink } from "../models/tasks/taskPresentation";
-import TaskRow from "./TaskRow";
-import CreateTask from "../views/tasks/CreateTask";
+  fetchSubtasks,
+  updateTask,
+} from "../../../services/backend/supabase.service";
+import { logger } from "../../../utils/observability/logger";
+import { suggestIcon } from "../../../utils/presentation/icons";
+import { normalizeTaskLink } from "../../../models/tasks/taskPresentation";
+import TaskRow from "./TaskRow.view";
+import CreateTask from "./CreateTask.view";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

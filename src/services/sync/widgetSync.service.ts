@@ -12,7 +12,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { platform } from "@tauri-apps/plugin-os";
-import { supabase } from "./supabase";
+import { supabase } from "../backend/supabase.service";
 
 interface WidgetTask {
   id: string;

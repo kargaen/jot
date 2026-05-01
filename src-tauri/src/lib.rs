@@ -1,3 +1,4 @@
+#[path = "services/widget_sync.rs"]
 pub mod widget_sync;
 
 #[cfg(target_os = "android")]

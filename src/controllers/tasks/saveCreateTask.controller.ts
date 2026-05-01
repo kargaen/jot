@@ -1,6 +1,6 @@
-import { suggestIcon } from "../../lib/icons";
-import type { CreateTaskInput } from "../../lib/supabase";
-import type { Project, Task } from "../../types";
+import { suggestIcon } from "../../utils/presentation/icons";
+import type { CreateTaskInput } from "../../services/backend/supabase.service";
+import type { Project, Task } from "../../models/shared";
 import {
   buildCreateTaskInput,
   resolveTaskProjectSelection,

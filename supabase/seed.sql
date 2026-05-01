@@ -1,0 +1,3 @@
+-- Base SQL seed for the local Supabase stack.
+-- User-scoped curated fixtures are created by `npm run db:seed:e2e`
+-- after a local auth user has been provisioned.

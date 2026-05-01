@@ -1,4 +1,4 @@
-import type { NlpLanguageMode, ParsedInput, Project, Tag } from "../types";
+import type { NlpLanguageMode, ParsedInput, Project, Tag } from "../../models/shared";
 
 function toISODate(d: Date): string {
   const y = d.getFullYear();

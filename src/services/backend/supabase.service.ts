@@ -1,6 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Area, AreaMember, AssignablePerson, Feedback, Project, ProjectMember, Tag, Task, TaskWithTags } from "../types";
-import { logger } from "./logger";
+import type {
+  Area,
+  AreaMember,
+  AssignablePerson,
+  Feedback,
+  Project,
+  ProjectMember,
+  Tag,
+  Task,
+  TaskWithTags,
+} from "../../models/shared";
+import { logger } from "../../utils/observability/logger";
 
 type ErrorLike = {
   message?: unknown;

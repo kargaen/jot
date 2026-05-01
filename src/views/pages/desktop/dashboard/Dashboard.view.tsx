@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { spaceColor, projectColor } from "../lib/colors";
+import { projectColor, spaceColor } from "../../../../utils/presentation/colors";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -8,45 +8,52 @@ import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
-import Toggle from "../components/Toggle";
-import Preferences from "./Preferences";
+import Toggle from "../../../components/ui/Toggle.view";
+import Preferences from "../settings/Preferences.view";
 import {
-  fetchAreas,
-  fetchAreaMembers,
-  fetchProjects,
-  fetchProjectMembers,
-  fetchTags,
-  fetchAllTasks,
-  fetchLogbookTasks,
-  fetchCompletionDates,
-  completeTask,
-  updateTask,
-  updateProject,
-  reorderTasks,
-  reorderProjects,
-  mergeProjects,
-  deleteProject,
   closeProject,
   closeProjectAndCompleteTasks,
   closeProjectAndReleaseTasks,
+  completeTask,
   createArea,
-  inviteMember,
-  removeAreaMember,
-  inviteProjectMember,
-  removeProjectMember,
+  deleteProject,
+  fetchAreas,
+  fetchAreaMembers,
+  fetchAllTasks,
+  fetchCompletionDates,
+  fetchLogbookTasks,
+  fetchProjectMembers,
+  fetchProjects,
+  fetchTags,
   getSession,
-} from "../lib/supabase";
-import { supabase } from "../lib/supabase";
-import { useAuth } from "../lib/auth";
-import TaskRow from "../components/TaskRow";
-import LogbookRow from "../components/LogbookRow";
-import CreateTask from "../views/tasks/CreateTask";
-import CompletionHeatmap from "../components/CompletionHeatmap";
-import { logger } from "../lib/logger";
-import { syncWidgets } from "../lib/widgetSync";
-import { loadHiddenAreas, saveHiddenAreas } from "../lib/tasks";
-import { filterVisibleTasks, filterVisibleProjects } from "../models/tasks/taskVisibility";
-import type { Area, AreaMember, Project, ProjectMember, Tag, TaskWithTags } from "../types";
+  inviteProjectMember,
+  inviteMember,
+  mergeProjects,
+  removeProjectMember,
+  removeAreaMember,
+  reorderProjects,
+  reorderTasks,
+  supabase,
+  updateProject,
+  updateTask,
+} from "../../../../services/backend/supabase.service";
+import { useAuth } from "../../../../hooks/useAuth";
+import type {
+  Area,
+  AreaMember,
+  Project,
+  ProjectMember,
+  Tag,
+  TaskWithTags,
+} from "../../../../models/shared";
+import { filterVisibleProjects, filterVisibleTasks } from "../../../../models/tasks/taskVisibility";
+import { syncWidgets } from "../../../../services/sync/widgetSync.service";
+import { logger } from "../../../../utils/observability/logger";
+import { loadHiddenAreas, saveHiddenAreas } from "../../../../utils/preferences/hiddenAreas";
+import CompletionHeatmap from "../../../components/pulse/CompletionHeatmap.view";
+import LogbookRow from "../../../components/tasks/LogbookRow.view";
+import CreateTask from "../../../components/tasks/CreateTask.view";
+import TaskRow from "../../../components/tasks/TaskRow.view";
 
 const RELEASES_URL = "https://github.com/kargaen/jot/releases";
 

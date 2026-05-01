@@ -1,33 +1,39 @@
 import { useEffect, useState, useCallback } from "react";
 import {
+  acceptInvite,
+  acceptProjectInvite,
   createArea,
-  updateArea,
+  declineInvite,
+  declineProjectInvite,
   deleteArea,
-  updatePassword,
-  signOutEverywhere,
   fetchAreaMembers,
+  fetchFeedback,
+  fetchPendingProjectInvites,
+  fetchPendingInvites,
   inviteMember,
   removeAreaMember,
-  fetchPendingInvites,
-  acceptInvite,
-  declineInvite,
-  fetchPendingProjectInvites,
-  acceptProjectInvite,
-  declineProjectInvite,
-  fetchFeedback,
+  signOutEverywhere,
   submitFeedback,
-} from "../lib/supabase";
-import { spaceColor } from "../lib/colors";
-import Toggle from "../components/Toggle";
-import { useAuth } from "../lib/auth";
+  updateArea,
+  updatePassword,
+} from "../../../../services/backend/supabase.service";
+import { useAuth } from "../../../../hooks/useAuth";
+import type {
+  Area,
+  AreaMember,
+  Feedback,
+  NlpLanguageMode,
+  ProjectMember,
+} from "../../../../models/shared";
+import { loadNlpLanguageMode, saveNlpLanguageMode } from "../../../../services/capture/nlpSettings.service";
+import { spaceColor } from "../../../../utils/presentation/colors";
 import {
   type AppThemePreference,
   applyThemePreference,
   loadThemePreference,
   saveThemePreference,
-} from "../lib/theme";
-import { loadNlpLanguageMode, saveNlpLanguageMode } from "../lib/nlpSettings";
-import type { Area, AreaMember, Feedback, NlpLanguageMode, ProjectMember } from "../types";
+} from "../../../../utils/presentation/theme";
+import Toggle from "../../../components/ui/Toggle.view";
 
 import { enable as enableAutostart, disable as disableAutostart, isEnabled as isAutostart } from "@tauri-apps/plugin-autostart";
 type Tab = "spaces" | "sharing" | "reminders" | "appearance" | "capture" | "feedback" | "account";

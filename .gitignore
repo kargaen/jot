@@ -8,3 +8,6 @@ src-tauri/target/
 src-tauri/keys/update.key
 supabase/.temp/
 tmp/
+playwright-report/
+test-results/
+.env.e2e.local

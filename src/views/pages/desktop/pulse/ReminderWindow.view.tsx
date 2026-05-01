@@ -3,14 +3,23 @@ import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { UserAttentionType, availableMonitors, type Monitor } from "@tauri-apps/api/window";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
-import { useAuth } from "../lib/auth";
-import { supabase, fetchAllTasks, fetchProjects, fetchAreas, completeTask } from "../lib/supabase";
-import { spaceColor, projectColor } from "../lib/colors";
-import { loadHiddenAreas } from "../lib/tasks";
-import { filterVisibleTasks } from "../models/tasks/taskVisibility";
-import { getResolvedTheme, loadThemePreference } from "../lib/theme";
-import Toggle from "../components/Toggle";
-import type { Area, TaskWithTags, Project } from "../types";
+import { useAuth } from "../../../../hooks/useAuth";
+import type { Area, Project, TaskWithTags } from "../../../../models/shared";
+import { filterVisibleTasks } from "../../../../models/tasks/taskVisibility";
+import {
+  completeTask,
+  fetchAllTasks,
+  fetchAreas,
+  fetchProjects,
+  supabase,
+} from "../../../../services/backend/supabase.service";
+import { projectColor, spaceColor } from "../../../../utils/presentation/colors";
+import {
+  getResolvedTheme,
+  loadThemePreference,
+} from "../../../../utils/presentation/theme";
+import { loadHiddenAreas } from "../../../../utils/preferences/hiddenAreas";
+import Toggle from "../../../components/ui/Toggle.view";
 
 const WINDOW_WIDTH  = 250;
 const MARGIN_X      = 16;

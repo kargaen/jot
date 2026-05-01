@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useAuth } from "../lib/auth";
+import { useAuth } from "../../../../hooks/useAuth";
 import {
-  fetchTask,
-  fetchProjects,
   fetchAreas,
+  fetchProjects,
   fetchTags,
-} from "../lib/supabase";
-import TaskDetail from "../components/TaskDetail";
-import { logger } from "../lib/logger";
-import type { Area, Project, Tag, TaskWithTags } from "../types";
+  fetchTask,
+} from "../../../../services/backend/supabase.service";
+import { logger } from "../../../../utils/observability/logger";
+import type { Area, Project, Tag, TaskWithTags } from "../../../../models/shared";
+import TaskDetail from "../../../components/tasks/TaskDetail.view";
 
 export default function TaskDetailWindow() {
   const taskId = getCurrentWebviewWindow().label.slice(5);

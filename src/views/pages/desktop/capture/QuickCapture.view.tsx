@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow, WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { fetchProjects } from "../lib/supabase";
-import { useAuth } from "../lib/auth";
-import CreateTask, { type CreateTaskRef } from "../views/tasks/CreateTask";
-import type { Project, QuickAction, Task } from "../types";
+import { useAuth } from "../../../../hooks/useAuth";
+import type { Project, QuickAction, Task } from "../../../../models/shared";
+import { fetchProjects } from "../../../../services/backend/supabase.service";
+import CreateTask, {
+  type CreateTaskRef,
+} from "../../../components/tasks/CreateTask.view";
 
 const QUICK_ACTIONS: QuickAction[] = [
   { id: "open-dashboard", label: "Open dashboard",   shortcut: "↵" },

@@ -1,14 +1,14 @@
 /**
  * NLP module test suite.
- * Run: TZ=UTC npx tsx tests/nlp.test.ts
+ * Run: TZ=UTC npx tsx tests/unit/services/nlp.test.ts
  *
  * Frozen date: 2026-04-15 (Wednesday) 12:00 UTC
  * TZ=UTC is required so new Date(year, month, day) constructions are timezone-safe.
  *
  * Failing tests document bugs or unimplemented features — do not delete them.
  */
-import { parseInput } from "../src/lib/nlp";
-import type { Project, Tag } from "../src/types";
+import { parseInput } from "../../../src/services/capture/nlp.service";
+import type { Project, Tag } from "../../../src/models/shared";
 
 // ─── Date Mock ───────────────────────────────────────────────────────────────
 // Freezes "now" so all relative-date math is deterministic.

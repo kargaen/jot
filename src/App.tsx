@@ -1,17 +1,21 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "./lib/auth";
+import { useAuth } from "./hooks/useAuth";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import { platform } from "@tauri-apps/plugin-os";
-import QuickCapture from "./windows/QuickCapture";
-import Dashboard from "./windows/Dashboard";
-import TaskDetailWindow from "./windows/TaskDetailWindow";
-import ReminderWindow from "./windows/ReminderWindow";
-import AboutWindow from "./windows/AboutWindow";
-import MobileApp from "./mobile/MobileApp";
-import { logger } from "./lib/logger";
-import { startThemeSync } from "./lib/theme";
-import { listenForDeepLinks, parseDeepLink, takePendingDeepLink } from "./lib/deepLinks";
+import QuickCapture from "./views/pages/desktop/capture/QuickCapture.view";
+import Dashboard from "./views/pages/desktop/dashboard/Dashboard.view";
+import TaskDetailWindow from "./views/pages/desktop/tasks/TaskDetailWindow.view";
+import ReminderWindow from "./views/pages/desktop/pulse/ReminderWindow.view";
+import AboutWindow from "./views/pages/desktop/about/AboutWindow.view";
+import MobileApp from "./views/pages/mobile/app/MobileApp.view";
+import { logger } from "./utils/observability/logger";
+import { startThemeSync } from "./utils/presentation/theme";
+import {
+  listenForDeepLinks,
+  parseDeepLink,
+  takePendingDeepLink,
+} from "./services/desktop/deepLinks.service";
 
 const windowLabel = getCurrentWebviewWindow().label;
 logger.info("app", `window started: ${windowLabel}`);

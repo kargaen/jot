@@ -2,15 +2,106 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Jot: Daily Cloud Backup",
+      "label": "Jot: Push WIP",
       "type": "shell",
-      "command": "git add .; $ts = Get-Date -Format 'yyyy-MM-ddTHH:mm:ss'; git commit -m ('WIP: ' + $ts)",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "git add -A; git commit -m 'WIP'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; git push"
+      ],
       "options": {
-        "shell": {
-          "executable": "powershell.exe",
-          "args": ["-NoProfile", "-Command"]
-        }
-      }
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Jot: Pull WIP",
+      "type": "shell",
+      "command": "git",
+      "args": ["pull"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Jot: Start Local Supabase",
+      "type": "shell",
+      "command": "npm.cmd",
+      "args": ["run", "db:start"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Jot: Reset Local Test DB",
+      "type": "shell",
+      "command": "npm.cmd",
+      "args": ["run", "db:prepare:e2e"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Jot: Run All Tests",
+      "type": "shell",
+      "command": "npm.cmd",
+      "args": ["run", "test:all:local"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Jot: Run UI Tests (Debug Step)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "npm.cmd run db:prepare:e2e; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; $env:PW_STEP_DELAY_MS='700'; npm.cmd run test:ui:local:raw -- --headed --workers=1"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
     }
   ]
 }

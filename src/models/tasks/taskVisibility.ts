@@ -1,4 +1,4 @@
-import type { Project, TaskWithTags } from "../../types";
+import type { Project, TaskWithTags } from "../shared";
 
 export function filterVisibleTasks(
   tasks: TaskWithTags[],

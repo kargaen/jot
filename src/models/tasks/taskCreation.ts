@@ -1,5 +1,5 @@
-import type { CreateTaskInput } from "../../lib/supabase";
-import type { Project, Task } from "../../types";
+import type { CreateTaskInput } from "../../services/backend/supabase.service";
+import type { Project, Task } from "../shared";
 
 export interface TaskCreationDraft {
   title: string;

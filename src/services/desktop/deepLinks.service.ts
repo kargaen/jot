@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { logger } from "./logger";
+import { logger } from "../../utils/observability/logger";
 
 export type DeepLinkRoute =
   | { kind: "confirmed" }

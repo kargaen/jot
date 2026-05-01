@@ -1,4 +1,4 @@
-import type { NlpLanguageMode } from "../types";
+import type { NlpLanguageMode } from "../../models/shared";
 
 export const NLP_LANGUAGE_KEY = "jot_nlp_language";
 

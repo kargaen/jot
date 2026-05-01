@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { supabase } from "./supabase";
-import { logger } from "./logger";
+import { supabase } from "../services/backend/supabase.service";
+import { logger } from "../utils/observability/logger";
 
 const MOD = "auth";
 const REMEMBER_KEY = "jot_remember_me";

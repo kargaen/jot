@@ -2,14 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
-import { useAuth } from "../lib/auth";
+import { useAuth } from "../../../../hooks/useAuth";
 import {
   acceptInvite,
   closeProject,
-  createArea,
-  completeTask,
-  createTask,
   createProject,
+  createArea,
+  createTask,
+  completeTask,
   declineInvite,
   deleteArea,
   deleteTask,
@@ -28,15 +28,19 @@ import {
   updatePassword,
   updateTask,
   getSession,
-} from "../lib/supabase";
-import { syncWidgets } from "../lib/widgetSync";
-import { projectColor, spaceColor } from "../lib/colors";
-import { saveCreateTaskDraft } from "../controllers/tasks/saveCreateTask";
-import TaskRow from "../components/TaskRow";
-import Toggle from "../components/Toggle";
-import type { Area, NlpLanguageMode, Project, Tag, Task, TaskWithTags } from "../types";
-import { parseInput } from "../lib/nlp";
-import { loadHiddenAreas, saveHiddenAreas } from "../lib/tasks";
+} from "../../../../services/backend/supabase.service";
+import type {
+  Area,
+  NlpLanguageMode,
+  Project,
+  Tag,
+  Task,
+  TaskWithTags,
+} from "../../../../models/shared";
+import { saveCreateTaskDraft } from "../../../../controllers/tasks/saveCreateTask.controller";
+import { parseInput } from "../../../../services/capture/nlp.service";
+import { loadNlpLanguageMode, saveNlpLanguageMode } from "../../../../services/capture/nlpSettings.service";
+import { syncWidgets } from "../../../../services/sync/widgetSync.service";
 import {
   countTasksByProject,
   friendlyDue,
@@ -44,15 +48,18 @@ import {
   normalizeTaskLink,
   sectionLabel,
   sortTasksBySchedule,
-} from "../models/tasks/taskPresentation";
-import { filterVisibleProjects, filterVisibleTasks } from "../models/tasks/taskVisibility";
+} from "../../../../models/tasks/taskPresentation";
+import { filterVisibleProjects, filterVisibleTasks } from "../../../../models/tasks/taskVisibility";
 import {
   type AppThemePreference,
   applyThemePreference,
   loadThemePreference,
   saveThemePreference,
-} from "../lib/theme";
-import { loadNlpLanguageMode, saveNlpLanguageMode } from "../lib/nlpSettings";
+} from "../../../../utils/presentation/theme";
+import { projectColor, spaceColor } from "../../../../utils/presentation/colors";
+import { loadHiddenAreas, saveHiddenAreas } from "../../../../utils/preferences/hiddenAreas";
+import Toggle from "../../../components/ui/Toggle.view";
+import TaskRow from "../../../components/tasks/TaskRow.view";
 
 type TabId = "pulse" | "tasks" | "projects" | "capture" | "user";
 type TaskFilter = "today" | "inbox" | "upcoming" | "all";

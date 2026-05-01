@@ -1,4 +1,4 @@
-import type { TaskWithTags } from "../../types";
+import type { TaskWithTags } from "../shared";
 
 function todayIso() {
   const now = new Date();

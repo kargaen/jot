@@ -1,5 +1,5 @@
-import { parseInput } from "../src/lib/nlp";
-import type { Project, Tag } from "../src/types";
+import { parseInput } from "../../../src/services/capture/nlp.service";
+import type { Project, Tag } from "../../../src/models/shared";
 
 const RealDate = Date;
 const MOCK_NOW = new RealDate("2026-04-15T12:00:00Z");

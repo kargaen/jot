@@ -1,7 +1,7 @@
 export {
   filterVisibleProjects,
   filterVisibleTasks,
-} from "../models/tasks/taskVisibility";
+} from "../../models/tasks/taskVisibility";
 
 /**
  * Reads the hidden-area IDs from localStorage.
