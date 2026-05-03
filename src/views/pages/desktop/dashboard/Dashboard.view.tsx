@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { forwardRef, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { projectColor, spaceColor } from "../../../../utils/presentation/colors";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -11,31 +11,12 @@ import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import Toggle from "../../../components/ui/Toggle.view";
 import Preferences from "../settings/Preferences.view";
 import {
-  closeProject,
-  closeProjectAndCompleteTasks,
-  closeProjectAndReleaseTasks,
-  completeTask,
-  createArea,
-  deleteProject,
-  fetchAreas,
   fetchAreaMembers,
-  fetchAllTasks,
-  fetchCompletionDates,
-  fetchLogbookTasks,
   fetchProjectMembers,
-  fetchProjects,
-  fetchTags,
-  getSession,
   inviteProjectMember,
   inviteMember,
-  mergeProjects,
   removeProjectMember,
   removeAreaMember,
-  reorderProjects,
-  reorderTasks,
-  supabase,
-  updateProject,
-  updateTask,
 } from "../../../../services/backend/supabase.service";
 import { useAuth } from "../../../../hooks/useAuth";
 import type {
@@ -43,21 +24,18 @@ import type {
   AreaMember,
   Project,
   ProjectMember,
-  Tag,
   TaskWithTags,
 } from "../../../../models/shared";
-import { filterVisibleProjects, filterVisibleTasks } from "../../../../models/tasks/taskVisibility";
-import { syncWidgets } from "../../../../services/sync/widgetSync.service";
 import { logger } from "../../../../utils/observability/logger";
-import { loadHiddenAreas, saveHiddenAreas } from "../../../../utils/preferences/hiddenAreas";
 import CompletionHeatmap from "../../../components/pulse/CompletionHeatmap.view";
 import LogbookRow from "../../../components/tasks/LogbookRow.view";
 import CreateTask from "../../../components/tasks/CreateTask.view";
 import TaskRow from "../../../components/tasks/TaskRow.view";
+import { useDashboard, type DashboardView } from "../../../../hooks/useDashboard";
 
 const RELEASES_URL = "https://github.com/kargaen/jot/releases";
 
-type View = "overdue" | "today" | "inbox" | "upcoming" | "project" | "logbook";
+type View = DashboardView;
 type SidebarContextMenu =
   | { x: number; y: number; kind: "area"; areaId: string }
   | { x: number; y: number; kind: "project"; projectId: string };
@@ -65,7 +43,7 @@ type ShareTarget =
   | { kind: "area"; id: string; name: string }
   | { kind: "project"; id: string; name: string };
 
-function errorMessage(error: unknown): string {
+export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object" && "message" in error) {
     return String((error as { message: unknown }).message);
@@ -73,7 +51,7 @@ function errorMessage(error: unknown): string {
   return JSON.stringify(error);
 }
 
-function sortTasks(tasks: TaskWithTags[], byOrder = false): TaskWithTags[] {
+export function sortTasks(tasks: TaskWithTags[], byOrder = false): TaskWithTags[] {
   return [...tasks].sort((a, b) => {
     if (byOrder) {
       const diff = a.sort_order - b.sort_order;
@@ -518,42 +496,73 @@ function TaskList({
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
-const DEFAULT_AREA_KEY = "jot_default_area";
+export const DEFAULT_AREA_KEY = "jot_default_area";
 
-function loadDefaultAreaId(): string | null {
+export function loadDefaultAreaId(): string | null {
   return localStorage.getItem(DEFAULT_AREA_KEY);
 }
 
-function saveDefaultAreaId(id: string | null) {
+export function saveDefaultAreaId(id: string | null) {
   if (id) localStorage.setItem(DEFAULT_AREA_KEY, id);
   else localStorage.removeItem(DEFAULT_AREA_KEY);
 }
 
 export default function Dashboard({ launchNotice = null }: { launchNotice?: string | null }) {
   const { user, signOut } = useAuth();
-  const [view, setView] = useState<View>("today");
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [areas, setAreas] = useState<Area[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [allTasks, setAllTasks] = useState<TaskWithTags[]>([]);
-  const [logbookTasks, setLogbookTasks] = useState<TaskWithTags[]>([]);
-  const [heatmapDates, setHeatmapDates] = useState<string[]>([]);
-  const [hiddenAreaIds, setHiddenAreaIds] = useState<string[]>(loadHiddenAreas);
-  const [defaultAreaId, setDefaultAreaId] = useState<string | null>(loadDefaultAreaId);
-  const [selectedInboxAreaId, setSelectedInboxAreaId] = useState<string | null>(null);
+  const userId = user?.id ?? null;
+  const {
+    view,
+    setView,
+    selectedProject,
+    setSelectedProject,
+    areas,
+    projects,
+    tags,
+    heatmapDates,
+    hiddenAreaIds,
+    defaultAreaId,
+    selectedInboxAreaId,
+    setSelectedInboxAreaId,
+    closeDialog,
+    setCloseDialog,
+    showOnboarding,
+    onboardingName,
+    setOnboardingName,
+    onboardingBusy,
+    onboardingError,
+    suggestClose,
+    setSuggestClose,
+    visibleProjects,
+    overdueTask,
+    todayTasks,
+    upcomingTasks,
+    displayTasks,
+    areaUrgentCounts,
+    projectUrgentCounts,
+    viewTitle,
+    loadData,
+    setPersistedDefaultAreaId,
+    addProject,
+    handleHiddenChange,
+    handleComplete,
+    handleReorder,
+    handleProjectDrop,
+    handleMoveTask,
+    handleMoveProject,
+    handleOnboardingCreate,
+    handleDeleteProject,
+    handleCloseProject,
+    handleCloseConfirm,
+    handleSuggestedProjectClose,
+    canManageArea,
+    canManageProject,
+  } = useDashboard({ userId });
   const [showPrefs, setShowPrefs] = useState(false);
   const [compact, setCompact] = useState(() => localStorage.getItem("jot_compact") === "1");
   const [showSpacePicker, setShowSpacePicker] = useState(false);
   const [alwaysOnTop, setAlwaysOnTop] = useState(() => localStorage.getItem("jot_pin") === "1");
   const [ctxMenu, setCtxMenu] = useState<SidebarContextMenu | null>(null);
   const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
-  const [closeDialog, setCloseDialog] = useState<{ projectId: string; taskCount: number } | null>(null);
-  const projectsSeenWithTasks = useRef(new Set<string>());
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingName, setOnboardingName] = useState("Personal");
-  const [onboardingBusy, setOnboardingBusy] = useState(false);
-  const [onboardingError, setOnboardingError] = useState("");
   const [updateStatus, setUpdateStatus] = useState<"idle" | "available" | "downloading" | "ready" | "failed">("idle");
   const [updateVersion, setUpdateVersion] = useState("");
   const [updateProgress, setUpdateProgress] = useState(0);
@@ -563,80 +572,6 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
   const [sidebarHover, setSidebarHover] = useState<{ projectId: string | null; areaId: string | null } | null>(null);
   const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
   const [projectDropTarget, setProjectDropTarget] = useState<{ id: string; mode: "before" | "after" | "merge" } | null>(null);
-  const [suggestClose, setSuggestClose] = useState<{ projectId: string; projectName: string } | null>(null);
-
-  const today = new Date().toISOString().split("T")[0];
-  const userId = user?.id ?? null;
-
-  const loadIdRef = useRef(0);
-  const loadData = useCallback(async () => {
-    const id = ++loadIdRef.current;
-    logger.debug("dashboard", `loadData #${id}: fetching…`);
-    try {
-      const [a, p, t, tasks] = await Promise.all([
-        fetchAreas(),
-        fetchProjects(),
-        fetchTags(),
-        fetchAllTasks(),
-      ]);
-      if (id !== loadIdRef.current) return; // stale — a newer load is in flight
-      setAreas(a);
-      setShowOnboarding(a.length === 0);
-      const savedDefaultAreaId = loadDefaultAreaId();
-      if (a.length > 0 && (!savedDefaultAreaId || !a.some((area) => area.id === savedDefaultAreaId))) {
-        setDefaultAreaId(a[0].id);
-        saveDefaultAreaId(a[0].id);
-      }
-      setProjects(p);
-      setTags(t);
-      setAllTasks(tasks);
-      logger.info("dashboard", `loadData #${id}: ${tasks.length} tasks, ${p.length} projects`);
-      syncWidgets();
-    } catch (err) {
-      if (id !== loadIdRef.current) return;
-      logger.error("dashboard", "loadData failed", err instanceof Error ? err.message : err);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (userId) loadData();
-  }, [userId, loadData]);
-
-  // Clear stale "suggest close" toast when the user navigates away from the project it refers to
-  useEffect(() => {
-    setSuggestClose(null);
-  }, [selectedProject?.id]);
-
-  // Load logbook + heatmap lazily only when that view is active
-  useEffect(() => {
-    if (!userId || view !== "logbook") return;
-    const since = new Date();
-    since.setDate(since.getDate() - 16 * 7);
-    Promise.all([
-      fetchLogbookTasks(),
-      fetchCompletionDates(since.toISOString()),
-    ]).then(([tasks, dates]) => {
-      setLogbookTasks(tasks);
-      setHeatmapDates(dates);
-    }).catch((err) => logger.error("dashboard", "fetchLogbookTasks failed", err instanceof Error ? err.message : err));
-  }, [userId, view]);
-
-  // Realtime: reload on any change, debounced to avoid flicker on rapid completions
-  const realtimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (!userId) return;
-    const channel = supabase
-      .channel("tasks-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
-        if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
-        realtimeTimerRef.current = setTimeout(() => loadData(), 500);
-      })
-      .subscribe();
-    return () => {
-      if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
-      supabase.removeChannel(channel);
-    };
-  }, [userId, loadData]);
 
   // Restore window geometry on startup
   useEffect(() => {
@@ -858,288 +793,6 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
     }
   }
 
-  function handleHiddenChange(ids: string[]) {
-    setHiddenAreaIds(ids);
-    saveHiddenAreas(ids);
-    // If currently viewing a space or project that's now hidden, deselect
-    if (selectedInboxAreaId && ids.includes(selectedInboxAreaId)) {
-      setSelectedInboxAreaId(null);
-      setView("today");
-    }
-    if (selectedProject?.area_id && ids.includes(selectedProject.area_id)) {
-      setSelectedProject(null);
-      setView("today");
-    }
-  }
-
-  // ─── Derived views (all in memory, no extra fetches) ──────────────────────
-
-  // Projects and tasks filtered by visible areas
-  const visibleProjects = useMemo(
-    () => filterVisibleProjects(projects, hiddenAreaIds),
-    [projects, hiddenAreaIds],
-  );
-
-  const visibleTasks = useMemo(
-    () => filterVisibleTasks(allTasks, projects, hiddenAreaIds),
-    [allTasks, projects, hiddenAreaIds],
-  );
-
-  const overdueTask = useMemo(
-    () => visibleTasks.filter((t) => t.due_date && t.due_date < today),
-    [visibleTasks, today],
-  );
-
-  const todayTasks = useMemo(
-    () => visibleTasks.filter((t) => t.due_date === today || t.scheduled_date === today),
-    [visibleTasks, today],
-  );
-
-  const inboxTasks = useMemo(
-    () => visibleTasks.filter((t) => !t.project_id),
-    [visibleTasks],
-  );
-
-  const upcomingTasks = useMemo(
-    () => visibleTasks
-      .filter((t) => {
-        const date = t.scheduled_date ?? t.due_date;
-        return date && date > today;
-      })
-      .sort((a, b) => {
-        const da = a.scheduled_date ?? a.due_date ?? "";
-        const db = b.scheduled_date ?? b.due_date ?? "";
-        return da < db ? -1 : da > db ? 1 : 0;
-      }),
-    [visibleTasks, today],
-  );
-
-  const projectTasks = useMemo(
-    () => selectedProject ? visibleTasks.filter((t) => t.project_id === selectedProject.id) : [],
-    [visibleTasks, selectedProject],
-  );
-
-  // Track projects that have been seen with tasks (to detect "became empty")
-  useEffect(() => {
-    for (const t of allTasks) {
-      if (t.project_id) projectsSeenWithTasks.current.add(t.project_id);
-    }
-  }, [allTasks]);
-
-  // Urgent = overdue or due today — used for sidebar attention badges
-  const areaUrgentCounts = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const t of visibleTasks) {
-      if (!t.due_date || t.due_date > today) continue;
-      const areaId = t.area_id ?? (t.project_id ? projects.find((p) => p.id === t.project_id)?.area_id : null);
-      if (areaId) map.set(areaId, (map.get(areaId) ?? 0) + 1);
-    }
-    return map;
-  }, [visibleTasks, projects, today]);
-
-  const projectUrgentCounts = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const t of visibleTasks) {
-      if (t.project_id && t.due_date && t.due_date <= today)
-        map.set(t.project_id, (map.get(t.project_id) ?? 0) + 1);
-    }
-    return map;
-  }, [visibleTasks, today]);
-
-  const displayTasks = useMemo((): TaskWithTags[] => {
-    const raw = (() => {
-      switch (view) {
-        case "overdue":  return overdueTask;
-        case "today":    return todayTasks;
-        case "inbox":    return selectedInboxAreaId
-          ? visibleTasks.filter((t) =>
-              t.area_id === selectedInboxAreaId ||
-              (t.project_id && projects.find((p) => p.id === t.project_id)?.area_id === selectedInboxAreaId)
-            )
-          : inboxTasks;
-        case "upcoming": return upcomingTasks;
-        case "project":  return projectTasks;
-        case "logbook":  return logbookTasks;
-      }
-    })();
-    return view === "logbook" ? raw : sortTasks(raw, view === "project");
-  }, [view, overdueTask, todayTasks, inboxTasks, upcomingTasks, projectTasks, logbookTasks, projects, selectedInboxAreaId]);
-
-  // ──────────────────────────────────────────────────────────────────────────
-
-  function handleComplete(taskId: string) {
-    const task = allTasks.find((t) => t.id === taskId);
-    setAllTasks((prev) => prev.filter((t) => t.id !== taskId));
-    completeTask(taskId).catch((err) =>
-      logger.error("dashboard", "completeTask failed", err instanceof Error ? err.message : err),
-    );
-    // If this was the last todo task in a project, offer to close it
-    if (task?.project_id) {
-      const remaining = allTasks.filter(
-        (t) => t.id !== taskId && t.project_id === task.project_id,
-      );
-      if (remaining.length === 0 && projectsSeenWithTasks.current.has(task.project_id)) {
-        const project = projects.find((p) => p.id === task.project_id);
-        if (project) setSuggestClose({ projectId: task.project_id, projectName: project.name });
-      }
-    }
-  }
-
-  function handleReorder(newOrder: TaskWithTags[]) {
-    const updates = newOrder.map((t, i) => ({ id: t.id, sort_order: (i + 1) * 1000 }));
-    // Optimistic update in memory
-    setAllTasks((prev) => {
-      const map = new Map(updates.map((u) => [u.id, u.sort_order]));
-      return prev.map((t) => (map.has(t.id) ? { ...t, sort_order: map.get(t.id)! } : t));
-    });
-    reorderTasks(updates).catch((err) =>
-      logger.error("dashboard", "reorderTasks failed", err instanceof Error ? err.message : err),
-    );
-  }
-
-  function handleProjectDrop(e: React.DragEvent, targetId: string, group: Project[]) {
-    const sourceId = e.dataTransfer.getData("projectId");
-    const dropMode = projectDropTarget?.id === targetId ? projectDropTarget.mode : "after";
-    setDraggingProjectId(null);
-    setProjectDropTarget(null);
-    if (!sourceId || sourceId === targetId) return;
-    if (dropMode === "merge") {
-      const sourceProject = projects.find((p) => p.id === sourceId);
-      const targetProject = projects.find((p) => p.id === targetId);
-      if (!sourceProject || !targetProject) return;
-      const accepted = window.confirm(
-        `Merge "${sourceProject.name}" into "${targetProject.name}"?\n\nAll open tasks from "${sourceProject.name}" will move into "${targetProject.name}", and the source project will be deleted.`,
-      );
-      if (!accepted) return;
-
-      setAllTasks((prev) =>
-        prev.map((task) =>
-          task.project_id === sourceId
-            ? { ...task, project_id: targetId, area_id: null }
-            : task,
-        ),
-      );
-      setProjects((prev) => prev.filter((project) => project.id !== sourceId));
-      if (selectedProject?.id === sourceId) {
-        setSelectedProject(targetProject);
-        setView("project");
-      }
-
-      mergeProjects(sourceId, targetId)
-        .then(() => {
-          logger.info("dashboard", `merged project ${sourceId} into ${targetId}`);
-          loadData();
-        })
-        .catch((err) => {
-          logger.error("dashboard", "mergeProjects failed", err instanceof Error ? err.message : err);
-          loadData();
-        });
-      return;
-    }
-    const srcIdx = group.findIndex((p) => p.id === sourceId);
-    const tgtIdx = group.findIndex((p) => p.id === targetId);
-    if (srcIdx === -1 || tgtIdx === -1) return;
-    const insertAt = dropMode === "before" ? tgtIdx : tgtIdx + 1;
-    const next = [...group];
-    const [moved] = next.splice(srcIdx, 1);
-    next.splice(insertAt > srcIdx ? insertAt - 1 : insertAt, 0, moved);
-    const updates = next.map((p, i) => ({ id: p.id, sort_order: (i + 1) * 1000 }));
-    setProjects((prev) => {
-      const map = new Map(updates.map((u) => [u.id, u.sort_order]));
-      return [...prev].sort((a, b) => (map.get(a.id) ?? a.sort_order) - (map.get(b.id) ?? b.sort_order));
-    });
-    reorderProjects(updates).catch((err) =>
-      logger.error("dashboard", "reorderProjects failed", err instanceof Error ? err.message : err),
-    );
-  }
-
-  async function handleMoveTask(taskId: string, projectId: string | null, areaId: string | null) {
-    setAllTasks((prev) =>
-      prev.map((t) => t.id === taskId ? { ...t, project_id: projectId, area_id: areaId } : t),
-    );
-    await updateTask(taskId, { project_id: projectId, area_id: areaId });
-  }
-
-  async function handleMoveProject(projectId: string, areaId: string) {
-    const area = areas.find((a) => a.id === areaId);
-    setProjects((prev) => prev.map((p) => p.id === projectId ? { ...p, area_id: areaId } : p));
-    if (selectedProject?.id === projectId) {
-      setSelectedProject((project) => project ? { ...project, area_id: areaId } : project);
-    }
-    await updateProject(projectId, { area_id: areaId });
-    logger.info("dashboard", `moved project ${projectId} to space ${area?.name ?? areaId}`);
-  }
-
-  async function handleOnboardingCreate() {
-    if (!onboardingName.trim()) return;
-    setOnboardingBusy(true);
-    setOnboardingError("");
-    try {
-      const session = await getSession();
-      if (!session) {
-        setOnboardingError("Your session is not ready yet. Please sign out and sign back in now that your email is confirmed.");
-        return;
-      }
-      const area = await createArea(onboardingName.trim());
-      setDefaultAreaId(area.id);
-      saveDefaultAreaId(area.id);
-      setShowOnboarding(false);
-      loadData();
-    } catch (error) {
-      const message = errorMessage(error);
-      if (message.includes("42501") || message.toLowerCase().includes("row-level security")) {
-        setOnboardingError("Jot could not create your first space because the session was rejected by the server. Please sign out and sign back in, then try again.");
-      } else if (message.toLowerCase().includes("not authenticated")) {
-        setOnboardingError("You need to be signed in before creating your first space. Please sign in again and retry.");
-      } else {
-        setOnboardingError(message);
-      }
-    } finally {
-      setOnboardingBusy(false);
-    }
-  }
-
-  async function handleDeleteProject(id: string) {
-    if (!confirm("Permanently delete this project? Its tasks will move to the inbox.")) return;
-    await deleteProject(id);
-    if (selectedProject?.id === id) { setSelectedProject(null); setView("inbox"); }
-    loadData();
-  }
-
-  function handleCloseProject(projectId: string) {
-    const taskCount = allTasks.filter((t) => t.project_id === projectId).length;
-    if (taskCount > 0) {
-      setCloseDialog({ projectId, taskCount });
-    } else {
-      closeProject(projectId).then(() => {
-        if (selectedProject?.id === projectId) { setSelectedProject(null); setView("inbox"); }
-        loadData();
-      });
-    }
-  }
-
-  async function handleCloseConfirm(action: "complete" | "release") {
-    if (!closeDialog) return;
-    const { projectId } = closeDialog;
-    if (action === "complete") {
-      await closeProjectAndCompleteTasks(projectId);
-    } else {
-      await closeProjectAndReleaseTasks(projectId);
-    }
-    setCloseDialog(null);
-    if (selectedProject?.id === projectId) { setSelectedProject(null); setView("inbox"); }
-    loadData();
-  }
-
-  function canManageArea(areaId: string) {
-    return areas.some((area) => area.id === areaId && area.user_id === userId);
-  }
-
-  function canManageProject(projectId: string) {
-    const project = projects.find((item) => item.id === projectId);
-    return !!project && (project.user_id === userId || (project.area_id ? canManageArea(project.area_id) : false));
-  }
-
   function openShareTarget(target: ShareTarget) {
     setCtxMenu(null);
     setShareTarget(target);
@@ -1243,14 +896,6 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
     );
   }
 
-  const viewTitle =
-    view === "overdue"  ? "Overdue" :
-    view === "today"    ? "Today" :
-    view === "inbox"    ? (areas.find((a) => a.id === selectedInboxAreaId)?.name ?? "Inbox") :
-    view === "upcoming" ? "Upcoming" :
-    view === "logbook"  ? "Logbook" :
-    view === "project" && selectedProject ? selectedProject.name : "";
-
   if (!user) return <AuthScreen launchNotice={launchNotice} />;
 
   // ── Compact / mobile layout ────────────────────────────────────────────────
@@ -1331,7 +976,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
               placeholder="Add task…"
               canCreateProjectsAndTags
               onCreated={() => loadData()}
-              onProjectCreated={(p) => setProjects((prev) => [...prev, p])}
+              onProjectCreated={addProject}
             />
           </div>
         )}
@@ -1418,12 +1063,8 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
           <span>All done in <strong>{suggestClose.projectName}</strong>. Close the project?</span>
           <button
             onClick={() => {
-              const { projectId } = suggestClose;
               setSuggestClose(null);
-              closeProject(projectId).then(() => {
-                if (selectedProject?.id === projectId) { setSelectedProject(null); setView("inbox"); }
-                loadData();
-              });
+              void handleSuggestedProjectClose();
             }}
             style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--accent)", color: "#fff", cursor: "pointer" }}
           >
@@ -1516,7 +1157,13 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
                         setProjectDropTarget({ id: project.id, mode });
                       } : undefined}
                       onDragLeave={draggingProjectId ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setProjectDropTarget((p) => p?.id === project.id ? null : p); } : undefined}
-                      onDrop={draggingProjectId ? (e) => handleProjectDrop(e, project.id, areaProjects) : undefined}
+                      onDrop={draggingProjectId ? (e) => {
+                        const sourceId = e.dataTransfer.getData("projectId");
+                        const dropMode = projectDropTarget?.id === project.id ? projectDropTarget.mode : "after";
+                        setDraggingProjectId(null);
+                        setProjectDropTarget(null);
+                        void handleProjectDrop(sourceId, project.id, dropMode, areaProjects);
+                      } : undefined}
                       onDragEnd={() => { setDraggingProjectId(null); setProjectDropTarget(null); }}
                       style={{
                         opacity: draggingProjectId === project.id ? 0.4 : 1,
@@ -1606,7 +1253,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
               hiddenAreaIds={hiddenAreaIds}
               defaultAreaId={defaultAreaId}
               onHiddenChange={handleHiddenChange}
-              onDefaultChange={(id) => { setDefaultAreaId(id); saveDefaultAreaId(id); }}
+              onDefaultChange={setPersistedDefaultAreaId}
             />
           )}
         </div>
@@ -1678,7 +1325,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
                 placeholder="Add task… (natural language)"
                 canCreateProjectsAndTags
                 onCreated={() => loadData()}
-                onProjectCreated={(p) => setProjects((prev) => [...prev, p])}
+                onProjectCreated={addProject}
               />
             </div>
           )}
@@ -1784,12 +1431,8 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
           <span>All done in <strong>{suggestClose.projectName}</strong>. Close the project?</span>
           <button
             onClick={() => {
-              const { projectId } = suggestClose;
               setSuggestClose(null);
-              closeProject(projectId).then(() => {
-                if (selectedProject?.id === projectId) { setSelectedProject(null); setView("inbox"); }
-                loadData();
-              });
+              void handleSuggestedProjectClose();
             }}
             style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--accent)", color: "#fff", cursor: "pointer" }}
           >
@@ -2256,3 +1899,4 @@ function FormInput({ label, type, value, onChange, placeholder }: {
     </label>
   );
 }
+

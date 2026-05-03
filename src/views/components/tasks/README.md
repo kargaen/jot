@@ -7,4 +7,4 @@ Current note:
 
 When wiring happens:
 - Update imports from `src/components/*` and the earlier `src/views/tasks/*` path.
-- Expect `TaskDetail.view.tsx` to need the most follow-up because it still mixes view and controller responsibilities.
+- `TaskDetail.view.tsx` has started moving toward a hook/controller split, but it is not yet a purely presentational surface.

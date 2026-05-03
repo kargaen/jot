@@ -1,4 +1,5 @@
 # Jot — Project Folder Structure
+
 ### React · Tauri · Supabase · Rust · TypeScript · MVC
 
 ---
@@ -7,11 +8,11 @@
 
 The MVC split in Jot maps to three clear layers:
 
-| Layer | Where it lives | Responsibility |
-|---|---|---|
-| **Model** | `src/models/`, `src-tauri/src/models/`, `supabase/migrations/`, `shared/` | Shape of data — TypeScript interfaces, Zod schemas, Rust structs, SQL schema |
-| **View** | `src/views/` | Pure presentation — React components that receive props and emit events, nothing else |
-| **Controller** | `src/controllers/`, `src-tauri/src/commands/`, `src-tauri/src/controllers/` | Business logic — orchestrates models, calls services, drives view state |
+| Layer          | Where it lives                                                              | Responsibility                                                                        |
+| -------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **Model**      | `src/models/`, `src-tauri/src/models/`, `supabase/migrations/`, `shared/`   | Shape of data — TypeScript interfaces, Zod schemas, Rust structs, SQL schema          |
+| **View**       | `src/views/`                                                                | Pure presentation — React components that receive props and emit events, nothing else |
+| **Controller** | `src/controllers/`, `src-tauri/src/commands/`, `src-tauri/src/controllers/` | Business logic — orchestrates models, calls services, drives view state               |
 
 Services (`src/services/`) sit beneath the controller layer and handle all I/O: Supabase queries, Tauri `invoke()` bridges, and NLP parsing. Controllers call services; views never call services directly.
 
@@ -248,15 +249,15 @@ jot/
 
 ### Naming
 
-| Artefact | Convention | Example |
-|---|---|---|
-| View component | `Name.view.tsx` | `TaskItem.view.tsx` |
+| Artefact        | Convention             | Example                      |
+| --------------- | ---------------------- | ---------------------------- |
+| View component  | `Name.view.tsx`        | `TaskItem.view.tsx`          |
 | Mobile override | `Name.mobile.view.tsx` | `CaptureBar.mobile.view.tsx` |
-| Controller | `domain.controller.ts` | `capture.controller.ts` |
-| Service | `domain.service.ts` | `tasks.service.ts` |
-| Tauri bridge | `domain.bridge.ts` | `notifications.bridge.ts` |
-| Store slice | `domain.store.ts` | `task.store.ts` |
-| Hook | `useDomain.ts` | `usePulse.ts` |
+| Controller      | `domain.controller.ts` | `capture.controller.ts`      |
+| Service         | `domain.service.ts`    | `tasks.service.ts`           |
+| Tauri bridge    | `domain.bridge.ts`     | `notifications.bridge.ts`    |
+| Store slice     | `domain.store.ts`      | `task.store.ts`              |
+| Hook            | `useDomain.ts`         | `usePulse.ts`                |
 
 ### Data flow (strict, one direction)
 
@@ -271,6 +272,18 @@ View  →  Hook  →  Controller  →  Service  →  (Supabase / Tauri / NLP)
 Views never import from `services/` or `store/` directly.  
 Controllers never import from `views/`.  
 Services never import from `controllers/`, `store/`, or `views/`.
+
+### Commenting Practice
+
+Prefer self-explanatory code over explanatory comments. Add comments only where they provide context the code itself cannot express quickly, such as architectural intent, non-obvious constraints, workflow invariants, edge-case reasoning, or why a particular approach was chosen. Do not add comments that merely restate what the next line of code already says. A small number of high-value comments is preferred over pervasive low-signal commentary.
+
+- Comment `why`, not `what`.
+- Comment invariants, assumptions, and surprising behavior.
+- Comment cross-layer or cross-domain decisions that would be hard to infer locally.
+- Avoid line-by-line narration of obvious code.
+- If a function needs many explanatory comments, prefer refactoring it into clearer names and smaller units first.
+
+Comments should reduce future confusion, not decorate code.
 
 ### Shared validation boundary
 
