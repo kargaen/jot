@@ -6,12 +6,11 @@ pub mod capture_outbox;
 #[cfg(target_os = "android")]
 use jni::objects::{JObject, JString, JValue};
 use std::sync::Mutex;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 #[cfg(desktop)]
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter,
 };
 use tauri_plugin_deep_link::DeepLinkExt;
 #[cfg(all(desktop, not(debug_assertions)))]
@@ -136,6 +135,7 @@ fn remember_deep_link(app: &tauri::AppHandle, url: String) {
     let _ = app.emit("deep-link-opened", url);
 }
 
+#[cfg(desktop)]
 fn focus_main_for_deep_link(app: &tauri::AppHandle) {
     if let Some(win) = app.get_webview_window("main") {
         let _ = win.show();
@@ -271,6 +271,7 @@ pub fn run() {
             if let Some(urls) = start_urls {
                 if let Some(url) = urls.into_iter().next() {
                     remember_deep_link(&_app.handle().clone(), url.to_string());
+                    #[cfg(desktop)]
                     focus_main_for_deep_link(&_app.handle().clone());
                 }
             }
@@ -279,6 +280,7 @@ pub fn run() {
             _app.deep_link().on_open_url(move |event| {
                 if let Some(url) = event.urls().first() {
                     remember_deep_link(&app_handle, url.to_string());
+                    #[cfg(desktop)]
                     focus_main_for_deep_link(&app_handle);
                 }
             });
