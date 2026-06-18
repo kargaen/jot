@@ -1,0 +1,11 @@
+{
+  "identifier": "desktop",
+  "description": "Desktop-only permissions",
+  "windows": ["*"],
+  "platforms": ["linux", "macos", "windows"],
+  "permissions": [
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
+  ]
+}
