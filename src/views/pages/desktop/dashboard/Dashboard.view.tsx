@@ -610,13 +610,20 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
 
   // ── Auto-update check ─────────────────────────────────────────────────────
   useEffect(() => {
-    check().then((update) => {
-      if (update) {
-        updateRef.current = update;
-        setUpdateVersion(update.version);
-        setUpdateStatus("available");
-      }
-    }).catch(() => {});
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Update check timed out")), 15_000),
+    );
+    Promise.race([check(), timeout])
+      .then((update) => {
+        if (update) {
+          updateRef.current = update;
+          setUpdateVersion(update.version);
+          setUpdateStatus("available");
+        }
+      })
+      .catch((err: unknown) => {
+        logger.warn("dashboard", "update check failed", err instanceof Error ? err.message : err);
+      });
   }, []);
 
   async function handleUpdate() {
@@ -1279,6 +1286,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
             )}
             {updateStatus === "failed" && (
               <>
+                <button onClick={handleUpdate} style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--accent)", color: "#fff", cursor: "pointer" }}>Retry</button>
                 <button onClick={() => shellOpen(RELEASES_URL)} style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "#dc2626", color: "#fff", cursor: "pointer" }}>Download manually</button>
                 <button onClick={() => setUpdateStatus("idle")} style={{ padding: "4px 8px", fontSize: 12, color: "var(--text-tertiary)", cursor: "pointer" }}>Dismiss</button>
               </>

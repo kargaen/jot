@@ -337,12 +337,17 @@ export default function ReminderWindow() {
     }
   }, [pin]);
 
-  // Idle polling (auto only)
+  // Idle polling (auto only) — guard prevents parallel IPC calls if invoke is slow
   useEffect(() => {
     if (isManual) return;
-    const poll = setInterval(async () => {
-      const ms = await invoke<number>("get_idle_ms");
-      setPaused(ms > IDLE_PAUSE_MS);
+    let inflight = false;
+    const poll = setInterval(() => {
+      if (inflight) return;
+      inflight = true;
+      invoke<number>("get_idle_ms")
+        .then((ms) => { setPaused(ms > IDLE_PAUSE_MS); })
+        .catch(() => {})
+        .finally(() => { inflight = false; });
     }, IDLE_POLL_MS);
     return () => clearInterval(poll);
   }, [isManual]);

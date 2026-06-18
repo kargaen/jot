@@ -84,6 +84,7 @@ export function useDashboard({ userId }: UseDashboardOptions) {
 
   const loadIdRef = useRef(0);
   const realtimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const realtimeLastFiredRef = useRef(0);
   const projectsSeenWithTasks = useRef(new Set<string>());
   const today = new Date().toISOString().split("T")[0];
 
@@ -148,11 +149,22 @@ export function useDashboard({ userId }: UseDashboardOptions) {
 
   useEffect(() => {
     if (!userId) return;
+    const THROTTLE_MS = 500;
     const unsubscribe = subscribeToDashboardTaskChanges(() => {
+      const now = Date.now();
+      const elapsed = now - realtimeLastFiredRef.current;
       if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
-      realtimeTimerRef.current = setTimeout(() => {
+      if (elapsed >= THROTTLE_MS) {
+        // Leading edge: fire immediately
+        realtimeLastFiredRef.current = now;
         void loadData();
-      }, 500);
+      } else {
+        // Trailing edge: schedule one reload after the burst settles
+        realtimeTimerRef.current = setTimeout(() => {
+          realtimeLastFiredRef.current = Date.now();
+          void loadData();
+        }, THROTTLE_MS - elapsed);
+      }
     });
 
     return () => {

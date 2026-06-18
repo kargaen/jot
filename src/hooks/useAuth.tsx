@@ -101,7 +101,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const current = readAuthSnapshot();
       if (current?.ready) {
         applySnapshot(current, "using main-window auth snapshot");
+        return () => {};
       }
+      logger.debug(MOD, `bootstrap: waiting for main-window auth (${label})`);
       const onStorage = (event: StorageEvent) => {
         if (event.key !== AUTH_SNAPSHOT_KEY) return;
         const snapshot = readAuthSnapshot();
@@ -115,7 +117,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         applySnapshot(snapshot, "main-window auth ready");
         window.clearInterval(pollId);
       }, 200);
-      if (!current?.ready) logger.debug(MOD, `bootstrap: waiting for main-window auth (${label})`);
 
       return () => {
         window.clearInterval(pollId);

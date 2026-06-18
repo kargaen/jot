@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Area, AreaMember, Feedback, Project, Tag, TaskWithTags } from "../models/shared";
+import type { Area, AreaMember, Feedback, Project, ProjectMember, Tag, TaskWithTags } from "../models/shared";
 import {
   acceptInvite,
+  acceptProjectInvite,
   closeProject,
   completeTask,
   createArea,
   createProject,
   createTask,
   declineInvite,
+  declineProjectInvite,
   deleteArea,
   deleteTask,
   fetchAllTasks,
@@ -15,6 +17,7 @@ import {
   fetchAreas,
   fetchFeedback,
   fetchPendingInvites,
+  fetchPendingProjectInvites,
   fetchProjects,
   fetchTags,
   getSession,
@@ -112,7 +115,7 @@ export function useMobileAppData(userId: string | null) {
 
   return {
     areas, projects, tags, tasks, loadingData, error,
-    loadData,
+    loadData, refresh,
     firstAreaName, setFirstAreaName, firstAreaBusy, firstAreaError,
     createFirstArea,
     completeTask: markComplete,
@@ -140,12 +143,14 @@ export function useMobileSharingSettings(areas: Area[], currentUserId: string) {
   const [selectedAreaId, setSelectedAreaId] = useState<string>(ownedAreas[0]?.id ?? "");
   const [members, setMembers] = useState<AreaMember[]>([]);
   const [pendingInvites, setPendingInvites] = useState<AreaMember[]>([]);
+  const [pendingProjectInvites, setPendingProjectInvites] = useState<ProjectMember[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     void fetchPendingInvites().then(setPendingInvites).catch(() => {});
+    void fetchPendingProjectInvites().then(setPendingProjectInvites).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -187,14 +192,28 @@ export function useMobileSharingSettings(areas: Area[], currentUserId: string) {
     );
   }
 
+  function handleAcceptProject(id: string) {
+    void acceptProjectInvite(id).then(() =>
+      setPendingProjectInvites((prev) => prev.filter((item) => item.id !== id)),
+    );
+  }
+
+  function handleDeclineProject(id: string) {
+    void declineProjectInvite(id).then(() =>
+      setPendingProjectInvites((prev) => prev.filter((item) => item.id !== id)),
+    );
+  }
+
   return {
     ownedAreas,
     selectedAreaId, setSelectedAreaId,
     members,
     pendingInvites,
+    pendingProjectInvites,
     inviteEmail, setInviteEmail,
     busy, error,
     handleInvite, handleAccept, handleDecline, handleRemove,
+    handleAcceptProject, handleDeclineProject,
   };
 }
 

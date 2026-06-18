@@ -911,6 +911,12 @@ function CaptureComposer({
               {recurrenceLabel && (
                 <span style={pillStyle(false)}>{recurrenceLabel}</span>
               )}
+              {parsed.tags.map((tag) => (
+                <span key={tag.id} style={pillStyle(false)}>{tag.name}</span>
+              ))}
+              {parsed.suggestedTagNames.map((name) => (
+                <span key={name} style={pillStyle(false)}>New tag: {name}</span>
+              ))}
             </div>
           </>
         )}
@@ -1312,9 +1318,11 @@ function MobileSharingSettings({ areas, currentUserId }: { areas: Area[]; curren
     selectedAreaId, setSelectedAreaId,
     members,
     pendingInvites,
+    pendingProjectInvites,
     inviteEmail, setInviteEmail,
     busy, error,
     handleInvite, handleAccept, handleDecline, handleRemove,
+    handleAcceptProject, handleDeclineProject,
   } = useMobileSharingSettings(areas, currentUserId);
 
   return (
@@ -1334,6 +1342,18 @@ function MobileSharingSettings({ areas, currentUserId }: { areas: Area[]; curren
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
             <button onClick={() => handleAccept(invite.id)} style={buttonStyle("primary")}>Accept</button>
             <button onClick={() => handleDecline(invite.id)} style={buttonStyle()}>Decline</button>
+          </div>
+        </div>
+      ))}
+
+      {pendingProjectInvites.map((invite) => (
+        <div key={invite.id} style={{ ...cardStyle(), padding: 16 }}>
+          <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+            Invited to project <strong>{invite.project_id}</strong>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <button onClick={() => handleAcceptProject(invite.id)} style={buttonStyle("primary")}>Accept</button>
+            <button onClick={() => handleDeclineProject(invite.id)} style={buttonStyle()}>Decline</button>
           </div>
         </div>
       ))}
@@ -1533,7 +1553,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const { loading, user, signOut } = useAuth();
   const {
     areas, projects, tags, tasks, loadingData, error,
-    loadData,
+    loadData, refresh,
     firstAreaName, setFirstAreaName, firstAreaBusy, firstAreaError,
     createFirstArea,
     completeTask, closeProject, updateTask, deleteTask,
@@ -2081,7 +2101,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
                   autofocusToken={captureAutofocusToken}
                   onCreated={async (task) => {
                     setEditingTask(task);
-                    await loadData();
+                    await refresh();
                   }}
                 />
               </div>

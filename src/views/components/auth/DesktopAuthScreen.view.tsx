@@ -42,10 +42,10 @@ export default function DesktopAuthScreen({
 
   useEffect(() => {
     if (!awaitingConfirmation || resendCooldown <= 0) return;
-    const id = window.setInterval(() => {
-      setResendCooldown((current) => (current <= 1 ? 0 : current - 1));
+    const id = window.setTimeout(() => {
+      setResendCooldown((c) => Math.max(0, c - 1));
     }, 1_000);
-    return () => window.clearInterval(id);
+    return () => window.clearTimeout(id);
   }, [awaitingConfirmation, resendCooldown]);
 
   function enterAwaitingConfirmation(
@@ -82,6 +82,7 @@ export default function DesktopAuthScreen({
       if (result.kind === "email_not_confirmed") {
         enterAwaitingConfirmation("Check your email to continue.", rememberMe);
       } else {
+        if (result.kind === "invalid_credentials") setPassword("");
         setError(result.message);
       }
     } else if (isSignUp) {

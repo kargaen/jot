@@ -1,4 +1,5 @@
 import type { Area, Project, Tag, TaskWithTags } from "../../models/shared";
+import { logger } from "../../utils/observability/logger";
 import {
   closeProject,
   closeProjectAndCompleteTasks,
@@ -70,7 +71,9 @@ export function subscribeToDashboardTaskChanges(onChange: () => void) {
     .subscribe();
 
   return () => {
-    supabase.removeChannel(channel);
+    supabase.removeChannel(channel).catch((err: unknown) => {
+      logger.warn("dashboard", "realtime channel cleanup failed", err instanceof Error ? err.message : err);
+    });
   };
 }
 
