@@ -74,5 +74,44 @@
                 <action android:name="com.jot.app.UPDATE_WIDGETS" />
             </intent-filter>
         </receiver>
+
+        <!-- Text Capture 1×1 widget -->
+        <receiver
+            android:name=".widget.TextCaptureWidget"
+            android:label="@string/text_capture_widget_label"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_text_1x1_info" />
+        </receiver>
+
+        <!-- Voice Capture 1×1 widget -->
+        <receiver
+            android:name=".widget.VoiceCaptureWidget"
+            android:label="@string/voice_capture_widget_label"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_voice_1x1_info" />
+        </receiver>
+
+        <!-- Native overlay for text capture (launched by TextCaptureWidget) -->
+        <activity
+            android:name=".widget.TextCaptureActivity"
+            android:theme="@style/Theme.MaterialComponents.Light.Dialog"
+            android:windowSoftInputMode="stateAlwaysVisible|adjustResize"
+            android:exported="false" />
+
+        <!-- Transparent proxy activity that fires the system voice recognizer -->
+        <activity
+            android:name=".widget.VoiceCaptureActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="false" />
     </application>
 </manifest>

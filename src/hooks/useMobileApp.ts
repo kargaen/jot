@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Area, AreaMember, Feedback, Project, ProjectMember, Tag, TaskWithTags } from "../models/shared";
 import {
   acceptInvite,
@@ -30,7 +30,7 @@ import {
   updateTask,
 } from "../services/backend/supabase.service";
 import { logger } from "../utils/observability/logger";
-import { syncWidgets } from "../services/sync/widgetSync.service";
+import { drainCaptureOutbox, syncWidgets } from "../services/sync/widgetSync.service";
 import { saveCreateTaskDraft } from "../controllers/tasks/saveCreateTask.controller";
 import { sortTasksBySchedule } from "../models/tasks/taskPresentation";
 
@@ -46,6 +46,8 @@ export function useMobileAppData(userId: string | null) {
   const [firstAreaName, setFirstAreaName] = useState("Personal");
   const [firstAreaBusy, setFirstAreaBusy] = useState(false);
   const [firstAreaError, setFirstAreaError] = useState("");
+  const areasRef = useRef<Area[]>(areas);
+  useEffect(() => { areasRef.current = areas; }, [areas]);
 
   const loadData = useCallback(async () => {
     if (!userId) return;
@@ -72,11 +74,20 @@ export function useMobileAppData(userId: string | null) {
   const refresh = useCallback(async () => {
     await loadData();
     syncWidgets();
+    const outboxItems = await drainCaptureOutbox();
+    if (outboxItems.length > 0) {
+      const defaultAreaId = areasRef.current[0]?.id ?? null;
+      await Promise.all(
+        outboxItems.map((item) => createTask({ title: item.text, areaId: defaultAreaId })),
+      );
+      await loadData();
+      syncWidgets();
+    }
   }, [loadData]);
 
   useEffect(() => {
-    if (userId) void loadData();
-  }, [userId, loadData]);
+    if (userId) void refresh();
+  }, [userId, refresh]);
 
   async function createFirstArea(): Promise<Area | null> {
     if (!firstAreaName.trim()) return null;

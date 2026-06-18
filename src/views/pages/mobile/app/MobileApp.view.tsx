@@ -1604,7 +1604,10 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
     if (!user) return;
 
     const handleResume = () => {
-      if (document.visibilityState === "visible") void consumeLaunchAction();
+      if (document.visibilityState === "visible") {
+        void consumeLaunchAction();
+        void refresh();
+      }
     };
 
     window.addEventListener("focus", handleResume);
@@ -1613,7 +1616,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
       window.removeEventListener("focus", handleResume);
       document.removeEventListener("visibilitychange", handleResume);
     };
-  }, [user, consumeLaunchAction]);
+  }, [user, consumeLaunchAction, refresh]);
 
   useEffect(() => {
     saveHiddenAreas(hiddenAreaIds);
