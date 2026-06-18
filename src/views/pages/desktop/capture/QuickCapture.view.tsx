@@ -3,8 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow, WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useAuth } from "../../../../hooks/useAuth";
-import type { Project, QuickAction, Task } from "../../../../models/shared";
-import { fetchProjects } from "../../../../services/backend/supabase.service";
+import { useQuickCapture } from "../../../../hooks/useQuickCapture";
+import type { QuickAction, Task } from "../../../../models/shared";
 import CreateTask, {
   type CreateTaskRef,
 } from "../../../components/tasks/CreateTask.view";
@@ -22,12 +22,8 @@ export default function QuickCapture() {
   useEffect(() => { userRef.current = user; }, [user]);
 
   const [actionIndex, setActionIndex] = useState(-1);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const { projects, onProjectCreated } = useQuickCapture();
   const createTaskRef = useRef<CreateTaskRef>(null);
-
-  useEffect(() => {
-    fetchProjects().then(setProjects).catch(() => {});
-  }, []);
 
   useEffect(() => {
     const win = getCurrentWebviewWindow();
@@ -129,7 +125,7 @@ export default function QuickCapture() {
           autoFocus
           canCreateProjectsAndTags
           onKeyDownFirst={onKeyDownFirst}
-          onProjectCreated={(p) => setProjects((prev) => [...prev, p])}
+          onProjectCreated={onProjectCreated}
           onSaved={(keepOpen) => {
             if (!keepOpen) invoke("hide_quick_capture").catch(() => {});
           }}
