@@ -12,6 +12,9 @@ jobs:
   build-rc:
     name: Build and Publish Release Candidate
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.rc.outputs.version }}
+      tag: ${{ steps.rc.outputs.tag }}
 
     steps:
       - name: Checkout
@@ -82,3 +85,71 @@ jobs:
           releaseBody: "Release candidate built from the dev branch. Pre-release — not for production use."
           releaseDraft: false
           prerelease: true
+
+  build-rc-android:
+    name: Build Android APK
+    needs: build-rc
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Sync version files to RC version
+        run: npm run version:sync -- ${{ needs.build-rc.outputs.version }}
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Install Rust stable with Android targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Cache Rust build artifacts
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK 27
+        run: |
+          sdkmanager "ndk;27.2.12479018"
+          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.2.12479018" >> "$GITHUB_ENV"
+
+      - name: Build debug APK
+        run: npm run tauri -- android build --apk --debug
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Upload APK to release
+        run: |
+          APK=$(find src-tauri/gen/android -name "*.apk" -type f | head -1)
+          echo "Uploading $APK"
+          gh release upload "${{ needs.build-rc.outputs.tag }}" "$APK" \
+            --repo "${{ github.repository }}" \
+            --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
