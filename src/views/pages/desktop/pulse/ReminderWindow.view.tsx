@@ -6,13 +6,7 @@ import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { useAuth } from "../../../../hooks/useAuth";
 import type { Area, Project, TaskWithTags } from "../../../../models/shared";
 import { filterVisibleTasks } from "../../../../models/tasks/taskVisibility";
-import {
-  completeTask,
-  fetchAllTasks,
-  fetchAreas,
-  fetchProjects,
-  supabase,
-} from "../../../../services/backend/supabase.service";
+import { useReminderWindow } from "../../../../hooks/useReminderWindow";
 import { projectColor, spaceColor } from "../../../../utils/presentation/colors";
 import {
   getResolvedTheme,
@@ -159,7 +153,7 @@ async function openTask(task: TaskWithTags) {
 
 function ReminderTask({
   task, projects, areas, onCompleted,
-}: { task: TaskWithTags; projects: Project[]; areas: Area[]; onCompleted: (id: string) => void }) {
+}: { task: TaskWithTags; projects: Project[]; areas: Area[]; onCompleted: (id: string) => Promise<void> }) {
   const [done, setDone] = useState(false);
   const project = projects.find((p) => p.id === task.project_id) ?? null;
   const areaId  = task.area_id ?? project?.area_id ?? null;
@@ -169,8 +163,7 @@ function ReminderTask({
     e.stopPropagation();
     setDone(true);
     try {
-      await completeTask(task.id);
-      onCompleted(task.id);
+      await onCompleted(task.id);
     } catch {
       setDone(false);
     }
@@ -229,7 +222,7 @@ function Section({
   label: string; color: string;
   tasks: TaskWithTags[]; projects: Project[]; areas: Area[];
   divider?: boolean;
-  onCompleted: (id: string) => void;
+  onCompleted: (id: string) => Promise<void>;
 }) {
   if (tasks.length === 0) return null;
   const shown = tasks.slice(0, MAX_PER_SECTION);
@@ -261,9 +254,7 @@ export default function ReminderWindow() {
   const { user }    = useAuth();
   const isManual    = getCurrentWebviewWindow().label.includes("manual");
 
-  const [tasks,    setTasks]    = useState<TaskWithTags[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [areas,    setAreas]    = useState<Area[]>([]);
+  const { tasks, projects, areas, loaded, onTaskCompleted } = useReminderWindow(user?.id);
   const [pin,      setPin]      = useState(loadPin);
   const [onStart,  setOnStart]  = useState(loadOnStart);
   const [opacity,  setOpacity]  = useState(loadOpacity);
@@ -272,7 +263,6 @@ export default function ReminderWindow() {
   const previousPulseCount = useRef<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(duration.current);
   const [paused,      setPaused]      = useState(false);
-  const [loaded,      setLoaded]      = useState(false);
   const [relax] = useState(() => ({
     image: RELAX_IMAGES[Math.floor(Math.random() * RELAX_IMAGES.length)],
     quote: RELAX_QUOTES[Math.floor(Math.random() * RELAX_QUOTES.length)],
@@ -346,36 +336,6 @@ export default function ReminderWindow() {
       setTimeout(() => win.requestUserAttention(UserAttentionType.Informational).catch(() => {}), 400);
     }
   }, [pin]);
-
-  // Load data
-  useEffect(() => {
-    if (!user) return;
-    setLoaded(false);
-    Promise.all([fetchAllTasks(), fetchProjects(), fetchAreas()])
-      .then(([t, p, a]) => { setTasks(t); setProjects(p); setAreas(a); setLoaded(true); })
-      .catch(() => { setLoaded(true); });
-  }, [user?.id]);
-
-  // Realtime: reload when tasks change in any window (dashboard completions, edits)
-  useEffect(() => {
-    if (!user) return;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const channel = supabase
-      .channel("pulse-tasks")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(() => {
-          fetchAllTasks()
-            .then(setTasks)
-            .catch(() => {});
-        }, 500);
-      })
-      .subscribe();
-    return () => {
-      if (timer) clearTimeout(timer);
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
 
   // Idle polling (auto only)
   useEffect(() => {
@@ -596,9 +556,9 @@ export default function ReminderWindow() {
                 </span>
               </div>
             </div>
-            <Section label="Today"    color="var(--accent)"         tasks={todayT}    projects={projects} areas={areas} onCompleted={(id) => setTasks((prev) => prev.filter((t) => t.id !== id))} />
-            <Section label="Overdue"  color="var(--priority-high)"  tasks={overdueT}  projects={projects} areas={areas} divider={todayT.length > 0} onCompleted={(id) => setTasks((prev) => prev.filter((t) => t.id !== id))} />
-            <Section label="Upcoming" color="var(--text-secondary)"  tasks={upcomingT} projects={projects} areas={areas} divider={todayT.length + overdueT.length > 0} onCompleted={(id) => setTasks((prev) => prev.filter((t) => t.id !== id))} />
+            <Section label="Today"    color="var(--accent)"         tasks={todayT}    projects={projects} areas={areas} onCompleted={onTaskCompleted} />
+            <Section label="Overdue"  color="var(--priority-high)"  tasks={overdueT}  projects={projects} areas={areas} divider={todayT.length > 0} onCompleted={onTaskCompleted} />
+            <Section label="Upcoming" color="var(--text-secondary)"  tasks={upcomingT} projects={projects} areas={areas} divider={todayT.length + overdueT.length > 0} onCompleted={onTaskCompleted} />
           </>
         )}
       </div>
