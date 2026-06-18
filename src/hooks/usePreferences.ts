@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Area, AreaMember, Feedback, ProjectMember } from "../models/shared";
+import { logger } from "../utils/observability/logger";
 import {
   acceptInvite,
   acceptProjectInvite,
@@ -48,8 +49,8 @@ export function useSharingTab(
   const [loadingMembers, setLoadingMembers] = useState(false);
 
   useEffect(() => {
-    fetchPendingInvites().then(setPendingInvites).catch(() => {});
-    fetchPendingProjectInvites().then(setPendingProjectInvites).catch(() => {});
+    fetchPendingInvites().then(setPendingInvites).catch((err: unknown) => { logger.warn("preferences", "fetchPendingInvites failed", err instanceof Error ? err.message : err); });
+    fetchPendingProjectInvites().then(setPendingProjectInvites).catch((err: unknown) => { logger.warn("preferences", "fetchPendingProjectInvites failed", err instanceof Error ? err.message : err); });
   }, []);
 
   useEffect(() => {
@@ -57,7 +58,7 @@ export function useSharingTab(
     setLoadingMembers(true);
     fetchAreaMembers(selectedAreaId)
       .then(setMembers)
-      .catch(() => {})
+      .catch((err: unknown) => { logger.warn("preferences", "fetchAreaMembers failed", err instanceof Error ? err.message : err); })
       .finally(() => setLoadingMembers(false));
   }, [selectedAreaId]);
 
@@ -147,7 +148,7 @@ export function useFeedbackTab() {
   useEffect(() => {
     fetchFeedback()
       .then(setItems)
-      .catch(() => {})
+      .catch((err: unknown) => { logger.warn("preferences", "fetchFeedback failed", err instanceof Error ? err.message : err); })
       .finally(() => setLoading(false));
   }, []);
 

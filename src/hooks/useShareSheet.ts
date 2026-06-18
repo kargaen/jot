@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AreaMember, ProjectMember } from "../models/shared";
+import { logger } from "../utils/observability/logger";
 import {
   fetchAreaMembers,
   fetchProjectMembers,
@@ -28,7 +29,7 @@ export function useShareSheet(target: ShareTarget) {
   }, [target]);
 
   useEffect(() => {
-    void loadMembers().catch(() => {});
+    void loadMembers().catch((err: unknown) => { logger.warn("share-sheet", "loadMembers failed", err instanceof Error ? err.message : err); });
   }, [loadMembers]);
 
   async function handleInvite(e: React.FormEvent) {

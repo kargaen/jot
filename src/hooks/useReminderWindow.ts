@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Area, Project, TaskWithTags } from "../models/shared";
+import { logger } from "../utils/observability/logger";
 import {
   completeTask,
   fetchAllTasks,
@@ -19,7 +20,7 @@ export function useReminderWindow(userId: string | undefined) {
     setLoaded(false);
     Promise.all([fetchAllTasks(), fetchProjects(), fetchAreas()])
       .then(([t, p, a]) => { setTasks(t); setProjects(p); setAreas(a); setLoaded(true); })
-      .catch(() => { setLoaded(true); });
+      .catch((err: unknown) => { logger.warn("reminder-window", "initial fetch failed", err instanceof Error ? err.message : err); setLoaded(true); });
   }, [userId]);
 
   useEffect(() => {
@@ -30,7 +31,7 @@ export function useReminderWindow(userId: string | undefined) {
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => {
-          fetchAllTasks().then(setTasks).catch(() => {});
+          fetchAllTasks().then(setTasks).catch((err: unknown) => { logger.warn("reminder-window", "realtime refresh failed", err instanceof Error ? err.message : err); });
         }, 500);
       })
       .subscribe();

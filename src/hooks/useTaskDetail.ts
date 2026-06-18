@@ -185,7 +185,7 @@ export function useTaskDetail({
   }, [task.id]);
 
   useEffect(() => {
-    refreshSubtasks().catch(() => {});
+    refreshSubtasks().catch((err: unknown) => { logger.warn("task-detail", "refreshSubtasks failed", err instanceof Error ? err.message : err); });
   }, [refreshSubtasks]);
 
   const handleCompleteSubtask = useCallback(

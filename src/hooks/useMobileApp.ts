@@ -29,6 +29,7 @@ import {
   updatePassword,
   updateTask,
 } from "../services/backend/supabase.service";
+import { logger } from "../utils/observability/logger";
 import { syncWidgets } from "../services/sync/widgetSync.service";
 import { saveCreateTaskDraft } from "../controllers/tasks/saveCreateTask.controller";
 import { sortTasksBySchedule } from "../models/tasks/taskPresentation";
@@ -149,13 +150,13 @@ export function useMobileSharingSettings(areas: Area[], currentUserId: string) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    void fetchPendingInvites().then(setPendingInvites).catch(() => {});
-    void fetchPendingProjectInvites().then(setPendingProjectInvites).catch(() => {});
+    void fetchPendingInvites().then(setPendingInvites).catch((err: unknown) => { logger.warn("mobile-app", "fetchPendingInvites failed", err instanceof Error ? err.message : err); });
+    void fetchPendingProjectInvites().then(setPendingProjectInvites).catch((err: unknown) => { logger.warn("mobile-app", "fetchPendingProjectInvites failed", err instanceof Error ? err.message : err); });
   }, []);
 
   useEffect(() => {
     if (!selectedAreaId) return;
-    void fetchAreaMembers(selectedAreaId).then(setMembers).catch(() => {});
+    void fetchAreaMembers(selectedAreaId).then(setMembers).catch((err: unknown) => { logger.warn("mobile-app", "fetchAreaMembers failed", err instanceof Error ? err.message : err); });
   }, [selectedAreaId]);
 
   async function handleInvite(e: React.FormEvent) {
@@ -225,7 +226,7 @@ export function useMobileFeedbackSettings() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    void fetchFeedback().then(setItems).catch(() => {});
+    void fetchFeedback().then(setItems).catch((err: unknown) => { logger.warn("mobile-app", "fetchFeedback failed", err instanceof Error ? err.message : err); });
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
