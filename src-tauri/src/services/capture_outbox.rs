@@ -7,7 +7,7 @@
 // Returns items oldest-first so the caller can create tasks in order.
 // Safe on desktop — returns an empty list when the DB does not exist.
 
-use rusqlite::{params, Connection};
+use rusqlite::Connection;
 use serde::Serialize;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
@@ -46,17 +46,19 @@ pub fn take_capture_outbox(app: AppHandle) -> Result<Vec<CaptureItem>, String> {
             )
             .map_err(|e| e.to_string())?;
 
-        stmt.query_map([], |row| {
-            Ok(CaptureItem {
-                id: row.get(0)?,
-                text: row.get(1)?,
-                source: row.get(2)?,
-                created_at: row.get(3)?,
+        let rows: Vec<CaptureItem> = stmt
+            .query_map([], |row| {
+                Ok(CaptureItem {
+                    id: row.get(0)?,
+                    text: row.get(1)?,
+                    source: row.get(2)?,
+                    created_at: row.get(3)?,
+                })
             })
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect()
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+        rows
     };
 
     if !items.is_empty() {
