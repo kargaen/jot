@@ -1349,7 +1349,7 @@ function MobileSharingSettings({ areas, currentUserId }: { areas: Area[]; curren
       {pendingProjectInvites.map((invite) => (
         <div key={invite.id} style={{ ...cardStyle(), padding: 16 }}>
           <div style={{ fontSize: 13, lineHeight: 1.5 }}>
-            Invited to project <strong>{invite.project_id}</strong>
+            Invited to a shared project
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
             <button onClick={() => handleAcceptProject(invite.id)} style={buttonStyle("primary")}>Accept</button>
