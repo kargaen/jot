@@ -1,29 +1,15 @@
 import { useEffect, useState, useCallback } from "react";
 import {
-  acceptInvite,
-  acceptProjectInvite,
-  createArea,
-  declineInvite,
-  declineProjectInvite,
-  deleteArea,
-  fetchAreaMembers,
-  fetchFeedback,
-  fetchPendingProjectInvites,
-  fetchPendingInvites,
-  inviteMember,
-  removeAreaMember,
-  signOutEverywhere,
-  submitFeedback,
-  updateArea,
-  updatePassword,
-} from "../../../../services/backend/supabase.service";
+  useAreasTabActions,
+  useSharingTab,
+  useAccountTabActions,
+  useFeedbackTab,
+} from "../../../../hooks/usePreferences";
 import { useAuth } from "../../../../hooks/useAuth";
 import type {
   Area,
-  AreaMember,
   Feedback,
   NlpLanguageMode,
-  ProjectMember,
 } from "../../../../models/shared";
 import { loadNlpLanguageMode, saveNlpLanguageMode } from "../../../../services/capture/nlpSettings.service";
 import { spaceColor } from "../../../../utils/presentation/colors";
@@ -111,6 +97,7 @@ function AreasTab({ areas, hiddenAreaIds, onHiddenChange, onAreasChange }: {
   onHiddenChange: (ids: string[]) => void;
   onAreasChange: () => void;
 }) {
+  const { saveArea, removeArea, addArea } = useAreasTabActions();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [newName, setNewName] = useState("");
@@ -122,14 +109,14 @@ function AreasTab({ areas, hiddenAreaIds, onHiddenChange, onAreasChange }: {
   async function saveEdit(id: string) {
     if (!editName.trim()) return;
     setBusy(true);
-    await updateArea(id, { name: editName.trim() });
+    await saveArea(id, editName.trim());
     setEditingId(null); onAreasChange(); setBusy(false);
   }
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this space? Its projects and inbox tasks will move to another space.")) return;
     setBusy(true);
-    await deleteArea(id);
+    await removeArea(id);
     onHiddenChange(hiddenAreaIds.filter((x) => x !== id));
     onAreasChange(); setBusy(false);
   }
@@ -137,7 +124,7 @@ function AreasTab({ areas, hiddenAreaIds, onHiddenChange, onAreasChange }: {
   async function handleAdd() {
     if (!newName.trim()) return;
     setBusy(true);
-    await createArea(newName.trim());
+    await addArea(newName.trim());
     setNewName(""); setAdding(false); onAreasChange(); setBusy(false);
   }
 
@@ -194,71 +181,26 @@ function AreasTab({ areas, hiddenAreaIds, onHiddenChange, onAreasChange }: {
 // ─── Sharing tab ──────────────────────────────────────────────────────────────
 
 function SharingTab({ areas, currentUserId, onSharedChange }: { areas: Area[]; currentUserId: string; onSharedChange: () => void }) {
-  const [selectedAreaId, setSelectedAreaId] = useState<string>(areas[0]?.id ?? "");
-  const [members, setMembers] = useState<AreaMember[]>([]);
-  const [pendingInvites, setPendingInvites] = useState<AreaMember[]>([]);
-  const [pendingProjectInvites, setPendingProjectInvites] = useState<ProjectMember[]>([]);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteError, setInviteError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [loadingMembers, setLoadingMembers] = useState(false);
-
-  // My areas (owned) vs shared-with-me
-  const ownedAreas = areas.filter((a) => a.user_id === currentUserId);
-
-  useEffect(() => {
-    fetchPendingInvites().then(setPendingInvites).catch(() => {});
-    fetchPendingProjectInvites().then(setPendingProjectInvites).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!selectedAreaId) return;
-    setLoadingMembers(true);
-    fetchAreaMembers(selectedAreaId)
-      .then(setMembers)
-      .catch(() => {})
-      .finally(() => setLoadingMembers(false));
-  }, [selectedAreaId]);
-
-  async function handleInvite(e: React.FormEvent) {
-    e.preventDefault();
-    setInviteError("");
-    if (!inviteEmail.trim()) return;
-    setBusy(true);
-    const err = await inviteMember(selectedAreaId, inviteEmail.trim());
-    setBusy(false);
-    if (err) { setInviteError(err); return; }
-    setInviteEmail("");
-    const updated = await fetchAreaMembers(selectedAreaId);
-    setMembers(updated);
-  }
-
-  async function handleRemove(memberId: string) {
-    await removeAreaMember(memberId);
-    setMembers((prev) => prev.filter((m) => m.id !== memberId));
-  }
-
-  async function handleAccept(invite: AreaMember) {
-    await acceptInvite(invite.id);
-    setPendingInvites((prev) => prev.filter((i) => i.id !== invite.id));
-    onSharedChange();
-  }
-
-  async function handleDecline(invite: AreaMember) {
-    await declineInvite(invite.id);
-    setPendingInvites((prev) => prev.filter((i) => i.id !== invite.id));
-  }
-
-  async function handleAcceptProject(invite: ProjectMember) {
-    await acceptProjectInvite(invite.id);
-    setPendingProjectInvites((prev) => prev.filter((i) => i.id !== invite.id));
-    onSharedChange();
-  }
-
-  async function handleDeclineProject(invite: ProjectMember) {
-    await declineProjectInvite(invite.id);
-    setPendingProjectInvites((prev) => prev.filter((i) => i.id !== invite.id));
-  }
+  const {
+    ownedAreas,
+    selectedAreaId,
+    setSelectedAreaId,
+    members,
+    pendingInvites,
+    pendingProjectInvites,
+    inviteEmail,
+    setInviteEmail,
+    inviteError,
+    setInviteError,
+    busy,
+    loadingMembers,
+    handleInvite,
+    handleRemove,
+    handleAccept,
+    handleDecline,
+    handleAcceptProject,
+    handleDeclineProject,
+  } = useSharingTab(areas, currentUserId, onSharedChange);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -380,6 +322,7 @@ function SharingTab({ areas, currentUserId, onSharedChange }: { areas: Area[]; c
 // ─── Account tab ──────────────────────────────────────────────────────────────
 
 function AccountTab({ user, signOut }: { user: { email?: string } | null; signOut: () => void }) {
+  const { changePassword, signOutAll } = useAccountTabActions();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [pwError, setPwError] = useState("");
@@ -393,7 +336,7 @@ function AccountTab({ user, signOut }: { user: { email?: string } | null; signOu
     if (newPassword.length < 8) { setPwError("Password must be at least 8 characters."); return; }
     if (newPassword !== confirmPw) { setPwError("Passwords do not match."); return; }
     setPwBusy(true);
-    const err = await updatePassword(newPassword);
+    const err = await changePassword(newPassword);
     setPwBusy(false);
     if (err) { setPwError(err); return; }
     setPwSuccess(true); setNewPassword(""); setConfirmPw("");
@@ -402,7 +345,7 @@ function AccountTab({ user, signOut }: { user: { email?: string } | null; signOu
   async function handleSignOutEverywhere() {
     if (!window.confirm("This will sign you out on all devices. Continue?")) return;
     setSignOutBusy(true);
-    await signOutEverywhere();
+    await signOutAll();
     signOut();
   }
 
@@ -655,29 +598,7 @@ const STATUS_COLORS: Record<Feedback["status"], string> = {
 };
 
 function FeedbackTab({ currentUserId }: { currentUserId: string }) {
-  const [items, setItems] = useState<Feedback[]>([]);
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchFeedback()
-      .then(setItems)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!text.trim() || busy) return;
-    setBusy(true);
-    try {
-      const item = await submitFeedback(text.trim());
-      setItems((prev) => [item, ...prev]);
-      setText("");
-    } catch {}
-    setBusy(false);
-  }
+  const { items, text, setText, busy, loading, handleSubmit } = useFeedbackTab();
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
