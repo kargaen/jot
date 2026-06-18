@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { forwardRef, useEffect, useRef, useState, type CSSProperties } from "react";
 import { projectColor, spaceColor } from "../../../../utils/presentation/colors";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";

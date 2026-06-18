@@ -27,7 +27,6 @@ import {
   friendlyRecurrence,
   normalizeTaskLink,
   sectionLabel,
-  sortTasksBySchedule,
 } from "../../../../models/tasks/taskPresentation";
 import { filterVisibleProjects, filterVisibleTasks } from "../../../../models/tasks/taskVisibility";
 import {
@@ -123,14 +122,6 @@ function isAreaVisibleNow(schedule: AreaSchedule | undefined, now = new Date()) 
   if (start === end) return true;
   if (start < end) return currentMinutes >= start && currentMinutes < end;
   return currentMinutes >= start || currentMinutes < end;
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (error && typeof error === "object" && "message" in error) {
-    return String((error as { message: unknown }).message);
-  }
-  return JSON.stringify(error);
 }
 
 function inputStyle(): CSSProperties {
