@@ -1,0 +1,83 @@
+name: Release Candidate
+
+on:
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: write
+
+jobs:
+  build-rc:
+    name: Build and Publish Release Candidate
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Compute RC version
+        id: rc
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Strip any pre-release suffix to get the base version from package.json
+          BASE="$(node -p "require('./package.json').version")"
+          BASE="${BASE%%-*}"
+
+          # Find the highest existing RC tag for this base version and increment
+          LAST="$(git tag -l "v${BASE}-rc.*" | sort -V | tail -1)"
+          if [[ -z "$LAST" ]]; then
+            N=1
+          else
+            N="${LAST##*rc.}"
+            N=$((N + 1))
+          fi
+
+          VERSION="${BASE}-rc.${N}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "RC version: ${VERSION}"
+
+      - name: Sync all version files to RC version
+        run: npm run version:sync -- ${{ steps.rc.outputs.version }}
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Build installer and publish prerelease
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        with:
+          tagName: ${{ steps.rc.outputs.tag }}
+          releaseName: "Jot ${{ steps.rc.outputs.tag }}"
+          releaseBody: "Release candidate built from the dev branch. Pre-release — not for production use."
+          releaseDraft: false
+          prerelease: true
