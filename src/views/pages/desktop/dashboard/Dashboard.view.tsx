@@ -10,20 +10,11 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import Toggle from "../../../components/ui/Toggle.view";
 import Preferences from "../settings/Preferences.view";
-import {
-  fetchAreaMembers,
-  fetchProjectMembers,
-  inviteProjectMember,
-  inviteMember,
-  removeProjectMember,
-  removeAreaMember,
-} from "../../../../services/backend/supabase.service";
 import { useAuth } from "../../../../hooks/useAuth";
+import { useShareSheet, type ShareTarget } from "../../../../hooks/useShareSheet";
 import type {
   Area,
-  AreaMember,
   Project,
-  ProjectMember,
   TaskWithTags,
 } from "../../../../models/shared";
 import { logger } from "../../../../utils/observability/logger";
@@ -39,10 +30,6 @@ type View = DashboardView;
 type SidebarContextMenu =
   | { x: number; y: number; kind: "area"; areaId: string }
   | { x: number; y: number; kind: "project"; projectId: string };
-type ShareTarget =
-  | { kind: "area"; id: string; name: string }
-  | { kind: "project"; id: string; name: string };
-
 export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object" && "message" in error) {
@@ -1457,44 +1444,8 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
 
 
 function ShareSheet({ target, onClose }: { target: ShareTarget; onClose: () => void }) {
-  const [members, setMembers] = useState<Array<AreaMember | ProjectMember>>([]);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteError, setInviteError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const loadMembers = useCallback(async () => {
-    const next = target.kind === "area"
-      ? await fetchAreaMembers(target.id)
-      : await fetchProjectMembers(target.id);
-    setMembers(next);
-  }, [target]);
-
-  useEffect(() => {
-    void loadMembers().catch(() => {});
-  }, [loadMembers]);
-
-  async function handleInvite(e: React.FormEvent) {
-    e.preventDefault();
-    if (!inviteEmail.trim()) return;
-    setBusy(true);
-    setInviteError("");
-    const err = target.kind === "area"
-      ? await inviteMember(target.id, inviteEmail.trim())
-      : await inviteProjectMember(target.id, inviteEmail.trim());
-    setBusy(false);
-    if (err) {
-      setInviteError(err);
-      return;
-    }
-    setInviteEmail("");
-    await loadMembers();
-  }
-
-  async function handleRemove(memberId: string) {
-    if (target.kind === "area") await removeAreaMember(memberId);
-    else await removeProjectMember(memberId);
-    setMembers((prev) => prev.filter((member) => member.id !== memberId));
-  }
+  const { members, inviteEmail, setInviteEmail, inviteError, setInviteError, busy, handleInvite, handleRemove } =
+    useShareSheet(target);
 
   const copy = target.kind === "area"
     ? {
