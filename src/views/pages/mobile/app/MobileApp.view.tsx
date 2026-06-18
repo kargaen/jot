@@ -4,31 +4,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { useAuth } from "../../../../hooks/useAuth";
 import {
-  acceptInvite,
-  closeProject,
-  createProject,
-  createArea,
-  createTask,
-  completeTask,
-  declineInvite,
-  deleteArea,
-  deleteTask,
-  fetchAreaMembers,
-  fetchAllTasks,
-  fetchAreas,
-  fetchFeedback,
-  fetchPendingInvites,
-  fetchProjects,
-  fetchTags,
-  inviteMember,
-  removeAreaMember,
-  signOutEverywhere,
-  submitFeedback,
-  updateArea,
-  updatePassword,
-  updateTask,
-  getSession,
-} from "../../../../services/backend/supabase.service";
+  useMobileAppData,
+  useMobileSpacesActions,
+  useMobileSharingSettings,
+  useMobileFeedbackSettings,
+  useMobileAccountActions,
+  useCaptureComposer,
+} from "../../../../hooks/useMobileApp";
 import type {
   Area,
   NlpLanguageMode,
@@ -37,10 +19,8 @@ import type {
   Task,
   TaskWithTags,
 } from "../../../../models/shared";
-import { saveCreateTaskDraft } from "../../../../controllers/tasks/saveCreateTask.controller";
 import { parseInput } from "../../../../services/capture/nlp.service";
 import { loadNlpLanguageMode, saveNlpLanguageMode } from "../../../../services/capture/nlpSettings.service";
-import { syncWidgets } from "../../../../services/sync/widgetSync.service";
 import {
   countTasksByProject,
   friendlyDue,
@@ -818,6 +798,7 @@ function CaptureComposer({
   autofocusToken: number;
   onCreated: (task: TaskWithTags) => Promise<void>;
 }) {
+  const { saveDraft } = useCaptureComposer();
   const [input, setInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -848,21 +829,18 @@ function CaptureComposer({
     setSaving(true);
     setError(null);
     try {
-      const { task } = await saveCreateTaskDraft(
-        { createProject, createTask },
-        {
-          projects,
-          title: parsed.title.trim(),
-          projectId: parsed.project?.id ?? null,
-          projectName: parsed.project?.name ?? parsed.suggestedProjectName ?? "",
-          dueDate: parsed.dueDate,
-          dueTime: parsed.dueTime,
-          priority: parsed.priority,
-          recurrenceRule: parsed.recurrenceRule,
-          tagIds: parsed.tags.map((tag) => tag.id),
-          canCreateProjectsAndTags: true,
-        },
-      );
+      const { task } = await saveDraft({
+        projects,
+        title: parsed.title.trim(),
+        projectId: parsed.project?.id ?? null,
+        projectName: parsed.project?.name ?? parsed.suggestedProjectName ?? "",
+        dueDate: parsed.dueDate,
+        dueTime: parsed.dueTime,
+        priority: parsed.priority,
+        recurrenceRule: parsed.recurrenceRule,
+        tagIds: parsed.tags.map((tag) => tag.id),
+        canCreateProjectsAndTags: true,
+      });
 
       const draftTask: TaskWithTags = {
         ...task,
@@ -933,6 +911,12 @@ function CaptureComposer({
               {recurrenceLabel && (
                 <span style={pillStyle(false)}>{recurrenceLabel}</span>
               )}
+              {parsed.tags.map((tag) => (
+                <span key={tag.id} style={pillStyle(false)}>{tag.name}</span>
+              ))}
+              {parsed.suggestedTagNames.map((name) => (
+                <span key={name} style={pillStyle(false)}>New tag: {name}</span>
+              ))}
             </div>
           </>
         )}
@@ -1144,6 +1128,7 @@ function MobileSpacesSettings({
   onHiddenChange: (ids: string[]) => void;
   onAreasChange: () => Promise<void>;
 }) {
+  const { saveArea, removeArea, addArea } = useMobileSpacesActions();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [newName, setNewName] = useState("");
@@ -1186,7 +1171,7 @@ function MobileSpacesSettings({
   async function handleSaveEdit(id: string) {
     if (!editName.trim()) return;
     setBusy(true);
-    await updateArea(id, { name: editName.trim() });
+    await saveArea(id, editName.trim());
     setEditingId(null);
     setEditName("");
     await onAreasChange();
@@ -1196,7 +1181,7 @@ function MobileSpacesSettings({
   async function handleDelete(id: string) {
     if (!window.confirm("Delete this space? Its projects and inbox tasks will move to another space.")) return;
     setBusy(true);
-    await deleteArea(id);
+    await removeArea(id);
     if (defaultAreaId === id) {
       saveDefaultAreaId(null);
       setDefaultAreaId(null);
@@ -1209,7 +1194,7 @@ function MobileSpacesSettings({
   async function handleAdd() {
     if (!newName.trim()) return;
     setBusy(true);
-    const created = await createArea(newName.trim());
+    const created = await addArea(newName.trim());
     if (!defaultAreaId) {
       saveDefaultAreaId(created.id);
       setDefaultAreaId(created.id);
@@ -1328,38 +1313,17 @@ function MobileSpacesSettings({
 }
 
 function MobileSharingSettings({ areas, currentUserId }: { areas: Area[]; currentUserId: string }) {
-  const ownedAreas = areas.filter((area) => area.user_id === currentUserId);
-  const [selectedAreaId, setSelectedAreaId] = useState<string>(ownedAreas[0]?.id ?? "");
-  const [members, setMembers] = useState<Array<{ id: string; invited_email: string; status: "pending" | "accepted" }>>([]);
-  const [pendingInvites, setPendingInvites] = useState<Array<{ id: string; area_id: string; invited_email: string }>>([]);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    void fetchPendingInvites().then(setPendingInvites).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!selectedAreaId) return;
-    void fetchAreaMembers(selectedAreaId).then(setMembers).catch(() => {});
-  }, [selectedAreaId]);
-
-  async function handleInvite(e: FormEvent) {
-    e.preventDefault();
-    if (!selectedAreaId || !inviteEmail.trim()) return;
-    setBusy(true);
-    setError("");
-    const err = await inviteMember(selectedAreaId, inviteEmail.trim());
-    if (err) {
-      setError(err);
-    } else {
-      setInviteEmail("");
-      const nextMembers = await fetchAreaMembers(selectedAreaId);
-      setMembers(nextMembers);
-    }
-    setBusy(false);
-  }
+  const {
+    ownedAreas,
+    selectedAreaId, setSelectedAreaId,
+    members,
+    pendingInvites,
+    pendingProjectInvites,
+    inviteEmail, setInviteEmail,
+    busy, error,
+    handleInvite, handleAccept, handleDecline, handleRemove,
+    handleAcceptProject, handleDeclineProject,
+  } = useMobileSharingSettings(areas, currentUserId);
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -1376,8 +1340,20 @@ function MobileSharingSettings({ areas, currentUserId }: { areas: Area[]; curren
             Invited to space <strong>{invite.area_id}</strong>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-            <button onClick={() => void acceptInvite(invite.id).then(() => setPendingInvites((prev) => prev.filter((item) => item.id !== invite.id)))} style={buttonStyle("primary")}>Accept</button>
-            <button onClick={() => void declineInvite(invite.id).then(() => setPendingInvites((prev) => prev.filter((item) => item.id !== invite.id)))} style={buttonStyle()}>Decline</button>
+            <button onClick={() => handleAccept(invite.id)} style={buttonStyle("primary")}>Accept</button>
+            <button onClick={() => handleDecline(invite.id)} style={buttonStyle()}>Decline</button>
+          </div>
+        </div>
+      ))}
+
+      {pendingProjectInvites.map((invite) => (
+        <div key={invite.id} style={{ ...cardStyle(), padding: 16 }}>
+          <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+            Invited to a shared project
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <button onClick={() => handleAcceptProject(invite.id)} style={buttonStyle("primary")}>Accept</button>
+            <button onClick={() => handleDeclineProject(invite.id)} style={buttonStyle()}>Decline</button>
           </div>
         </div>
       ))}
@@ -1408,7 +1384,7 @@ function MobileSharingSettings({ areas, currentUserId }: { areas: Area[]; curren
                   {member.status === "accepted" ? "Active" : "Pending"}
                 </div>
               </div>
-              <button onClick={() => void removeAreaMember(member.id).then(() => setMembers((prev) => prev.filter((item) => item.id !== member.id)))} style={buttonStyle("danger")}>
+              <button onClick={() => handleRemove(member.id)} style={buttonStyle("danger")}>
                 Remove
               </button>
             </div>
@@ -1471,26 +1447,7 @@ function MobileRemindersSettings() {
 }
 
 function MobileFeedbackSettings({ currentUserId }: { currentUserId: string }) {
-  const [items, setItems] = useState<Array<{ id: string; user_id: string; text: string; status: "new" | "reviewing" | "planned" | "in_progress" | "done" | "declined"; admin_note: string | null; created_at: string }>>([]);
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    void fetchFeedback().then(setItems).catch(() => {});
-  }, []);
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!text.trim() || busy) return;
-    setBusy(true);
-    try {
-      const item = await submitFeedback(text.trim());
-      setItems((prev) => [item, ...prev]);
-      setText("");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { items, text, setText, busy, handleSubmit } = useMobileFeedbackSettings();
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -1523,6 +1480,7 @@ function MobileAccountSettings({
   userEmail: string | null;
   signOut: () => Promise<void>;
 }) {
+  const { changePassword, signOutAll } = useMobileAccountActions();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [pwError, setPwError] = useState("");
@@ -1543,7 +1501,7 @@ function MobileAccountSettings({
       return;
     }
     setBusy(true);
-    const err = await updatePassword(newPassword);
+    const err = await changePassword(newPassword);
     if (err) setPwError(err);
     else {
       setPwSuccess(true);
@@ -1556,7 +1514,7 @@ function MobileAccountSettings({
   async function handleSignOutEverywhere() {
     if (!window.confirm("This will sign you out on all devices. Continue?")) return;
     setSignOutBusy(true);
-    await signOutEverywhere();
+    await signOutAll();
     await signOut();
   }
 
@@ -1593,24 +1551,22 @@ function MobileAccountSettings({
 
 export default function MobileApp({ launchNotice = null }: { launchNotice?: string | null }) {
   const { loading, user, signOut } = useAuth();
+  const {
+    areas, projects, tags, tasks, loadingData, error,
+    loadData, refresh,
+    firstAreaName, setFirstAreaName, firstAreaBusy, firstAreaError,
+    createFirstArea,
+    completeTask, closeProject, updateTask, deleteTask,
+  } = useMobileAppData(user?.id ?? null);
   const [tab, setTab] = useState<TabId>("pulse");
   const [captureAutofocusToken, setCaptureAutofocusToken] = useState(0);
   const [userSection, setUserSection] = useState<UserSectionId | null>(null);
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("today");
-  const [areas, setAreas] = useState<Area[]>([]);
-  const [firstAreaName, setFirstAreaName] = useState("Personal");
-  const [firstAreaBusy, setFirstAreaBusy] = useState(false);
-  const [firstAreaError, setFirstAreaError] = useState("");
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [tasks, setTasks] = useState<TaskWithTags[]>([]);
   const [hiddenAreaIds, setHiddenAreaIds] = useState<string[]>(() => loadHiddenAreas());
   const [areaSchedules, setAreaSchedules] = useState<AreaScheduleMap>(() => loadAreaSchedules());
   const [expandedAreaId, setExpandedAreaId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<TaskWithTags | null>(null);
-  const [loadingData, setLoadingData] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [pullDistance, setPullDistance] = useState(0);
   const [pulling, setPulling] = useState(false);
   const [tabSwipeOffset, setTabSwipeOffset] = useState(0);
@@ -1619,29 +1575,6 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const triggeredPullRef = useRef(false);
   const tabSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
   const today = todayISO();
-
-  const loadData = useCallback(async () => {
-    if (!user) return;
-    setLoadingData(true);
-    setError(null);
-    try {
-      const [areaRows, projectRows, tagRows, taskRows] = await Promise.all([
-        fetchAreas(),
-        fetchProjects(),
-        fetchTags(),
-        fetchAllTasks(),
-      ]);
-      setAreas(areaRows);
-      setProjects(projectRows);
-      setTags(tagRows);
-      setTasks(sortTasksBySchedule(taskRows));
-      syncWidgets();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load data");
-    } finally {
-      setLoadingData(false);
-    }
-  }, [user]);
 
   const consumeLaunchAction = useCallback(async () => {
     try {
@@ -1663,10 +1596,6 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   }, []);
 
   useEffect(() => {
-    if (user) void loadData();
-  }, [user, loadData]);
-
-  useEffect(() => {
     if (!user) return;
     void consumeLaunchAction();
   }, [user, consumeLaunchAction]);
@@ -1675,7 +1604,10 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
     if (!user) return;
 
     const handleResume = () => {
-      if (document.visibilityState === "visible") void consumeLaunchAction();
+      if (document.visibilityState === "visible") {
+        void consumeLaunchAction();
+        void refresh();
+      }
     };
 
     window.addEventListener("focus", handleResume);
@@ -1684,7 +1616,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
       window.removeEventListener("focus", handleResume);
       document.removeEventListener("visibilitychange", handleResume);
     };
-  }, [user, consumeLaunchAction]);
+  }, [user, consumeLaunchAction, refresh]);
 
   useEffect(() => {
     saveHiddenAreas(hiddenAreaIds);
@@ -1695,30 +1627,8 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   }, [areaSchedules]);
 
   async function handleCreateFirstArea() {
-    if (!firstAreaName.trim()) return;
-    setFirstAreaBusy(true);
-    setFirstAreaError("");
-    try {
-      const session = await getSession();
-      if (!session) {
-        setFirstAreaError("Your session is not ready yet. Please sign out and sign back in now that your email is confirmed.");
-        return;
-      }
-      const area = await createArea(firstAreaName.trim());
-      saveDefaultAreaId(area.id);
-      await loadData();
-    } catch (error) {
-      const message = errorMessage(error);
-      if (message.includes("42501") || message.toLowerCase().includes("row-level security")) {
-        setFirstAreaError("Jot could not create your first space because the session was rejected by the server. Please sign out and sign back in, then try again.");
-      } else if (message.toLowerCase().includes("not authenticated")) {
-        setFirstAreaError("You need to be signed in before creating your first space. Please sign in again and retry.");
-      } else {
-        setFirstAreaError(message);
-      }
-    } finally {
-      setFirstAreaBusy(false);
-    }
+    const area = await createFirstArea();
+    if (area) saveDefaultAreaId(area.id);
   }
 
   const inactiveScheduledAreaIds = useMemo(
@@ -1801,11 +1711,6 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
     }
     if (!expandedAreaId && visibleAreas[0]) setExpandedAreaId(visibleAreas[0].id);
   }, [expandedAreaId, visibleAreas]);
-
-  async function refreshAfterMutation() {
-    await loadData();
-    syncWidgets();
-  }
 
   const startPull = useCallback((clientY: number) => {
     if (window.scrollY > 0 || loadingData) return;
@@ -2072,7 +1977,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
               projects={visibleProjects}
               loading={loadingData}
               swipeEnabled
-              onComplete={async (id) => { await completeTask(id); await refreshAfterMutation(); }}
+              onComplete={completeTask}
               onOpen={(task) => setEditingTask(task)}
             />
           </>
@@ -2104,7 +2009,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
               projects={visibleProjects}
               loading={loadingData}
               swipeEnabled
-              onComplete={async (id) => { await completeTask(id); await refreshAfterMutation(); }}
+              onComplete={completeTask}
               onOpen={(task) => setEditingTask(task)}
             />
           </>
@@ -2178,9 +2083,8 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
                 onEmptyAction={async () => {
                   await closeProject(activeProject.id);
                   setSelectedProjectId(null);
-                  await refreshAfterMutation();
                 }}
-                onComplete={async (id) => { await completeTask(id); await refreshAfterMutation(); }}
+                onComplete={completeTask}
                 onOpen={(task) => setEditingTask(task)}
               />
             )}
@@ -2200,7 +2104,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
                   autofocusToken={captureAutofocusToken}
                   onCreated={async (task) => {
                     setEditingTask(task);
-                    await refreshAfterMutation();
+                    await refresh();
                   }}
                 />
               </div>
@@ -2302,16 +2206,9 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
                 ? null
                 : editingTask.area_id ?? previousProject?.area_id ?? visibleAreas[0]?.id ?? areas[0]?.id ?? null,
             });
-            await refreshAfterMutation();
           }}
-          onComplete={async () => {
-            await completeTask(editingTask.id);
-            await refreshAfterMutation();
-          }}
-          onDelete={async () => {
-            await deleteTask(editingTask.id);
-            await refreshAfterMutation();
-          }}
+          onComplete={async () => { await completeTask(editingTask.id); }}
+          onDelete={async () => { await deleteTask(editingTask.id); }}
         />
       )}
     </div>

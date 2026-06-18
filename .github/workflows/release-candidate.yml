@@ -1,0 +1,156 @@
+name: Release Candidate
+
+on:
+  push:
+    branches:
+      - dev
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  build-rc:
+    name: Build and Publish Release Candidate
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.rc.outputs.version }}
+      tag: ${{ steps.rc.outputs.tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Compute RC version
+        id: rc
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Strip any pre-release suffix to get the base version from package.json
+          BASE="$(node -p "require('./package.json').version")"
+          BASE="${BASE%%-*}"
+
+          # Find the highest existing numeric-suffix tag for this base version and increment
+          # Format is vX.Y.Z-N (e.g. v1.0.2-3) — no letters, keeps MSI ProductVersion happy
+          LAST="$(git tag -l "v${BASE}-*" | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$" | sort -V | tail -1)"
+          if [[ -z "$LAST" ]]; then
+            N=1
+          else
+            N="${LAST##*-}"
+            N=$((N + 1))
+          fi
+
+          VERSION="${BASE}-${N}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "RC version: ${VERSION}"
+
+      - name: Sync all version files to RC version
+        run: npm run version:sync -- ${{ steps.rc.outputs.version }}
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Build installer and publish prerelease
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        with:
+          tagName: ${{ steps.rc.outputs.tag }}
+          releaseName: "Jot ${{ steps.rc.outputs.tag }}"
+          releaseBody: "Release candidate built from the dev branch. Pre-release — not for production use."
+          releaseDraft: false
+          prerelease: true
+
+  build-rc-android:
+    name: Build Android APK
+    needs: build-rc
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Sync version files to RC version
+        run: npm run version:sync -- ${{ needs.build-rc.outputs.version }}
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Install Rust stable with Android targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Cache Rust build artifacts
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK 27
+        run: |
+          sdkmanager "ndk;27.2.12479018"
+          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.2.12479018" >> "$GITHUB_ENV"
+
+      - name: Build debug APK
+        run: npm run tauri -- android build --apk --debug
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Upload APK to release
+        run: |
+          APK=$(find src-tauri/gen/android -name "*.apk" -type f | head -1)
+          echo "Uploading $APK"
+          gh release upload "${{ needs.build-rc.outputs.tag }}" "$APK" \
+            --repo "${{ github.repository }}" \
+            --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

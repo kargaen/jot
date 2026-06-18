@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Destination: src-tauri/gen/android/app/src/main/res/xml/widget_text_1x1_info.xml -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="54dp"
+    android:minHeight="54dp"
+    android:targetCellWidth="1"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_text_1x1"
+    android:widgetCategory="home_screen"
+    android:description="@string/text_capture_widget_description" />

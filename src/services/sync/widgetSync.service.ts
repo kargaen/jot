@@ -31,6 +31,23 @@ interface SyncPayload {
   overdue_count: number;
 }
 
+export interface CaptureOutboxItem {
+  id: string;
+  text: string;
+  source: string;
+  created_at: string;
+}
+
+export async function drainCaptureOutbox(): Promise<CaptureOutboxItem[]> {
+  try {
+    const os = await platform();
+    if (os !== "android") return [];
+    return await invoke<CaptureOutboxItem[]>("take_capture_outbox");
+  } catch {
+    return [];
+  }
+}
+
 export async function syncWidgets(): Promise<void> {
   try {
     const os = await platform();

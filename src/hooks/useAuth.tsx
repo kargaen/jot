@@ -1,13 +1,25 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
-import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { supabase } from "../services/backend/supabase.service";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import type { AuthResult } from "../services/backend/auth.service";
+import {
+  AUTH_SNAPSHOT_KEY,
+  REMEMBER_KEY,
+  clearSessionSilently,
+  isUserConfirmed,
+  performSignOut,
+  readAuthSnapshot,
+  resendSignupConfirmation,
+  signIn,
+  signUp,
+  subscribeAuthState,
+  writeAuthSnapshot,
+} from "../services/backend/auth.service";
 import { logger } from "../utils/observability/logger";
 
+export type { AuthResult };
+
 const MOD = "auth";
-const REMEMBER_KEY = "jot_remember_me";
-const AUTH_SNAPSHOT_KEY = "jot_auth_snapshot";
-const DEFAULT_AUTH_REDIRECT_URL = "https://kargaen.github.io/jot/confirmed.html";
 
 interface AuthState {
   session: Session | null;
@@ -21,24 +33,6 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
-interface AuthSnapshot {
-  ready: boolean;
-  user: { id: string; email: string | null } | null;
-}
-
-export interface AuthResult {
-  ok: boolean;
-  kind:
-    | "signed_in"
-    | "confirmation_sent"
-    | "confirmation_resent"
-    | "email_not_confirmed"
-    | "invalid_credentials"
-    | "ambiguous_signup"
-    | "error";
-  message: string;
-}
-
 function getWindowLabel(): string {
   try {
     return getCurrentWebviewWindow().label;
@@ -48,57 +42,7 @@ function getWindowLabel(): string {
 }
 
 function isAuthHostWindow(): boolean {
-  const label = getWindowLabel();
-  return label === "main";
-}
-
-function isUserConfirmed(user: User | null | undefined): boolean {
-  if (!user) return false;
-  const candidate = user as User & { email_confirmed_at?: string | null; confirmed_at?: string | null };
-  return Boolean(candidate.email_confirmed_at ?? candidate.confirmed_at);
-}
-
-function writeAuthSnapshot(session: Session | null, ready: boolean) {
-  const snapshot: AuthSnapshot = {
-    ready,
-    user: session ? { id: session.user.id, email: session.user.email ?? null } : null,
-  };
-  localStorage.setItem(AUTH_SNAPSHOT_KEY, JSON.stringify(snapshot));
-}
-
-async function closeWindowIfOpen(label: string) {
-  try {
-    const win = await WebviewWindow.getByLabel(label);
-    if (win) await win.close();
-  } catch {
-    // Best-effort cleanup only.
-  }
-}
-
-async function closeSignedInAuxWindows() {
-  await Promise.all([
-    closeWindowIfOpen("reminder"),
-    closeWindowIfOpen("reminder-manual"),
-  ]);
-}
-
-function readAuthSnapshot(): AuthSnapshot | null {
-  const raw = localStorage.getItem(AUTH_SNAPSHOT_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as AuthSnapshot;
-  } catch {
-    return null;
-  }
-}
-
-function resolveEmailRedirectUrl(): string {
-  const configured = (import.meta.env.VITE_AUTH_REDIRECT_URL as string | undefined)?.trim();
-  if (configured) return configured;
-  if (typeof window !== "undefined" && !("isTauri" in window)) {
-    return `${window.location.origin.replace(/\/$/, "")}/confirmed.html`;
-  }
-  return DEFAULT_AUTH_REDIRECT_URL;
+  return getWindowLabel() === "main";
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -114,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (restored && localStorage.getItem(REMEMBER_KEY) === "0") {
         if (hostWindow) {
           logger.info(MOD, `${source}: session found but remember-me=off -> signing out`);
-          await supabase.auth.signOut();
+          await clearSessionSilently();
           writeAuthSnapshot(null, true);
         }
         setSession(null);
@@ -127,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (hostWindow) {
           logger.info(MOD, `${source}: unconfirmed session ignored for ${restored.user.email}`);
           writeAuthSnapshot(null, true);
-          await supabase.auth.signOut();
+          await clearSessionSilently();
         }
         setSession(null);
         setUser(null);
@@ -147,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (!hostWindow) {
-      const applySnapshot = (snapshot: AuthSnapshot, reason: string) => {
+      const applySnapshot = (snapshot: { user: { id: string; email: string | null } | null }, reason: string) => {
         setUser(snapshot.user as User | null);
         setSession(null);
         setLoading(false);
@@ -157,7 +101,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const current = readAuthSnapshot();
       if (current?.ready) {
         applySnapshot(current, "using main-window auth snapshot");
+        return () => {};
       }
+      logger.debug(MOD, `bootstrap: waiting for main-window auth (${label})`);
       const onStorage = (event: StorageEvent) => {
         if (event.key !== AUTH_SNAPSHOT_KEY) return;
         const snapshot = readAuthSnapshot();
@@ -171,7 +117,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         applySnapshot(snapshot, "main-window auth ready");
         window.clearInterval(pollId);
       }, 200);
-      if (!current?.ready) logger.debug(MOD, `bootstrap: waiting for main-window auth (${label})`);
 
       return () => {
         window.clearInterval(pollId);
@@ -181,112 +126,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     writeAuthSnapshot(null, false);
 
-    // The main window owns the live auth subscription so helper windows
-    // do not all join the refresh cycle and spam duplicate auth events.
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, s) => {
+    const { unsubscribe } = subscribeAuthState(async (event, s) => {
       logger.debug(MOD, `state-change: ${event}`, s?.user?.email);
-
       if (event === "INITIAL_SESSION") {
         await applySession(s, "initial");
         return;
       }
-
       await applySession(s, "event");
     });
 
-    return () => { listener.subscription.unsubscribe(); };
+    return () => { unsubscribe(); };
   }, []);
 
-  async function signIn(email: string, password: string, rememberMe: boolean): Promise<AuthResult> {
-    logger.info(MOD, `signIn: ${email} (remember=${rememberMe})`);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      logger.error(MOD, `signIn failed: ${error.message}`);
-      if (/email not confirmed/i.test(error.message)) {
-        return {
-          ok: false,
-          kind: "email_not_confirmed",
-          message: "This account exists, but the email is not confirmed yet.",
-        };
-      }
-      if (/invalid login credentials/i.test(error.message)) {
-        return {
-          ok: false,
-          kind: "invalid_credentials",
-          message: "That email/password combination did not work.",
-        };
-      }
-      return { ok: false, kind: "error", message: error.message };
-    }
-    localStorage.setItem(REMEMBER_KEY, rememberMe ? "1" : "0");
-    logger.info(MOD, "signIn: success");
-    return { ok: true, kind: "signed_in", message: "Signed in." };
-  }
-
-  async function signUp(email: string, password: string): Promise<AuthResult> {
-    logger.info(MOD, `signUp: ${email}`);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: resolveEmailRedirectUrl(),
-      },
-    });
-    if (error) {
-      logger.error(MOD, `signUp failed: ${error.message}`);
-      return { ok: false, kind: "error", message: error.message };
-    }
-    if (!isUserConfirmed(data.user ?? null)) {
-      await supabase.auth.signOut();
-    } else {
-      localStorage.setItem(REMEMBER_KEY, "1");
-    }
-    logger.info(MOD, "signUp: success");
-    const identities = Array.isArray((data.user as User & { identities?: unknown[] } | null)?.identities)
-      ? ((data.user as User & { identities?: unknown[] }).identities ?? [])
-      : null;
-    if (identities && identities.length === 0) {
-      return {
-        ok: true,
-        kind: "ambiguous_signup",
-        message: "If this email is still waiting for confirmation, you can resend the confirmation email below. If it is already registered, sign in instead.",
-      };
-    }
-    return {
-      ok: true,
-      kind: "confirmation_sent",
-      message: "Check your email to confirm your account.",
-    };
-  }
-
-  async function resendSignupConfirmation(email: string): Promise<AuthResult> {
-    logger.info(MOD, `resendSignupConfirmation: ${email}`);
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email,
-      options: {
-        emailRedirectTo: resolveEmailRedirectUrl(),
-      },
-    });
-    if (error) {
-      logger.error(MOD, `resendSignupConfirmation failed: ${error.message}`);
-      return { ok: false, kind: "error", message: error.message };
-    }
-    return {
-      ok: true,
-      kind: "confirmation_resent",
-      message: "A fresh confirmation email is on its way if this signup is still pending.",
-    };
-  }
-
   async function signOut(): Promise<void> {
-    logger.info(MOD, "signOut");
-    writeAuthSnapshot(null, true);
     setSession(null);
     setUser(null);
-    localStorage.removeItem(REMEMBER_KEY);
-    await closeSignedInAuxWindows();
-    await supabase.auth.signOut();
+    await performSignOut();
   }
 
   return (

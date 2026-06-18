@@ -1,5 +1,7 @@
 #[path = "services/widget_sync.rs"]
 pub mod widget_sync;
+#[path = "services/capture_outbox.rs"]
+pub mod capture_outbox;
 
 #[cfg(target_os = "android")]
 use jni::objects::{JObject, JString, JValue};
@@ -397,6 +399,7 @@ pub fn run() {
                 take_pending_deep_link,
                 take_mobile_launch_action,
                 widget_sync::sync_widget_db,
+                capture_outbox::take_capture_outbox,
             ]}
         })
         .run(tauri::generate_context!())

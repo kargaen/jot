@@ -10,20 +10,11 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import Toggle from "../../../components/ui/Toggle.view";
 import Preferences from "../settings/Preferences.view";
-import {
-  fetchAreaMembers,
-  fetchProjectMembers,
-  inviteProjectMember,
-  inviteMember,
-  removeProjectMember,
-  removeAreaMember,
-} from "../../../../services/backend/supabase.service";
 import { useAuth } from "../../../../hooks/useAuth";
+import { useShareSheet, type ShareTarget } from "../../../../hooks/useShareSheet";
 import type {
   Area,
-  AreaMember,
   Project,
-  ProjectMember,
   TaskWithTags,
 } from "../../../../models/shared";
 import { logger } from "../../../../utils/observability/logger";
@@ -39,10 +30,6 @@ type View = DashboardView;
 type SidebarContextMenu =
   | { x: number; y: number; kind: "area"; areaId: string }
   | { x: number; y: number; kind: "project"; projectId: string };
-type ShareTarget =
-  | { kind: "area"; id: string; name: string }
-  | { kind: "project"; id: string; name: string };
-
 export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object" && "message" in error) {
@@ -623,13 +610,20 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
 
   // ── Auto-update check ─────────────────────────────────────────────────────
   useEffect(() => {
-    check().then((update) => {
-      if (update) {
-        updateRef.current = update;
-        setUpdateVersion(update.version);
-        setUpdateStatus("available");
-      }
-    }).catch(() => {});
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Update check timed out")), 15_000),
+    );
+    Promise.race([check(), timeout])
+      .then((update) => {
+        if (update) {
+          updateRef.current = update;
+          setUpdateVersion(update.version);
+          setUpdateStatus("available");
+        }
+      })
+      .catch((err: unknown) => {
+        logger.warn("dashboard", "update check failed", err instanceof Error ? err.message : err);
+      });
   }, []);
 
   async function handleUpdate() {
@@ -1292,6 +1286,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
             )}
             {updateStatus === "failed" && (
               <>
+                <button onClick={handleUpdate} style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--accent)", color: "#fff", cursor: "pointer" }}>Retry</button>
                 <button onClick={() => shellOpen(RELEASES_URL)} style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "#dc2626", color: "#fff", cursor: "pointer" }}>Download manually</button>
                 <button onClick={() => setUpdateStatus("idle")} style={{ padding: "4px 8px", fontSize: 12, color: "var(--text-tertiary)", cursor: "pointer" }}>Dismiss</button>
               </>
@@ -1457,44 +1452,8 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
 
 
 function ShareSheet({ target, onClose }: { target: ShareTarget; onClose: () => void }) {
-  const [members, setMembers] = useState<Array<AreaMember | ProjectMember>>([]);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteError, setInviteError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const loadMembers = useCallback(async () => {
-    const next = target.kind === "area"
-      ? await fetchAreaMembers(target.id)
-      : await fetchProjectMembers(target.id);
-    setMembers(next);
-  }, [target]);
-
-  useEffect(() => {
-    void loadMembers().catch(() => {});
-  }, [loadMembers]);
-
-  async function handleInvite(e: React.FormEvent) {
-    e.preventDefault();
-    if (!inviteEmail.trim()) return;
-    setBusy(true);
-    setInviteError("");
-    const err = target.kind === "area"
-      ? await inviteMember(target.id, inviteEmail.trim())
-      : await inviteProjectMember(target.id, inviteEmail.trim());
-    setBusy(false);
-    if (err) {
-      setInviteError(err);
-      return;
-    }
-    setInviteEmail("");
-    await loadMembers();
-  }
-
-  async function handleRemove(memberId: string) {
-    if (target.kind === "area") await removeAreaMember(memberId);
-    else await removeProjectMember(memberId);
-    setMembers((prev) => prev.filter((member) => member.id !== memberId));
-  }
+  const { members, inviteEmail, setInviteEmail, inviteError, setInviteError, busy, handleInvite, handleRemove } =
+    useShareSheet(target);
 
   const copy = target.kind === "area"
     ? {
