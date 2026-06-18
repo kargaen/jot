@@ -39,16 +39,17 @@ jobs:
           BASE="$(node -p "require('./package.json').version")"
           BASE="${BASE%%-*}"
 
-          # Find the highest existing RC tag for this base version and increment
-          LAST="$(git tag -l "v${BASE}-rc.*" | sort -V | tail -1)"
+          # Find the highest existing numeric-suffix tag for this base version and increment
+          # Format is vX.Y.Z-N (e.g. v1.0.2-3) — no letters, keeps MSI ProductVersion happy
+          LAST="$(git tag -l "v${BASE}-*" | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$" | sort -V | tail -1)"
           if [[ -z "$LAST" ]]; then
             N=1
           else
-            N="${LAST##*rc.}"
+            N="${LAST##*-}"
             N=$((N + 1))
           fi
 
-          VERSION="${BASE}-rc.${N}"
+          VERSION="${BASE}-${N}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "RC version: ${VERSION}"
