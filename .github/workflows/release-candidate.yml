@@ -45,7 +45,7 @@ jobs:
 
           # Find the highest existing numeric-suffix tag for this base version and increment
           # Format is vX.Y.Z-N (e.g. v1.0.2-3) — no letters, keeps MSI ProductVersion happy
-          LAST="$(git tag -l "v${BASE}-*" | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$" | sort -V | tail -1)"
+          LAST="$(git tag -l "v${BASE}-*" | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$" | sort -V | tail -1 || true)"
           if [[ -z "$LAST" ]]; then
             N=1
           else
