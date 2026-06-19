@@ -69,7 +69,7 @@ class TaskDatabase(context: Context) : SQLiteOpenHelper(
     fun getTasks(): List<PulseTask> {
         val cursor = readableDatabase.query(
             TABLE_TASKS, null, null, null, null, null,
-            "is_overdue DESC, due_time ASC NULLS LAST, display_order ASC",
+            "is_overdue DESC, CASE WHEN due_time IS NULL THEN 1 ELSE 0 END ASC, due_time ASC, display_order ASC",
         )
         return cursor.use {
             buildList {

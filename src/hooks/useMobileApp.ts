@@ -89,6 +89,21 @@ export function useMobileAppData(userId: string | null) {
     if (userId) void refresh();
   }, [userId, refresh]);
 
+  useEffect(() => {
+    if (!userId) return;
+    async function handleVisible() {
+      if (document.visibilityState !== "visible") return;
+      const items = await drainCaptureOutbox();
+      if (items.length === 0) return;
+      const defaultAreaId = areasRef.current[0]?.id ?? null;
+      await Promise.all(items.map((item) => createTask({ title: item.text, areaId: defaultAreaId })));
+      await loadData();
+      syncWidgets();
+    }
+    document.addEventListener("visibilitychange", handleVisible);
+    return () => document.removeEventListener("visibilitychange", handleVisible);
+  }, [userId, loadData]);
+
   async function createFirstArea(): Promise<Area | null> {
     if (!firstAreaName.trim()) return null;
     setFirstAreaBusy(true);

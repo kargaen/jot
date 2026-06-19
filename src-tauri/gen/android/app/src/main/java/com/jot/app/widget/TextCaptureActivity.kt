@@ -15,7 +15,7 @@ class TextCaptureActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         window.setSoftInputMode(
             WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE or
-                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE,
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN,
         )
         setContentView(R.layout.activity_text_capture)
 
