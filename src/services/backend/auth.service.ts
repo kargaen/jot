@@ -94,9 +94,14 @@ export async function signIn(
   rememberMe: boolean,
 ): Promise<AuthResult> {
   logger.info(MOD, `signIn: ${email} (remember=${rememberMe})`);
+  // Set REMEMBER_KEY before signInWithPassword because Supabase fires the
+  // SIGNED_IN auth state event inside that call, before the promise resolves.
+  // applySession reads REMEMBER_KEY to decide whether to keep the session.
+  localStorage.setItem(REMEMBER_KEY, rememberMe ? "1" : "0");
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
     logger.error(MOD, `signIn failed: ${error.message}`);
+    localStorage.removeItem(REMEMBER_KEY);
     if (/email not confirmed/i.test(error.message)) {
       return { ok: false, kind: "email_not_confirmed", message: "This account exists, but the email is not confirmed yet." };
     }
@@ -105,7 +110,6 @@ export async function signIn(
     }
     return { ok: false, kind: "error", message: error.message };
   }
-  localStorage.setItem(REMEMBER_KEY, rememberMe ? "1" : "0");
   logger.info(MOD, "signIn: success");
   return { ok: true, kind: "signed_in", message: "Signed in." };
 }

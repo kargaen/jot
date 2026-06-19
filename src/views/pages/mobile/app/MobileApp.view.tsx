@@ -329,17 +329,21 @@ function MobileAuthScreen({ launchNotice }: { launchNotice: string | null }) {
     setLoading(true);
     setError("");
     setNotice("");
-    const result = isSignUp
-      ? await signUp(email, password)
-      : await signIn(email, password, true);
-    if (!result.ok) {
-      if (result.kind === "email_not_confirmed") {
-        enterAwaitingConfirmation("Check your email to continue.", true);
-      } else {
-        setError(result.message);
+    try {
+      const result = isSignUp
+        ? await signUp(email, password)
+        : await signIn(email, password, true);
+      if (!result.ok) {
+        if (result.kind === "email_not_confirmed") {
+          enterAwaitingConfirmation("Check your email to continue.", true);
+        } else {
+          setError(result.message);
+        }
+      } else if (isSignUp) {
+        enterAwaitingConfirmation("Check your email to finish creating your account.", true);
       }
-    } else if (isSignUp) {
-      enterAwaitingConfirmation("Check your email to finish creating your account.", true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign in failed. Please check your connection and try again.");
     }
     setLoading(false);
   }
