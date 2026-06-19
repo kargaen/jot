@@ -108,6 +108,11 @@ jobs:
           echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.2.12479018" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.2.12479018" >> "$GITHUB_ENV"
 
+      - name: Restore Android debug keystore
+        run: |
+          mkdir -p ~/.android
+          echo "${{ secrets.ANDROID_DEBUG_KEYSTORE_B64 }}" | base64 -d > ~/.android/debug.keystore
+
       - name: Build debug APK
         run: npm run tauri -- android build --apk --debug
         env:
