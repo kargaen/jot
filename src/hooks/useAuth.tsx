@@ -67,7 +67,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (restored && !isUserConfirmed(restored.user)) {
+      // Only enforce email-confirmation on initial session restore. Live SIGNED_IN
+      // events from signInWithPassword may carry a partial user object without
+      // email_confirmed_at, even for confirmed accounts. Supabase already rejects
+      // sign-in with an explicit error for unconfirmed emails, so the check here
+      // is redundant for live events and causes the redirect to be silently swallowed.
+      if (source === "initial" && restored && !isUserConfirmed(restored.user)) {
         if (hostWindow) {
           logger.info(MOD, `${source}: unconfirmed session ignored for ${restored.user.email}`);
           writeAuthSnapshot(null, true);

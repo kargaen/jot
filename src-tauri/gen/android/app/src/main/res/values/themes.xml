@@ -3,4 +3,9 @@
     <style name="Theme.jot" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Customize your theme here. -->
     </style>
+
+    <!-- Dialog theme for TextCaptureActivity — no title bar so the input/buttons fit on screen -->
+    <style name="Theme.jot.CaptureDialog" parent="Theme.MaterialComponents.Light.Dialog">
+        <item name="android:windowNoTitle">true</item>
+    </style>
 </resources>
