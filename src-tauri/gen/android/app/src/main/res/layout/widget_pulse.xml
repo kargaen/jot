@@ -58,15 +58,14 @@
         android:layout_marginBottom="8dp"
         android:background="#14000000" />
 
-    <!-- Placeholder replaces the ListView — RemoteViews crashes if an AdapterView
-         has no remote adapter configured, even when hidden with GONE. The task
-         list will be restored here once the widget pipeline is confirmed stable. -->
-    <TextView
+    <ListView
         android:id="@+id/pulse_list"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:visibility="gone" />
+        android:divider="@null"
+        android:dividerHeight="0dp"
+        android:scrollbars="none" />
 
     <LinearLayout
         android:id="@+id/pulse_empty_state"
