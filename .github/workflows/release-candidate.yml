@@ -92,7 +92,7 @@ jobs:
       - name: Install Rust stable with Android targets
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+          targets: aarch64-linux-android
 
       - name: Cache Rust build artifacts
         uses: swatinem/rust-cache@v2

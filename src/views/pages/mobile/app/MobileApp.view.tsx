@@ -364,7 +364,7 @@ function MobileAuthScreen({ launchNotice }: { launchNotice: string | null }) {
 
   return (
     <div style={{
-      minHeight: "100dvh",
+      height: "100dvh",
       background: "var(--bg-auth-shell)",
       display: "flex",
       alignItems: "center",
@@ -1948,7 +1948,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
                     Today&apos;s focus across overdue and due-today tasks.
             </div>
                 </div>
-                <button onClick={() => setTab("capture")} style={{ ...buttonStyle("primary"), padding: "10px 12px" }}>
+                <button onClick={() => { setTab("capture"); setCaptureAutofocusToken((t) => t + 1); }} style={{ ...buttonStyle("primary"), padding: "10px 12px" }}>
                   New task
                 </button>
               </div>
@@ -1961,7 +1961,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
 
               <div style={{ display: "flex", gap: 8, marginTop: 14, overflowX: "auto" }}>
                 <button onClick={() => setTab("tasks")} style={pillStyle(true)}>Review tasks</button>
-                <button onClick={() => setTab("capture")} style={pillStyle()}>Quick capture</button>
+                <button onClick={() => { setTab("capture"); setCaptureAutofocusToken((t) => t + 1); }} style={pillStyle()}>Quick capture</button>
                 <button onClick={() => void loadData()} style={pillStyle()}>Sync now</button>
               </div>
             </div>
