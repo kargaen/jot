@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getVersion } from "@tauri-apps/api/app";
 import type { AuthResult } from "../services/backend/auth.service";
 import {
   AUTH_SNAPSHOT_KEY,
@@ -15,7 +16,8 @@ import {
   subscribeAuthState,
   writeAuthSnapshot,
 } from "../services/backend/auth.service";
-import { logger } from "../utils/observability/logger";
+import { getMyLogLevel, insertLog } from "../services/backend/supabase.service";
+import { configureRemoteLogging, clearRemoteLogging, logger } from "../utils/observability/logger";
 
 export type { AuthResult };
 
@@ -93,6 +95,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(restored?.user ?? null);
       setLoading(false);
       if (hostWindow) writeAuthSnapshot(restored, true);
+
+      if (restored) {
+        Promise.all([getVersion().catch(() => "unknown"), getMyLogLevel()]).then(
+          ([version, rpcLevel]) => {
+            const minLevel = version.includes("rc") ? "debug" : rpcLevel;
+            configureRemoteLogging({ insert: insertLog, minLevel, version, userId: restored.user.id });
+            logger.info(MOD, `remote logging active: minLevel=${minLevel} version=${version}`);
+          },
+        );
+      } else {
+        clearRemoteLogging();
+      }
     }
 
     if (!hostWindow) {

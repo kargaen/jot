@@ -139,6 +139,24 @@ async function getCurrentUser() {
   return data.user;
 }
 
+export async function getMyLogLevel(): Promise<"debug" | "info" | "warning" | "error"> {
+  const { data, error } = await supabase.rpc("get_my_log_level");
+  if (error || !data) return "warning";
+  return data as "debug" | "info" | "warning" | "error";
+}
+
+export function insertLog(row: {
+  level: "debug" | "info" | "warning" | "error";
+  version: string;
+  user_id: string | null;
+  message: string;
+  details?: unknown;
+}): void {
+  supabase.from("app_logs").insert(row).then(({ error }) => {
+    if (error) console.warn("[logger] remote insert failed:", error.message);
+  });
+}
+
 const DEFAULT_AREA_KEY = "jot_default_area";
 
 function readDefaultAreaId(): string | null {
