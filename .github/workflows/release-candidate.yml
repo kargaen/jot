@@ -20,7 +20,7 @@ jobs:
       - name: Apply Supabase migrations
         run: |
           npx supabase@latest link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} --password ${{ secrets.SUPABASE_DB_PASSWORD }}
-          npx supabase@latest db push --linked --yes
+          npx supabase@latest db push --linked --yes --include-all
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
