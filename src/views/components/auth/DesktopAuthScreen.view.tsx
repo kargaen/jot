@@ -114,7 +114,7 @@ export default function DesktopAuthScreen({
     <div
       data-testid="auth-screen"
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
