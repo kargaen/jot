@@ -364,12 +364,13 @@ function MobileAuthScreen({ launchNotice }: { launchNotice: string | null }) {
 
   return (
     <div style={{
-      height: "100dvh",
+      minHeight: "100dvh",
       background: "var(--bg-auth-shell)",
       display: "flex",
-      alignItems: "center",
+      alignItems: "flex-start",
       justifyContent: "center",
       padding: 20,
+      paddingTop: 60,
       overflowY: "auto",
       boxSizing: "border-box",
     }}>
