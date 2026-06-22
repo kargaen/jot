@@ -8,6 +8,7 @@ import MobileTodayView from "../today/MobileToday.view";
 import MobileTasksView from "../tasks/MobileTasks.view";
 import MobileCaptureView from "../capture/MobileCapture.view";
 import MobileSettingsView from "../settings/MobileSettings.view";
+import MobileOnboardingView from "../onboarding/MobileOnboarding.view";
 
 type Tab = "today" | "tasks" | "capture" | "settings";
 
@@ -35,6 +36,18 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
 
   if (!user) {
     return <MobileAuthView controller={authController} />;
+  }
+
+  if (!appData.loadingData && appData.areas.length === 0) {
+    return (
+      <MobileOnboardingView
+        name={appData.firstAreaName}
+        setName={appData.setFirstAreaName}
+        busy={appData.firstAreaBusy}
+        error={appData.firstAreaError}
+        onSubmit={async () => { await appData.createFirstArea(); }}
+      />
+    );
   }
 
   return (
