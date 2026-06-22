@@ -113,14 +113,12 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install NDK 27
         run: |
-          sdkmanager "ndk;27.2.12479018"
-          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.2.12479018" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> "$GITHUB_ENV"
+          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "ndk;27.2.12479018"
+          echo "NDK_HOME=/usr/local/lib/android/sdk/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/27.2.12479018" >> "$GITHUB_ENV"
 
       - name: Build debug APK
         run: npm run tauri -- android build --apk
