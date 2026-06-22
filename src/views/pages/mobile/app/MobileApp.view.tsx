@@ -4,6 +4,7 @@ import { useAuth } from "../../../../hooks/useAuth";
 import { useMobileAuth } from "../../../../hooks/useMobileAuth";
 import { useMobileAppData } from "../../../../hooks/useMobileApp";
 import MobileAuthView from "../auth/MobileAuth.view";
+import MobileTodayView from "../today/MobileToday.view";
 
 type Tab = "today" | "tasks" | "capture" | "settings";
 
@@ -28,7 +29,13 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   return (
     <div style={styles.shell}>
       <div style={styles.screen}>
-        {activeTab === "today" && <PlaceholderScreen label="Today" />}
+        {activeTab === "today" && (
+          <MobileTodayView
+            tasks={appData.tasks}
+            loading={appData.loadingData}
+            onComplete={appData.completeTask}
+          />
+        )}
         {activeTab === "tasks" && <PlaceholderScreen label="Tasks" />}
         {activeTab === "capture" && <PlaceholderScreen label="Capture" />}
         {activeTab === "settings" && <PlaceholderScreen label="Settings" />}
