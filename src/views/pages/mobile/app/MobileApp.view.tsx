@@ -2,10 +2,11 @@ import { useState } from "react";
 import type { CSSProperties } from "react";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useMobileAuth } from "../../../../hooks/useMobileAuth";
-import { useMobileAppData } from "../../../../hooks/useMobileApp";
+import { useMobileAppData, useCaptureComposer } from "../../../../hooks/useMobileApp";
 import MobileAuthView from "../auth/MobileAuth.view";
 import MobileTodayView from "../today/MobileToday.view";
 import MobileTasksView from "../tasks/MobileTasks.view";
+import MobileCaptureView from "../capture/MobileCapture.view";
 
 type Tab = "today" | "tasks" | "capture" | "settings";
 
@@ -13,7 +14,13 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const { loading, user } = useAuth();
   const authController = useMobileAuth(launchNotice);
   const appData = useMobileAppData(user?.id ?? null);
+  const capture = useCaptureComposer();
   const [activeTab, setActiveTab] = useState<Tab>("today");
+
+  async function handleCaptureSave(title: string) {
+    await capture.saveDraft({ title, projects: appData.projects });
+    await appData.refresh();
+  }
 
   if (loading) {
     return (
@@ -46,7 +53,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
             onComplete={appData.completeTask}
           />
         )}
-        {activeTab === "capture" && <PlaceholderScreen label="Capture" />}
+        {activeTab === "capture" && <MobileCaptureView onSave={handleCaptureSave} />}
         {activeTab === "settings" && <PlaceholderScreen label="Settings" />}
       </div>
 
