@@ -2,11 +2,12 @@ import { useState } from "react";
 import type { CSSProperties } from "react";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useMobileAuth } from "../../../../hooks/useMobileAuth";
-import { useMobileAppData, useCaptureComposer } from "../../../../hooks/useMobileApp";
+import { useMobileAppData, useCaptureComposer, useMobileAccountActions, useMobileSpacesActions } from "../../../../hooks/useMobileApp";
 import MobileAuthView from "../auth/MobileAuth.view";
 import MobileTodayView from "../today/MobileToday.view";
 import MobileTasksView from "../tasks/MobileTasks.view";
 import MobileCaptureView from "../capture/MobileCapture.view";
+import MobileSettingsView from "../settings/MobileSettings.view";
 
 type Tab = "today" | "tasks" | "capture" | "settings";
 
@@ -15,6 +16,8 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const authController = useMobileAuth(launchNotice);
   const appData = useMobileAppData(user?.id ?? null);
   const capture = useCaptureComposer();
+  const accountActions = useMobileAccountActions();
+  const spaceActions = useMobileSpacesActions();
   const [activeTab, setActiveTab] = useState<Tab>("today");
 
   async function handleCaptureSave(title: string) {
@@ -54,7 +57,16 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
           />
         )}
         {activeTab === "capture" && <MobileCaptureView onSave={handleCaptureSave} />}
-        {activeTab === "settings" && <PlaceholderScreen label="Settings" />}
+        {activeTab === "settings" && (
+          <MobileSettingsView
+            email={user.email ?? ""}
+            areas={appData.areas}
+            accountActions={accountActions}
+            spaceActions={spaceActions}
+            onSignedOut={() => appData.refresh()}
+            onAreasChanged={() => appData.refresh()}
+          />
+        )}
       </div>
 
       <nav style={styles.tabBar}>
@@ -84,14 +96,6 @@ function TabButton({ label, icon, active, onPress }: {
         {label}
       </span>
     </button>
-  );
-}
-
-function PlaceholderScreen({ label }: { label: string }) {
-  return (
-    <div style={styles.placeholder}>
-      <span style={styles.placeholderLabel}>{label}</span>
-    </div>
   );
 }
 
@@ -137,16 +141,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 10,
     fontWeight: 600,
     letterSpacing: 0.2,
-  },
-  placeholder: {
-    minHeight: "100%",
-    display: "grid",
-    placeItems: "center",
-    color: "var(--text-tertiary)",
-  },
-  placeholderLabel: {
-    fontSize: 14,
-    fontWeight: 600,
   },
   errorBanner: {
     position: "fixed",
