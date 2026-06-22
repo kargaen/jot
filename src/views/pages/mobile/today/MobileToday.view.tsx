@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { TaskWithTags } from "../../../../models/shared";
-import { sectionLabel, friendlyDue } from "../../../../models/tasks/taskPresentation";
+import { isOverdue, isDueToday } from "../../../../models/tasks/taskVisibility";
+import { friendlyDue } from "../../../../models/tasks/taskPresentation";
 
 interface Props {
   tasks: TaskWithTags[];
@@ -8,30 +9,17 @@ interface Props {
   onComplete: (id: string) => void;
 }
 
-function todayIso() {
-  const now = new Date();
-  return [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
-  ].join("-");
-}
-
 export default function MobileTodayView({ tasks, loading, onComplete }: Props) {
-  const today = todayIso();
+  const today = new Date().toISOString().split("T")[0];
 
-  const visible = tasks.filter(
-    (t) => t.status === "todo" && t.due_date !== null && t.due_date <= today,
-  );
-
-  const overdue = visible.filter((t) => t.due_date! < today);
-  const dueToday = visible.filter((t) => t.due_date === today);
+  const overdue = tasks.filter((t) => isOverdue(t, today));
+  const dueToday = tasks.filter((t) => isDueToday(t, today));
 
   if (loading) {
     return <div style={styles.empty}>Loading...</div>;
   }
 
-  if (visible.length === 0) {
+  if (overdue.length === 0 && dueToday.length === 0) {
     return (
       <div style={styles.empty}>
         <span style={styles.emptyIcon}>✓</span>
@@ -68,8 +56,9 @@ function Section({ label, tasks, onComplete }: {
 }
 
 function TaskRow({ task, onComplete }: { task: TaskWithTags; onComplete: (id: string) => void }) {
+  const today = new Date().toISOString().split("T")[0];
   const due = friendlyDue(task.due_date, task.due_time);
-  const isOverdue = sectionLabel(task.due_date) === "Overdue";
+  const overdue = isOverdue(task, today);
 
   return (
     <div style={styles.row}>
@@ -84,7 +73,7 @@ function TaskRow({ task, onComplete }: { task: TaskWithTags; onComplete: (id: st
       <div style={styles.rowBody}>
         <div style={styles.rowTitle}>{task.icon ? `${task.icon} ${task.title}` : task.title}</div>
         {due ? (
-          <div style={{ ...styles.rowMeta, color: isOverdue ? "#b91c1c" : "var(--text-tertiary)" }}>
+          <div style={{ ...styles.rowMeta, color: overdue ? "#b91c1c" : "var(--text-tertiary)" }}>
             {due}
           </div>
         ) : null}
