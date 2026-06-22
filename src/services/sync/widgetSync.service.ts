@@ -64,31 +64,48 @@ export async function syncWidgets(): Promise<void> {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function buildPayload(today: string): Promise<SyncPayload> {
-  // Jot schema: tasks.status = 'todo' | 'completed', joined to projects(name)
-  const { data, error } = await supabase
-    .from("tasks")
-    .select("id, title, due_date, due_time, priority, sort_order, projects(name)")
-    .eq("status", "todo")
-    .lte("due_date", today)
-    .not("due_date", "is", null)
-    .order("due_date", { ascending: true });
+  // Two queries to match the in-app Today definition:
+  // 1. Tasks with due_date <= today (overdue + due today)
+  // 2. Tasks scheduled_date = today with no due_date (scheduled-only)
+  const [dueRes, scheduledRes] = await Promise.all([
+    supabase
+      .from("tasks")
+      .select("id, title, due_date, due_time, scheduled_date, priority, sort_order, projects(name)")
+      .eq("status", "todo")
+      .lte("due_date", today)
+      .not("due_date", "is", null),
+    supabase
+      .from("tasks")
+      .select("id, title, due_date, due_time, scheduled_date, priority, sort_order, projects(name)")
+      .eq("status", "todo")
+      .eq("scheduled_date", today)
+      .is("due_date", null),
+  ]);
 
-  if (error) throw error;
+  if (dueRes.error) throw dueRes.error;
+  if (scheduledRes.error) throw scheduledRes.error;
 
-  const tasks: WidgetTask[] = (data ?? []).map((row: any, i: number) => ({
-    id:           row.id,
-    title:        row.title,
-    due_date:     row.due_date,
-    due_time:     row.due_time ?? null,
-    priority:     row.priority ?? "none",
-    project_name: row.projects?.name ?? null,
-    is_overdue:   row.due_date < today,
+  const seen = new Set<string>();
+  const rows = [...(dueRes.data ?? []), ...(scheduledRes.data ?? [])].filter((row: any) => {
+    if (seen.has(row.id)) return false;
+    seen.add(row.id);
+    return true;
+  });
+
+  const tasks: WidgetTask[] = rows.map((row: any, i: number) => ({
+    id:            row.id,
+    title:         row.title,
+    due_date:      row.due_date ?? row.scheduled_date,
+    due_time:      row.due_time ?? null,
+    priority:      row.priority ?? "none",
+    project_name:  row.projects?.name ?? null,
+    is_overdue:    !!row.due_date && row.due_date < today,
     display_order: row.sort_order ?? i,
   }));
 
   return {
     tasks,
-    today_count:   tasks.filter((t) => t.due_date === today).length,
+    today_count:   tasks.filter((t) => !t.is_overdue).length,
     overdue_count: tasks.filter((t) => t.is_overdue).length,
   };
 }
