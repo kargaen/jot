@@ -84,6 +84,11 @@ export function subscribeAuthState(
   return { unsubscribe: () => data.subscription.unsubscribe() };
 }
 
+export async function getSession(): Promise<Session | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session;
+}
+
 export async function clearSessionSilently(): Promise<void> {
   await supabase.auth.signOut();
 }

@@ -7,6 +7,7 @@ import {
   AUTH_SNAPSHOT_KEY,
   REMEMBER_KEY,
   clearSessionSilently,
+  getSession,
   isUserConfirmed,
   performSignOut,
   readAuthSnapshot,
@@ -157,6 +158,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { unsubscribe(); };
   }, []);
 
+  async function handleSignIn(email: string, password: string, rememberMe: boolean): Promise<AuthResult> {
+    const result = await signIn(email, password, rememberMe);
+    // Android WebView does not reliably fire onAuthStateChange during the same
+    // session, so the SIGNED_IN event never reaches applySession. Read the
+    // session directly and apply it here as a fallback.
+    if (result.ok && isAuthHostWindow()) {
+      const s = await getSession();
+      if (s) {
+        setSession(s);
+        setUser(s.user);
+        setLoading(false);
+        writeAuthSnapshot(s, true);
+      }
+    }
+    return result;
+  }
+
   async function signOut(): Promise<void> {
     setSession(null);
     setUser(null);
@@ -164,7 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, signIn, signUp, resendSignupConfirmation, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, signIn: handleSignIn, signUp, resendSignupConfirmation, signOut }}>
       {children}
     </AuthContext.Provider>
   );
