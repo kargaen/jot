@@ -20,10 +20,20 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const accountActions = useMobileAccountActions();
   const spaceActions = useMobileSpacesActions();
   const [activeTab, setActiveTab] = useState<Tab>("today");
+  const [refreshing, setRefreshing] = useState(false);
 
   async function handleCaptureSave(title: string) {
     await capture.saveDraft({ title, projects: appData.projects });
     await appData.refresh();
+  }
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await appData.refresh();
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   if (loading) {
@@ -52,7 +62,12 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
 
   return (
     <div style={styles.shell}>
-      <TabHeader tab={activeTab} onNewTask={() => setActiveTab("capture")} />
+      <TabHeader
+        tab={activeTab}
+        refreshing={refreshing}
+        onNewTask={() => setActiveTab("capture")}
+        onRefresh={handleRefresh}
+      />
       <div style={styles.screen}>
         {activeTab === "today" && (
           <MobileTodayView
@@ -104,15 +119,33 @@ const TAB_TITLES: Record<Tab, string> = {
   settings: "Settings",
 };
 
-function TabHeader({ tab, onNewTask }: { tab: Tab; onNewTask: () => void }) {
+function TabHeader({ tab, refreshing, onNewTask, onRefresh }: {
+  tab: Tab;
+  refreshing: boolean;
+  onNewTask: () => void;
+  onRefresh: () => void;
+}) {
   return (
     <header style={styles.header}>
       <span style={styles.headerTitle}>{TAB_TITLES[tab]}</span>
-      {tab === "tasks" && (
-        <button type="button" onClick={onNewTask} style={styles.headerAction} aria-label="New task">
-          +
-        </button>
-      )}
+      <div style={styles.headerActions}>
+        {(tab === "today" || tab === "tasks") && (
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            style={styles.headerRefresh}
+            aria-label="Refresh"
+          >
+            <span style={{ opacity: refreshing ? 0.4 : 1 }}>↻</span>
+          </button>
+        )}
+        {tab === "tasks" && (
+          <button type="button" onClick={onNewTask} style={styles.headerAction} aria-label="New task">
+            +
+          </button>
+        )}
+      </div>
     </header>
   );
 }
@@ -148,6 +181,25 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 800,
     color: "var(--text-primary)",
     letterSpacing: -0.3,
+  },
+  headerActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerRefresh: {
+    width: 34,
+    height: 34,
+    borderRadius: "50%",
+    border: "1px solid var(--border-default)",
+    background: "var(--surface-glass)",
+    color: "var(--text-secondary)",
+    fontSize: 18,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontFamily: "inherit",
   },
   headerAction: {
     width: 34,
