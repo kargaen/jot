@@ -14,7 +14,9 @@ export default function MobileTodayView({ tasks, loading, onComplete }: Props) {
 
   const overdue = tasks.filter((t) => isOverdue(t, today));
   const dueToday = tasks.filter((t) => isDueToday(t, today));
-  const upcomingCount = tasks.filter((t) => isUpcoming(t, today)).length;
+  const upcoming = tasks.filter((t) => isUpcoming(t, today));
+  const upcomingCount = upcoming.length;
+  const nextUpcoming = upcoming[0] ?? null;
 
   if (loading) {
     return <div style={styles.empty}>Loading...</div>;
@@ -25,11 +27,19 @@ export default function MobileTodayView({ tasks, loading, onComplete }: Props) {
       <div style={styles.empty}>
         <span style={styles.emptyIcon}>✓</span>
         <span style={styles.emptyLabel}>All clear for today</span>
-        {upcomingCount > 0 && (
-          <span style={styles.upcomingHint}>
-            {upcomingCount} task{upcomingCount !== 1 ? "s" : ""} coming up
-          </span>
-        )}
+        {nextUpcoming ? (
+          <div style={styles.nextPeek}>
+            <span style={styles.nextLabel}>Next</span>
+            <span style={styles.nextTitle}>
+              {nextUpcoming.icon ? `${nextUpcoming.icon} ` : ""}
+              {nextUpcoming.title}
+            </span>
+            <span style={styles.nextDate}>
+              {friendlyDue(nextUpcoming.due_date ?? nextUpcoming.scheduled_date, nextUpcoming.due_time)}
+              {upcomingCount > 1 ? ` · +${upcomingCount - 1} more` : ""}
+            </span>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -42,6 +52,7 @@ export default function MobileTodayView({ tasks, loading, onComplete }: Props) {
       {dueToday.length > 0 && (
         <Section label="Today" tasks={dueToday} onComplete={onComplete} />
       )}
+      {nextUpcoming ? <UpcomingPeek task={nextUpcoming} more={upcomingCount - 1} /> : null}
     </div>
   );
 }
@@ -57,6 +68,23 @@ function Section({ label, tasks, onComplete }: {
       {tasks.map((task) => (
         <TaskRow key={task.id} task={task} onComplete={onComplete} />
       ))}
+    </div>
+  );
+}
+
+function UpcomingPeek({ task, more }: { task: TaskWithTags; more: number }) {
+  const date = friendlyDue(task.due_date ?? task.scheduled_date, task.due_time);
+  return (
+    <div style={styles.peek}>
+      <span style={styles.peekLabel}>Next up</span>
+      <span style={styles.peekTitle}>
+        {task.icon ? `${task.icon} ` : ""}{task.title}
+      </span>
+      {date ? (
+        <span style={styles.peekMeta}>
+          {date}{more > 0 ? ` · +${more} more` : ""}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -165,9 +193,58 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 14,
     fontWeight: 500,
   },
-  upcomingHint: {
+  nextPeek: {
+    marginTop: 16,
+    padding: "12px 16px",
+    borderRadius: 14,
+    background: "var(--surface-glass)",
+    border: "1px solid var(--surface-border-accent)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+    maxWidth: 260,
+    textAlign: "center",
+  },
+  nextLabel: {
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: 0.8,
+    textTransform: "uppercase" as const,
+    color: "var(--accent)",
+  },
+  nextTitle: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: "var(--text-primary)",
+  },
+  nextDate: {
     fontSize: 12,
     color: "var(--text-tertiary)",
-    marginTop: 2,
+  },
+  peek: {
+    margin: "12px 20px 24px",
+    padding: "12px 16px",
+    borderRadius: 14,
+    background: "var(--surface-glass)",
+    border: "1px solid var(--surface-border-accent)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+  },
+  peekLabel: {
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: 0.8,
+    textTransform: "uppercase" as const,
+    color: "var(--accent)",
+  },
+  peekTitle: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: "var(--text-primary)",
+  },
+  peekMeta: {
+    fontSize: 12,
+    color: "var(--text-tertiary)",
   },
 };

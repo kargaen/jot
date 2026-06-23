@@ -81,7 +81,8 @@ function TaskGroup({ group, onComplete }: { group: TaskGroup; onComplete: (id: s
     <div style={styles.section}>
       <div style={styles.sectionHeader}>
         <span style={{ ...styles.dot, background: group.color }} />
-        {group.label}
+        <span style={styles.sectionLabel}>{group.label}</span>
+        <span style={styles.badge}>{group.tasks.length}</span>
       </div>
       {group.tasks.map((task) => (
         <TaskRow key={task.id} task={task} onComplete={onComplete} />
@@ -122,12 +123,24 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     gap: 8,
+    padding: "10px 20px 6px",
+  },
+  sectionLabel: {
     fontSize: 11,
     fontWeight: 700,
     letterSpacing: 0.8,
-    textTransform: "uppercase",
+    textTransform: "uppercase" as const,
     color: "var(--text-tertiary)",
-    padding: "10px 20px 6px",
+    flex: 1,
+  },
+  badge: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--text-tertiary)",
+    background: "var(--surface-glass)",
+    border: "1px solid var(--border-subtle)",
+    borderRadius: 10,
+    padding: "1px 7px",
   },
   dot: {
     flexShrink: 0,
