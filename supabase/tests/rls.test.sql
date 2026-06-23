@@ -12,7 +12,7 @@
 
 BEGIN;
 
-SELECT plan(30);
+SELECT plan(21);
 
 -- ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -65,9 +65,28 @@ BEGIN
   SET LOCAL ROLE service_role;
 END $$;
 
+-- ── Unauthenticated access ────────────────────────────────────────────────────
+
+-- 1. Unauthenticated request (auth.uid() = null) cannot insert any task.
+--    This is the most common cause of RLS INSERT errors in the wild: an
+--    expired or missing JWT reaches Postgres while the client sends a real
+--    user_id, causing auth.uid() to return NULL on the server side.
+DO $$ BEGIN SET LOCAL ROLE anon; END $$;
+SELECT throws_ok(
+  $$INSERT INTO public.tasks (id, user_id, title, status, priority)
+    VALUES (
+      'c0000001-0000-4000-8000-000000000099',
+      'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+      'Unauthenticated task', 'todo', 'none'
+    )$$,
+  '42501',
+  NULL,
+  'unauthenticated request (anon role) cannot insert a task'
+);
+
 -- ── tasks INSERT ──────────────────────────────────────────────────────────────
 
--- 1. User can insert a task into their own area.
+-- 2. User can insert a task into their own area.
 SELECT _as_user('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
 SELECT lives_ok(
   $$INSERT INTO public.tasks (id, user_id, area_id, title, status, priority)
@@ -80,7 +99,7 @@ SELECT lives_ok(
   'user A can insert task into own area'
 );
 
--- 2. User can insert a task into their own project (area_id auto-null).
+-- 3. User can insert a task into their own project (area_id auto-null).
 SELECT _as_user('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
 SELECT lives_ok(
   $$INSERT INTO public.tasks (id, user_id, project_id, title, status, priority)
@@ -93,7 +112,7 @@ SELECT lives_ok(
   'user A can insert task into own project'
 );
 
--- 3. User can insert an inbox task (no area, no project).
+-- 4. User can insert an inbox task (no area, no project).
 SELECT _as_user('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
 SELECT lives_ok(
   $$INSERT INTO public.tasks (id, user_id, title, status, priority)
@@ -105,7 +124,7 @@ SELECT lives_ok(
   'user A can insert inbox task (null area, null project)'
 );
 
--- 4. User CANNOT insert a task into another user's area.
+-- 5. User CANNOT insert a task into another user's area.
 SELECT _as_user('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
 SELECT throws_ok(
   $$INSERT INTO public.tasks (id, user_id, area_id, title, status, priority)
@@ -120,7 +139,7 @@ SELECT throws_ok(
   'user B cannot insert task into user A''s area'
 );
 
--- 5. User CANNOT forge another user's user_id.
+-- 6. User CANNOT forge another user's user_id.
 SELECT _as_user('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
 SELECT throws_ok(
   $$INSERT INTO public.tasks (id, user_id, area_id, title, status, priority)
@@ -137,7 +156,7 @@ SELECT throws_ok(
 
 -- ── tasks UPDATE (complete) ───────────────────────────────────────────────────
 
--- 6. User can complete their own area-anchored task.
+-- 7. User can complete their own area-anchored task.
 SELECT _as_user('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
 SELECT lives_ok(
   $$UPDATE public.tasks
@@ -146,7 +165,7 @@ SELECT lives_ok(
   'user A can complete own area task'
 );
 
--- 7. User can complete their own project-anchored task.
+-- 8. User can complete their own project-anchored task.
 SELECT _as_user('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
 SELECT lives_ok(
   $$UPDATE public.tasks
@@ -155,7 +174,7 @@ SELECT lives_ok(
   'user A can complete own project task'
 );
 
--- 8. User can complete an inbox task (null area, null project) — this was the bug.
+-- 9. User can complete an inbox task (null area, null project) — this was the bug.
 SELECT _as_user('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
 SELECT lives_ok(
   $$UPDATE public.tasks
@@ -164,7 +183,7 @@ SELECT lives_ok(
   'user A can complete inbox task (null area, null project)'
 );
 
--- 9. User CANNOT update another user's task.
+-- 10. User CANNOT update another user's task.
 SELECT _as_user('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
 SELECT is(
   (SELECT COUNT(*)::int FROM public.tasks
@@ -175,7 +194,7 @@ SELECT is(
 
 -- ── tasks SELECT ──────────────────────────────────────────────────────────────
 
--- 10. User can select their own tasks.
+-- 11. User can select their own tasks.
 SELECT _as_user('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
 SELECT is(
   (SELECT COUNT(*)::int FROM public.tasks
@@ -184,7 +203,7 @@ SELECT is(
   'user A sees exactly their 3 test tasks'
 );
 
--- 11. User B sees none of user A's tasks.
+-- 12. User B sees none of user A's tasks.
 SELECT _as_user('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
 SELECT is(
   (SELECT COUNT(*)::int FROM public.tasks
@@ -195,14 +214,14 @@ SELECT is(
 
 -- ── tasks DELETE ──────────────────────────────────────────────────────────────
 
--- 12. User can delete their own task.
+-- 13. User can delete their own task.
 SELECT _as_user('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
 SELECT lives_ok(
   $$DELETE FROM public.tasks WHERE id = 'c0000001-0000-4000-8000-000000000001'$$,
   'user A can delete own task'
 );
 
--- 13. User CANNOT delete another user's task.
+-- 14. User CANNOT delete another user's task.
 SELECT _as_service();
 INSERT INTO public.tasks (id, user_id, area_id, title, status, priority)
 VALUES (
@@ -226,7 +245,7 @@ SELECT is(
 
 -- ── areas INSERT / SELECT ─────────────────────────────────────────────────────
 
--- 14. User can insert their own area.
+-- 15. User can insert their own area.
 SELECT _as_user('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
 SELECT lives_ok(
   $$INSERT INTO public.areas (id, user_id, name, color)
@@ -234,7 +253,7 @@ SELECT lives_ok(
   'user B can insert own area'
 );
 
--- 15. User B cannot see user A's area.
+-- 16. User B cannot see user A's area.
 SELECT _as_user('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
 SELECT is(
   (SELECT COUNT(*)::int FROM public.areas
@@ -245,7 +264,7 @@ SELECT is(
 
 -- ── Shared-area access ────────────────────────────────────────────────────────
 
--- 16. After area_member invite is accepted, user B can insert tasks into A's area.
+-- 17. After area_member invite is accepted, user B can insert tasks into A's area.
 SELECT _as_service();
 INSERT INTO public.area_members (area_id, owner_user_id, invited_email, status, user_id)
 VALUES (
@@ -269,7 +288,7 @@ SELECT lives_ok(
   'accepted area member (user B) can insert task into shared area'
 );
 
--- 17. Accepted area member can see shared area.
+-- 18. Accepted area member can see shared area.
 SELECT _as_user('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
 SELECT is(
   (SELECT COUNT(*)::int FROM public.areas WHERE id = 'a1a1a1a1-a1a1-4a1a-a1a1-a1a1a1a1a1a1'),
@@ -279,7 +298,7 @@ SELECT is(
 
 -- ── Shared-project access ─────────────────────────────────────────────────────
 
--- 18. After project_member invite, user B can insert tasks into A's project.
+-- 19. After project_member invite, user B can insert tasks into A's project.
 SELECT _as_service();
 INSERT INTO public.project_members (project_id, owner_user_id, invited_email, status, user_id)
 VALUES (
@@ -303,7 +322,7 @@ SELECT lives_ok(
   'accepted project member (user B) can insert task into shared project'
 );
 
--- 19. Accepted project member can complete a task in the shared project.
+-- 20. Accepted project member can complete a task in the shared project.
 SELECT _as_user('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
 SELECT lives_ok(
   $$UPDATE public.tasks
@@ -312,7 +331,7 @@ SELECT lives_ok(
   'accepted project member can complete own task in shared project'
 );
 
--- 20. Non-member cannot see A's project.
+-- 21. Non-member cannot see A's project.
 SELECT _as_service();
 DELETE FROM public.project_members
 WHERE project_id = 'a2a2a2a2-a2a2-4a2a-a2a2-a2a2a2a2a2a2'
