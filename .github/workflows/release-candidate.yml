@@ -9,8 +9,23 @@ permissions:
   contents: write
 
 jobs:
+  test-rls:
+    name: Test RLS Policies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run pgTAP RLS tests
+        run: |
+          npx supabase@latest link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} --password ${{ secrets.SUPABASE_DB_PASSWORD }}
+          npx supabase@latest test db
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
   migrate-db:
     name: Apply Database Migrations
+    needs: test-rls
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
