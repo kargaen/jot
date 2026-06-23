@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import type { Area, Project, TaskWithTags } from "../../../../models/shared";
 import { isInbox } from "../../../../models/tasks/taskVisibility";
-import { friendlyDue } from "../../../../models/tasks/taskPresentation";
+import MobileTaskRow from "../components/MobileTaskRow.view";
 
 interface Props {
   tasks: TaskWithTags[];
@@ -85,32 +85,12 @@ function TaskGroup({ group, onComplete }: { group: TaskGroup; onComplete: (id: s
         <span style={styles.badge}>{group.tasks.length}</span>
       </div>
       {group.tasks.map((task) => (
-        <TaskRow key={task.id} task={task} onComplete={onComplete} />
+        <MobileTaskRow key={task.id} task={task} onComplete={onComplete} />
       ))}
     </div>
   );
 }
 
-function TaskRow({ task, onComplete }: { task: TaskWithTags; onComplete: (id: string) => void }) {
-  const due = friendlyDue(task.due_date, task.due_time);
-
-  return (
-    <div style={styles.row}>
-      <button
-        type="button"
-        style={styles.checkButton}
-        onClick={() => onComplete(task.id)}
-        aria-label="Complete task"
-      >
-        <span style={styles.checkCircle} />
-      </button>
-      <div style={styles.rowBody}>
-        <div style={styles.rowTitle}>{task.icon ? `${task.icon} ${task.title}` : task.title}</div>
-        {due ? <div style={styles.rowMeta}>{due}</div> : null}
-      </div>
-    </div>
-  );
-}
 
 const styles: Record<string, CSSProperties> = {
   list: {
@@ -147,48 +127,6 @@ const styles: Record<string, CSSProperties> = {
     width: 8,
     height: 8,
     borderRadius: "50%",
-  },
-  row: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: 12,
-    padding: "10px 20px",
-    borderBottom: "1px solid var(--border-subtle)",
-  },
-  checkButton: {
-    flexShrink: 0,
-    width: 24,
-    height: 24,
-    marginTop: 1,
-    padding: 0,
-    border: "none",
-    background: "transparent",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkCircle: {
-    display: "block",
-    width: 20,
-    height: 20,
-    borderRadius: "50%",
-    border: "2px solid var(--border-default)",
-  },
-  rowBody: {
-    flex: 1,
-    minWidth: 0,
-  },
-  rowTitle: {
-    fontSize: 15,
-    fontWeight: 500,
-    color: "var(--text-primary)",
-    lineHeight: 1.3,
-  },
-  rowMeta: {
-    fontSize: 12,
-    color: "var(--text-tertiary)",
-    marginTop: 3,
   },
   empty: {
     minHeight: "60dvh",
