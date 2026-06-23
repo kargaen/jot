@@ -10,6 +10,7 @@ import MobileTasksView from "../tasks/MobileTasks.view";
 import MobileCaptureView from "../capture/MobileCapture.view";
 import MobileSettingsView from "../settings/MobileSettings.view";
 import MobileOnboardingView from "../onboarding/MobileOnboarding.view";
+import { logger } from "../../../../utils/observability/logger";
 
 type Tab = "today" | "tasks" | "capture" | "settings";
 
@@ -24,18 +25,30 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const [refreshing, setRefreshing] = useState(false);
 
   async function handleCaptureSave(parsed: ParsedInput) {
-    await capture.saveDraft({
-      title: parsed.title,
-      projectId: parsed.project?.id ?? null,
-      projectName: parsed.suggestedProjectName ?? undefined,
-      dueDate: parsed.dueDate ?? null,
-      dueTime: parsed.dueTime ?? null,
-      priority: parsed.priority,
-      recurrenceRule: parsed.recurrenceRule ?? null,
-      tagIds: parsed.tags.map((t) => t.id),
-      projects: appData.projects,
-    });
-    await appData.refresh();
+    try {
+      await capture.saveDraft({
+        title: parsed.title,
+        projectId: parsed.project?.id ?? null,
+        projectName: parsed.suggestedProjectName ?? undefined,
+        dueDate: parsed.dueDate ?? null,
+        dueTime: parsed.dueTime ?? null,
+        priority: parsed.priority,
+        recurrenceRule: parsed.recurrenceRule ?? null,
+        tagIds: parsed.tags.map((t) => t.id),
+        projects: appData.projects,
+      });
+      await appData.refresh();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const isRls = msg.includes("42501") || msg.toLowerCase().includes("row-level security");
+      const isAuth = msg.toLowerCase().includes("not authenticated") || msg.toLowerCase().includes("jwt");
+      if (isRls || isAuth) {
+        logger.error("capture", `save blocked — session/RLS: ${msg}`);
+        throw new Error("Your session may have expired. Please sign out and sign back in, then try again.");
+      }
+      logger.error("capture", `save failed: ${msg}`);
+      throw err;
+    }
   }
 
   async function handleRefresh() {
