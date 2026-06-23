@@ -52,6 +52,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
 
   return (
     <div style={styles.shell}>
+      <TabHeader tab={activeTab} onNewTask={() => setActiveTab("capture")} />
       <div style={styles.screen}>
         {activeTab === "today" && (
           <MobileTodayView
@@ -96,6 +97,26 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   );
 }
 
+const TAB_TITLES: Record<Tab, string> = {
+  today: "Today",
+  tasks: "Tasks",
+  capture: "Capture",
+  settings: "Settings",
+};
+
+function TabHeader({ tab, onNewTask }: { tab: Tab; onNewTask: () => void }) {
+  return (
+    <header style={styles.header}>
+      <span style={styles.headerTitle}>{TAB_TITLES[tab]}</span>
+      {tab === "tasks" && (
+        <button type="button" onClick={onNewTask} style={styles.headerAction} aria-label="New task">
+          +
+        </button>
+      )}
+    </header>
+  );
+}
+
 function TabButton({ label, icon, active, onPress }: {
   label: string;
   icon: string;
@@ -113,6 +134,37 @@ function TabButton({ label, icon, active, onPress }: {
 }
 
 const styles: Record<string, CSSProperties> = {
+  header: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "16px 20px 12px",
+    paddingTop: "calc(16px + env(safe-area-inset-top))",
+    borderBottom: "1px solid var(--border-subtle)",
+    background: "var(--bg-primary)",
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 800,
+    color: "var(--text-primary)",
+    letterSpacing: -0.3,
+  },
+  headerAction: {
+    width: 34,
+    height: 34,
+    borderRadius: "50%",
+    border: "none",
+    background: "linear-gradient(135deg, #5b5bd6, #7a6cff)",
+    color: "#fff",
+    fontSize: 22,
+    lineHeight: 1,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontFamily: "inherit",
+    boxShadow: "0 4px 12px rgba(91,91,214,0.30)",
+  },
   splash: {
     minHeight: "100dvh",
     display: "grid",
