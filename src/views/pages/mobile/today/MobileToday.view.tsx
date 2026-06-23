@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { TaskWithTags } from "../../../../models/shared";
-import { isOverdue, isDueToday } from "../../../../models/tasks/taskVisibility";
+import { isOverdue, isDueToday, isUpcoming } from "../../../../models/tasks/taskVisibility";
 import { friendlyDue } from "../../../../models/tasks/taskPresentation";
 
 interface Props {
@@ -14,6 +14,7 @@ export default function MobileTodayView({ tasks, loading, onComplete }: Props) {
 
   const overdue = tasks.filter((t) => isOverdue(t, today));
   const dueToday = tasks.filter((t) => isDueToday(t, today));
+  const upcomingCount = tasks.filter((t) => isUpcoming(t, today)).length;
 
   if (loading) {
     return <div style={styles.empty}>Loading...</div>;
@@ -24,6 +25,11 @@ export default function MobileTodayView({ tasks, loading, onComplete }: Props) {
       <div style={styles.empty}>
         <span style={styles.emptyIcon}>✓</span>
         <span style={styles.emptyLabel}>All clear for today</span>
+        {upcomingCount > 0 && (
+          <span style={styles.upcomingHint}>
+            {upcomingCount} task{upcomingCount !== 1 ? "s" : ""} coming up
+          </span>
+        )}
       </div>
     );
   }
@@ -158,5 +164,10 @@ const styles: Record<string, CSSProperties> = {
   emptyLabel: {
     fontSize: 14,
     fontWeight: 500,
+  },
+  upcomingHint: {
+    fontSize: 12,
+    color: "var(--text-tertiary)",
+    marginTop: 2,
   },
 };
