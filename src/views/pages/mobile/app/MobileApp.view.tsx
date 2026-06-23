@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
+import type { ParsedInput } from "../../../../models/shared";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useMobileAuth } from "../../../../hooks/useMobileAuth";
 import { useMobileAppData, useCaptureComposer, useMobileAccountActions, useMobileSpacesActions } from "../../../../hooks/useMobileApp";
@@ -22,8 +23,18 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const [activeTab, setActiveTab] = useState<Tab>("today");
   const [refreshing, setRefreshing] = useState(false);
 
-  async function handleCaptureSave(title: string) {
-    await capture.saveDraft({ title, projects: appData.projects });
+  async function handleCaptureSave(parsed: ParsedInput) {
+    await capture.saveDraft({
+      title: parsed.title,
+      projectId: parsed.project?.id ?? null,
+      projectName: parsed.suggestedProjectName ?? undefined,
+      dueDate: parsed.dueDate ?? null,
+      dueTime: parsed.dueTime ?? null,
+      priority: parsed.priority,
+      recurrenceRule: parsed.recurrenceRule ?? null,
+      tagIds: parsed.tags.map((t) => t.id),
+      projects: appData.projects,
+    });
     await appData.refresh();
   }
 
@@ -85,7 +96,13 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
             onComplete={appData.completeTask}
           />
         )}
-        {activeTab === "capture" && <MobileCaptureView onSave={handleCaptureSave} />}
+        {activeTab === "capture" && (
+          <MobileCaptureView
+            projects={appData.projects}
+            tags={appData.tags}
+            onSave={handleCaptureSave}
+          />
+        )}
         {activeTab === "settings" && (
           <MobileSettingsView
             email={user.email ?? ""}

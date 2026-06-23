@@ -1,25 +1,42 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
+import type { ParsedInput, Project, Tag } from "../../../../models/shared";
+import { parseInput } from "../../../../services/capture/nlp.service";
+import { friendlyDue } from "../../../../models/tasks/taskPresentation";
 
 interface Props {
-  onSave: (title: string) => Promise<void>;
+  projects: Project[];
+  tags: Tag[];
+  onSave: (parsed: ParsedInput) => Promise<void>;
 }
 
-export default function MobileCaptureView({ onSave }: Props) {
+export default function MobileCaptureView({ projects, tags, onSave }: Props) {
   const [text, setText] = useState("");
+  const [parsed, setParsed] = useState<ParsedInput | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const parseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (parseTimer.current) clearTimeout(parseTimer.current);
+    if (!text.trim()) { setParsed(null); return; }
+    parseTimer.current = setTimeout(() => {
+      setParsed(parseInput(text, projects, tags));
+    }, 120);
+    return () => { if (parseTimer.current) clearTimeout(parseTimer.current); };
+  }, [text, projects, tags]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const trimmed = text.trim();
-    if (!trimmed || busy) return;
+    if (!text.trim() || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await onSave(trimmed);
+      const draft = parsed ?? parseInput(text, projects, tags);
+      await onSave(draft);
       setText("");
+      setParsed(null);
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     } catch (err) {
@@ -29,6 +46,8 @@ export default function MobileCaptureView({ onSave }: Props) {
     }
   }
 
+  const hasChips = parsed && (parsed.dueDate || parsed.project || parsed.suggestedProjectName || parsed.recurrenceRule || parsed.priority !== "none");
+
   return (
     <div style={styles.shell}>
       {saved ? <div style={styles.confirmation}>Task added ✓</div> : null}
@@ -37,17 +56,50 @@ export default function MobileCaptureView({ onSave }: Props) {
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Task title, due date, project…"
+          placeholder="Buy groceries tomorrow · Call dentist #health · Report for Work Friday"
           rows={3}
           style={styles.input}
           autoFocus
         />
+        {hasChips ? (
+          <div style={styles.chips}>
+            {parsed!.title !== text.trim() && (
+              <Chip label={parsed!.title} color="var(--text-secondary)" />
+            )}
+            {parsed!.dueDate && (
+              <Chip label={friendlyDue(parsed!.dueDate, parsed!.dueTime) ?? parsed!.dueDate} color="#0284c7" />
+            )}
+            {parsed!.recurrenceRule && (
+              <Chip label={parsed!.recurrenceRule} color="#7c3aed" />
+            )}
+            {(parsed!.project ?? parsed!.suggestedProjectName) && (
+              <Chip
+                label={(parsed!.project?.name ?? parsed!.suggestedProjectName)!}
+                color={parsed!.project ? "#16a34a" : "#d97706"}
+              />
+            )}
+            {parsed!.priority !== "none" && (
+              <Chip
+                label={parsed!.priority === "high" ? "!! High" : parsed!.priority === "medium" ? "! Medium" : "~ Low"}
+                color={parsed!.priority === "high" ? "#dc2626" : parsed!.priority === "medium" ? "#d97706" : "#6b7280"}
+              />
+            )}
+          </div>
+        ) : null}
         {error ? <div style={styles.error}>{error}</div> : null}
         <button type="submit" disabled={busy || !text.trim()} style={styles.button}>
           {busy ? "Saving…" : "Add task"}
         </button>
       </form>
     </div>
+  );
+}
+
+function Chip({ label, color }: { label: string; color: string }) {
+  return (
+    <span style={{ ...styles.chip, color, background: `${color}18`, border: `1px solid ${color}30` }}>
+      {label}
+    </span>
   );
 }
 
@@ -77,6 +129,23 @@ const styles: Record<string, CSSProperties> = {
     outline: "none",
     boxSizing: "border-box",
     lineHeight: 1.5,
+  },
+  chips: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  chip: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "3px 9px",
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: 500,
+    maxWidth: 220,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   confirmation: {
     padding: "10px 14px",
