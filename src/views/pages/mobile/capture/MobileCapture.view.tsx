@@ -13,6 +13,7 @@ interface Props {
 export default function MobileCaptureView({ projects, tags, onSave }: Props) {
   const [text, setText] = useState("");
   const [parsed, setParsed] = useState<ParsedInput | null>(null);
+  const [parsing, setParsing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -20,9 +21,15 @@ export default function MobileCaptureView({ projects, tags, onSave }: Props) {
 
   useEffect(() => {
     if (parseTimer.current) clearTimeout(parseTimer.current);
-    if (!text.trim()) { setParsed(null); return; }
+    if (!text.trim()) { setParsed(null); setParsing(false); return; }
+    setParsing((prev) => prev || parsed === null);
     parseTimer.current = setTimeout(() => {
-      setParsed(parseInput(text, projects, tags));
+      try {
+        setParsed(parseInput(text, projects, tags));
+      } catch {
+        // parsing failure is non-fatal; chips just won't show
+      }
+      setParsing(false);
     }, 120);
     return () => { if (parseTimer.current) clearTimeout(parseTimer.current); };
   }, [text, projects, tags]);
@@ -61,6 +68,9 @@ export default function MobileCaptureView({ projects, tags, onSave }: Props) {
           style={styles.input}
           autoFocus
         />
+        {parsing && !hasChips ? (
+          <div style={styles.parsingHint}>Parsing…</div>
+        ) : null}
         {hasChips ? (
           <div style={styles.chips}>
             {parsed!.title !== text.trim() && (
@@ -129,6 +139,11 @@ const styles: Record<string, CSSProperties> = {
     outline: "none",
     boxSizing: "border-box",
     lineHeight: 1.5,
+  },
+  parsingHint: {
+    fontSize: 12,
+    color: "var(--text-tertiary)",
+    fontStyle: "italic" as const,
   },
   chips: {
     display: "flex",
