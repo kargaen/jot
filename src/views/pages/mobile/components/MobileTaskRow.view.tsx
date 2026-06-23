@@ -20,6 +20,7 @@ export default function MobileTaskRow({ task, onComplete }: Props) {
   const startX = useRef<number | null>(null);
   const [dragX, setDragX] = useState(0);
   const [completing, setCompleting] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   function onTouchStart(e: TouchEvent) {
     startX.current = e.touches[0].clientX;
@@ -35,13 +36,14 @@ export default function MobileTaskRow({ task, onComplete }: Props) {
 
   function onTouchEnd() {
     if (startX.current === null) return;
+    const wasDrag = Math.abs(dragX) > 4;
     startX.current = null;
     if (dragX <= -DRAG_THRESHOLD) {
       setCompleting(true);
-      // Let the fade-out render before calling onComplete
       setTimeout(() => onComplete(task.id), 200);
     } else {
       setDragX(0);
+      if (!wasDrag) setExpanded((v) => !v);
     }
   }
 
@@ -83,6 +85,21 @@ export default function MobileTaskRow({ task, onComplete }: Props) {
           {task.project ? (
             <div style={styles.rowMeta}>{task.project.name}</div>
           ) : null}
+          {expanded && (
+            <div style={styles.detail}>
+              {task.notes ? <div style={styles.detailNotes}>{task.notes}</div> : null}
+              {task.tags && task.tags.length > 0 ? (
+                <div style={styles.detailTags}>
+                  {task.tags.map((tag) => (
+                    <span key={tag.id} style={styles.tag}>{tag.name}</span>
+                  ))}
+                </div>
+              ) : null}
+              {!task.notes && (!task.tags || task.tags.length === 0) ? (
+                <div style={styles.detailEmpty}>No notes or tags</div>
+              ) : null}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -151,5 +168,38 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     color: "var(--text-tertiary)",
     marginTop: 3,
+  },
+  detail: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTop: "1px solid var(--border-subtle)",
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 6,
+  },
+  detailNotes: {
+    fontSize: 13,
+    color: "var(--text-secondary)",
+    lineHeight: 1.5,
+    whiteSpace: "pre-wrap" as const,
+  },
+  detailTags: {
+    display: "flex",
+    flexWrap: "wrap" as const,
+    gap: 4,
+  },
+  tag: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--text-tertiary)",
+    background: "var(--surface-glass)",
+    border: "1px solid var(--border-subtle)",
+    borderRadius: 8,
+    padding: "2px 7px",
+  },
+  detailEmpty: {
+    fontSize: 12,
+    color: "var(--text-tertiary)",
+    fontStyle: "italic" as const,
   },
 };

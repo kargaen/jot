@@ -9,6 +9,7 @@ export default function MobileCaptureView({ onSave }: Props) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -19,6 +20,8 @@ export default function MobileCaptureView({ onSave }: Props) {
     try {
       await onSave(trimmed);
       setText("");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save task");
     } finally {
@@ -28,6 +31,7 @@ export default function MobileCaptureView({ onSave }: Props) {
 
   return (
     <div style={styles.shell}>
+      {saved ? <div style={styles.confirmation}>Task added ✓</div> : null}
       <form onSubmit={handleSubmit} style={styles.form}>
         <div style={styles.hint}>What needs to get done?</div>
         <textarea
@@ -73,6 +77,16 @@ const styles: Record<string, CSSProperties> = {
     outline: "none",
     boxSizing: "border-box",
     lineHeight: 1.5,
+  },
+  confirmation: {
+    padding: "10px 14px",
+    borderRadius: 12,
+    background: "rgba(22,163,74,0.10)",
+    color: "#16a34a",
+    fontSize: 14,
+    fontWeight: 600,
+    marginBottom: 14,
+    textAlign: "center" as const,
   },
   error: {
     padding: "10px 12px",
