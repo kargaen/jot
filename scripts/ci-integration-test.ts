@@ -78,6 +78,7 @@ async function run() {
   const jwt = JSON.parse(Buffer.from(accessToken.split(".")[1], "base64url").toString());
   console.log(`Signed in as ${TEST_EMAIL} (${userId})`);
   console.log(`JWT role=${jwt.role} sub=${jwt.sub} email_confirmed=${!!authData.user.email_confirmed_at}`);
+  console.log(`[token ends] session=...${accessToken.slice(-12)}  anon=...${ANON_KEY.slice(-12)}`);
 
   // Confirm session is live in the client before any CRUD call.
   const { data: sessionCheck } = await authClient.auth.getSession();
