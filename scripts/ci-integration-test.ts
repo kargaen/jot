@@ -23,7 +23,9 @@ if (!SUPABASE_URL || !ANON_KEY || !TEST_EMAIL || !TEST_PASSWORD) {
   process.exit(1);
 }
 
-// Used only for sign-in; all data operations use `db` below.
+// Single client used for both auth and data operations.
+// With persistSession: false the session lives in memory; the client
+// automatically attaches the Bearer token to every PostgREST request.
 const authClient = createClient(SUPABASE_URL, ANON_KEY, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 });
@@ -61,13 +63,9 @@ async function run() {
   console.log(`Signed in as ${TEST_EMAIL} (${userId})`);
   console.log(`JWT role=${jwt.role} sub=${jwt.sub} email_confirmed=${!!authData.user.email_confirmed_at}\n`);
 
-  // Build an authenticated client with the token pinned in global headers.
-  // This is exactly what PostgREST needs and avoids async session-propagation
-  // issues that arise with persistSession: false.
-  const db = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: `Bearer ${accessToken}` } },
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-  });
+  // Use the same client for data operations — its in-memory session carries
+  // the Bearer token automatically on every PostgREST request.
+  const db = authClient;
 
   async function cleanup() {
     console.log("\nCleanup: deleting data created during this run...");
