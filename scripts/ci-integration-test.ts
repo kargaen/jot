@@ -31,8 +31,13 @@ const failures: { label: string; msg: string }[] = [];
 const created = { areas: [] as string[], projects: [] as string[], tasks: [] as string[] };
 
 function pass(label: string) { console.log(`  ✓ ${label}`); }
+function errMsg(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object") return JSON.stringify(err);
+  return String(err);
+}
 function fail(label: string, err: unknown) {
-  const msg = err instanceof Error ? err.message : String(err);
+  const msg = errMsg(err);
   console.error(`  ✗ ${label}: ${msg}`);
   failures.push({ label, msg });
 }
