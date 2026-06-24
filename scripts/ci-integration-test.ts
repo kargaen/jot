@@ -57,7 +57,9 @@ async function run() {
   }
   const userId = authData.user.id;
   const accessToken = authData.session.access_token;
-  console.log(`Signed in as ${TEST_EMAIL} (${userId})\n`);
+  const jwt = JSON.parse(Buffer.from(accessToken.split(".")[1], "base64url").toString());
+  console.log(`Signed in as ${TEST_EMAIL} (${userId})`);
+  console.log(`JWT role=${jwt.role} sub=${jwt.sub} email_confirmed=${!!authData.user.email_confirmed_at}\n`);
 
   // Build an authenticated client with the token pinned in global headers.
   // This is exactly what PostgREST needs and avoids async session-propagation
