@@ -107,6 +107,12 @@ async function run() {
       console.log(`  [diag] create_area RPC error: ${errMsg(rpcError)}`);
     } else {
       console.log(`  [diag] create_area RPC success (auth.uid() works in SECURITY DEFINER): id=${rpcData?.id}`);
+      // IDENTITY PROBE: create_area stores user_id = auth.uid(), so the row it
+      // returns tells us exactly who the DB thinks we are for THIS request.
+      // If this != userId, WITH CHECK (user_id = auth.uid()) on a direct insert
+      // can never pass -- the broken layer is request identity, not the policy.
+      const dbUid = (rpcData as { user_id?: string } | null)?.user_id;
+      console.log(`  [diag] IDENTITY: signed-in user.id=${userId}  auth.uid() in DB=${dbUid}  match=${dbUid === userId}`);
       if (rpcData?.id) {
         created.areas.push(rpcData.id);
         // Use this area for subsequent tests instead of re-creating
