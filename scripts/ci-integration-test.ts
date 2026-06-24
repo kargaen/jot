@@ -23,6 +23,22 @@ if (!SUPABASE_URL || !ANON_KEY || !TEST_EMAIL || !TEST_PASSWORD) {
   process.exit(1);
 }
 
+// Intercept fetch to log exactly what Authorization header reaches PostgREST.
+let _nextLogLabel: string | null = null;
+const _origFetch = globalThis.fetch;
+globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  if (_nextLogLabel && url.includes("/rest/v1")) {
+    const authHeader = (init?.headers as Record<string, string>)?.["Authorization"]
+      ?? (init?.headers instanceof Headers ? init.headers.get("Authorization") : null)
+      ?? "(none)";
+    const tokenSuffix = authHeader === "(none)" ? "(none)" : authHeader.slice(-12);
+    console.log(`  [fetch] ${_nextLogLabel} → Authorization ends with: ...${tokenSuffix}`);
+    _nextLogLabel = null;
+  }
+  return _origFetch(input as RequestInfo, init);
+};
+
 // Single client used for both auth and data operations.
 // With persistSession: false the session lives in memory; the client
 // automatically attaches the Bearer token to every PostgREST request.
@@ -82,6 +98,7 @@ async function run() {
   // ── 0. Diagnostic: verify auth.uid() via create_area RPC (SECURITY DEFINER) ─
   // If this fails with "Not authenticated", auth.uid() is NULL — JWT not verified.
   // If this succeeds, auth.uid() works in SECURITY DEFINER but may still fail in RLS.
+  _nextLogLabel = "create_area RPC";
   try {
     const { data: rpcData, error: rpcError } = await db
       .rpc("create_area", { p_name: "CI Diagnostic Area", p_color: "#888888" });
@@ -98,6 +115,7 @@ async function run() {
 
   // ── 1. Create area ─────────────────────────────────────────────────────────
   let areaId: string | undefined;
+  _nextLogLabel = "areas INSERT";
   try {
     const { data, error } = await db
       .from("areas")
