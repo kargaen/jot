@@ -62,22 +62,28 @@ async function cleanup() {
 async function run() {
   console.log(`Running CRUD integration tests against ${SUPABASE_URL}\n`);
 
-  // ── Sanity check: debug user must not already exist ───────────────────────
-  const existing = await mgmt("GET", `/auth/users?email=${encodeURIComponent(DEBUG_EMAIL)}`);
-  if (existing?.users?.length > 0) {
-    console.error(
-      `ABORT: ${DEBUG_EMAIL} already exists. ` +
-      "A previous CI run may have failed to clean up. Delete the user via the Supabase dashboard."
-    );
+  // ── Create debug user via Management API (skips email confirmation) ───────
+  // If the user already exists from a previous failed run, creation returns
+  // a 422 with "already exists" — we treat that as an abort rather than
+  // trying to reuse a potentially dirty state.
+  let created;
+  try {
+    created = await mgmt("POST", "/auth/users", {
+      email: DEBUG_EMAIL,
+      password: DEBUG_PASSWORD,
+      email_confirm: true,
+    });
+  } catch (e) {
+    if (e.message.includes("already been registered") || e.message.includes("already exists") || e.message.includes("422")) {
+      console.error(
+        `ABORT: ${DEBUG_EMAIL} already exists. ` +
+        "A previous CI run may have failed to clean up. Delete the user via the Supabase dashboard."
+      );
+    } else {
+      console.error("ABORT: failed to create debug user:", e.message);
+    }
     process.exit(1);
   }
-
-  // ── Create debug user via Management API (skips email confirmation) ───────
-  const created = await mgmt("POST", "/auth/users", {
-    email: DEBUG_EMAIL,
-    password: DEBUG_PASSWORD,
-    email_confirm: true,
-  });
   debugUserId = created.id;
   console.log(`Debug user created: ${debugUserId}\n`);
 
