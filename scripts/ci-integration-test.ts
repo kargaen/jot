@@ -23,7 +23,8 @@ if (!SUPABASE_URL || !ANON_KEY || !TEST_EMAIL || !TEST_PASSWORD) {
   process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, ANON_KEY, {
+// Used only for sign-in; all data operations use `db` below.
+const authClient = createClient(SUPABASE_URL, ANON_KEY, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 });
 
@@ -42,19 +43,11 @@ function fail(label: string, err: unknown) {
   failures.push({ label, msg });
 }
 
-async function cleanup() {
-  console.log("\nCleanup: deleting data created during this run...");
-  for (const id of created.tasks) await supabase.from("tasks").delete().eq("id", id);
-  for (const id of created.projects) await supabase.from("projects").delete().eq("id", id);
-  for (const id of created.areas) await supabase.from("areas").delete().eq("id", id);
-  console.log("Cleanup done.");
-}
-
 async function run() {
   console.log(`Running CRUD integration tests against ${SUPABASE_URL}\n`);
 
   // ── Sign in ────────────────────────────────────────────────────────────────
-  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+  const { data: authData, error: authError } = await authClient.auth.signInWithPassword({
     email: TEST_EMAIL,
     password: TEST_PASSWORD,
   });
@@ -63,12 +56,29 @@ async function run() {
     process.exit(1);
   }
   const userId = authData.user.id;
+  const accessToken = authData.session.access_token;
   console.log(`Signed in as ${TEST_EMAIL} (${userId})\n`);
+
+  // Build an authenticated client with the token pinned in global headers.
+  // This is exactly what PostgREST needs and avoids async session-propagation
+  // issues that arise with persistSession: false.
+  const db = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+
+  async function cleanup() {
+    console.log("\nCleanup: deleting data created during this run...");
+    for (const id of created.tasks) await db.from("tasks").delete().eq("id", id);
+    for (const id of created.projects) await db.from("projects").delete().eq("id", id);
+    for (const id of created.areas) await db.from("areas").delete().eq("id", id);
+    console.log("Cleanup done.");
+  }
 
   // ── 1. Create area ─────────────────────────────────────────────────────────
   let areaId: string | undefined;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("areas")
       .insert({ user_id: userId, name: "CI Test Area", color: "#888888" })
       .select()
@@ -82,7 +92,7 @@ async function run() {
   // ── 2. Create inbox task (null area + null project — RLS regression) ───────
   let inboxTaskId: string | undefined;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("tasks")
       .insert({ user_id: userId, title: "CI inbox task", status: "todo", priority: "none" })
       .select()
@@ -96,7 +106,7 @@ async function run() {
   // ── 3. Complete inbox task (UPDATE — second RLS regression case) ───────────
   if (inboxTaskId) {
     try {
-      const { error } = await supabase
+      const { error } = await db
         .from("tasks")
         .update({ status: "completed", completed_at: new Date().toISOString() })
         .eq("id", inboxTaskId);
@@ -109,7 +119,7 @@ async function run() {
   let areaTaskId: string | undefined;
   if (areaId) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("tasks")
         .insert({ user_id: userId, area_id: areaId, title: "CI area task", status: "todo", priority: "none" })
         .select()
@@ -124,7 +134,7 @@ async function run() {
   // ── 5. Create project + project-anchored task ──────────────────────────────
   if (areaId) {
     try {
-      const { data: proj, error: projErr } = await supabase
+      const { data: proj, error: projErr } = await db
         .from("projects")
         .insert({ user_id: userId, area_id: areaId, name: "CI Project", color: "#888888", status: "active" })
         .select()
@@ -132,7 +142,7 @@ async function run() {
       if (projErr) throw projErr;
       created.projects.push(proj.id);
 
-      const { data: task, error: taskErr } = await supabase
+      const { data: task, error: taskErr } = await db
         .from("tasks")
         .insert({ user_id: userId, project_id: proj.id, title: "CI project task", status: "todo", priority: "none" })
         .select()
@@ -146,7 +156,7 @@ async function run() {
   // ── 6. Delete own task ─────────────────────────────────────────────────────
   if (areaTaskId) {
     try {
-      const { error } = await supabase.from("tasks").delete().eq("id", areaTaskId);
+      const { error } = await db.from("tasks").delete().eq("id", areaTaskId);
       if (error) throw error;
       created.tasks = created.tasks.filter((id) => id !== areaTaskId);
       pass("delete own task");
@@ -155,7 +165,7 @@ async function run() {
 
   // ── 7. SELECT isolation: cannot see other users' data ─────────────────────
   try {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("tasks")
       .select("id")
       .neq("user_id", userId)
