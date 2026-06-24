@@ -1,33 +1,33 @@
 /**
  * CI integration test: full CRUD cycle against the production Supabase project.
  *
- * Behaves exactly like a real Jot client:
- *   - uses the anon key + user JWT for all data operations (RLS enforced)
- *   - uses the Supabase Management API (SUPABASE_ACCESS_TOKEN) only for
- *     creating and deleting the debug auth user — no service role key needed
+ * User lifecycle (create/delete) uses the service role key — the only reason
+ * it's needed is to bypass email confirmation. All data operations use the
+ * anon key + a real user JWT, exactly like the Jot client does.
  *
- * Required env vars (all already present in CI):
- *   VITE_SUPABASE_URL        – project API URL
- *   VITE_SUPABASE_ANON_KEY   – public anon key (same as the app uses)
- *   SUPABASE_ACCESS_TOKEN    – Management API token (used for user lifecycle)
- *   SUPABASE_PROJECT_REF     – project ref (used for Management API URL)
+ * Required env vars:
+ *   VITE_SUPABASE_URL          – project API URL (already in CI)
+ *   VITE_SUPABASE_ANON_KEY     – public anon key (already in CI)
+ *   SUPABASE_SERVICE_ROLE_KEY  – service role key (for user create/delete only)
  */
 
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
-const MGMT_TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
-const PROJECT_REF = process.env.SUPABASE_PROJECT_REF;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const DEBUG_EMAIL = "jot-ci-debug@jot.test";
 const DEBUG_PASSWORD = "ci-debug-password-jot-2026!";
 
-if (!SUPABASE_URL || !ANON_KEY || !MGMT_TOKEN || !PROJECT_REF) {
-  console.error("Missing required env vars: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF");
+if (!SUPABASE_URL || !ANON_KEY || !SERVICE_ROLE_KEY) {
+  console.error("Missing required env vars: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY");
   process.exit(1);
 }
 
-const mgmtHeaders = { "Authorization": `Bearer ${MGMT_TOKEN}`, "Content-Type": "application/json" };
+// Admin client — used only for user create/delete.
+const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
 
 let debugUserId = null;
 const failures = [];
@@ -39,55 +39,35 @@ function fail(label, err) {
   failures.push({ label, msg });
 }
 
-async function mgmt(method, path, body) {
-  const res = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}${path}`, {
-    method,
-    headers: mgmtHeaders,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(`Management API ${method} ${path} → ${res.status}: ${text}`);
-  }
-  return res.status === 204 ? null : res.json();
-}
-
 async function cleanup() {
   if (!debugUserId) return;
   console.log("\nCleanup: removing debug user...");
-  try { await mgmt("DELETE", `/auth/users/${debugUserId}`); } catch (e) { console.warn("  cleanup: delete user failed:", e.message); }
-  console.log("Cleanup done.");
+  const { error } = await admin.auth.admin.deleteUser(debugUserId);
+  if (error) console.warn("  cleanup: delete user failed:", error.message);
+  else console.log("Cleanup done.");
 }
 
 async function run() {
   console.log(`Running CRUD integration tests against ${SUPABASE_URL}\n`);
 
-  // ── Create debug user via Management API (skips email confirmation) ───────
-  // If the user already exists from a previous failed run, creation returns
-  // a 422 with "already exists" — we treat that as an abort rather than
-  // trying to reuse a potentially dirty state.
-  let created;
-  try {
-    created = await mgmt("POST", "/auth/users", {
-      email: DEBUG_EMAIL,
-      password: DEBUG_PASSWORD,
-      email_confirm: true,
-    });
-  } catch (e) {
-    if (e.message.includes("already been registered") || e.message.includes("already exists") || e.message.includes("422")) {
-      console.error(
-        `ABORT: ${DEBUG_EMAIL} already exists. ` +
-        "A previous CI run may have failed to clean up. Delete the user via the Supabase dashboard."
-      );
+  // ── Create debug user (service role, email confirmation bypassed) ─────────
+  const { data: created, error: createErr } = await admin.auth.admin.createUser({
+    email: DEBUG_EMAIL,
+    password: DEBUG_PASSWORD,
+    email_confirm: true,
+  });
+  if (createErr) {
+    if (createErr.message.includes("already been registered") || createErr.message.includes("already exists")) {
+      console.error(`ABORT: ${DEBUG_EMAIL} already exists. A previous CI run may have failed to clean up. Delete the user via the Supabase dashboard.`);
     } else {
-      console.error("ABORT: failed to create debug user:", e.message);
+      console.error("ABORT: failed to create debug user:", createErr.message);
     }
     process.exit(1);
   }
-  debugUserId = created.id;
+  debugUserId = created.user.id;
   console.log(`Debug user created: ${debugUserId}\n`);
 
-  // ── Sign in as the debug user — exactly like the real app ─────────────────
+  // ── Sign in as debug user — anon key + JWT, exactly like the real app ─────
   const db = createClient(SUPABASE_URL, ANON_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -98,7 +78,7 @@ async function run() {
     process.exit(1);
   }
 
-  // From this point db behaves exactly like the Jot client — anon key + live JWT.
+  // All calls below use db — anon key + live JWT, RLS fully enforced.
 
   // ── 1. Create area ────────────────────────────────────────────────────────
   let areaId;
@@ -196,3 +176,5 @@ run().catch(async (err) => {
   await cleanup();
   process.exit(1);
 });
+
+
