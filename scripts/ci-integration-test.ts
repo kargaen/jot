@@ -6,7 +6,7 @@
  *
  * Required env vars:
  *   VITE_SUPABASE_URL            – project API URL (already in CI)
- *   VITE_SUPABASE_ANON_KEY       – public anon key (already in CI)
+ *   VITE_SUPABASE_PUBLISHABLE_KEY       – public anon key (already in CI)
  *   SUPABASE_TEST_USER_NAME      – email of the pre-created test user
  *   SUPABASE_TEST_USER_PASSWORD  – password for the test user
  */
@@ -14,12 +14,12 @@
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
-const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY!;
+const ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY!;
 const TEST_EMAIL = process.env.SUPABASE_TEST_USER_NAME!;
 const TEST_PASSWORD = process.env.SUPABASE_TEST_USER_PASSWORD!;
 
 if (!SUPABASE_URL || !ANON_KEY || !TEST_EMAIL || !TEST_PASSWORD) {
-  console.error("Missing required env vars: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, SUPABASE_TEST_USER_NAME, SUPABASE_TEST_USER_PASSWORD");
+  console.error("Missing required env vars: VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY, SUPABASE_TEST_USER_NAME, SUPABASE_TEST_USER_PASSWORD");
   process.exit(1);
 }
 
