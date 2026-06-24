@@ -142,6 +142,35 @@ async function run() {
     console.log(`  [diag] feedback direct insert FAILED: ${errMsg(e)}`);
   }
 
+  // ── DIAG: isolate INSERT WITH CHECK from the RETURNING/SELECT policy ────────
+  // .insert().select() does INSERT ... RETURNING, which must ALSO satisfy the
+  // SELECT policy. areas_select/tasks_select use can_access_area/can_access_task;
+  // feedback_select is `true`. If a bare insert (no RETURNING) SUCCEEDS while
+  // the .select() variant 42501s, the failing layer is the SELECT-after-insert
+  // policy, not the INSERT WITH CHECK.
+  _nextLogLabel = "areas INSERT (no RETURNING)";
+  try {
+    const { error } = await db
+      .from("areas")
+      .insert({ user_id: userId, name: "CI diag no-return area", color: "#888888" });
+    console.log(`  [diag] areas bare insert (no RETURNING): ${error ? "FAILED " + errMsg(error) : "OK"}`);
+    if (!error) {
+      // It was inserted (RLS bypass not involved); remove it.
+      await db.from("areas").delete().eq("name", "CI diag no-return area").eq("user_id", userId);
+    }
+  } catch (e) { console.log(`  [diag] areas bare insert threw: ${errMsg(e)}`); }
+
+  // Does an explicit (client-sent) user_id break feedback the way it might areas?
+  try {
+    const { data, error } = await db
+      .from("feedback")
+      .insert({ text: "rls explicit-user probe", user_id: userId })
+      .select("id,user_id")
+      .single();
+    console.log(`  [diag] feedback insert w/ explicit user_id + RETURNING: ${error ? "FAILED " + errMsg(error) : "OK user_id=" + data.user_id}`);
+    if (!error) await db.from("feedback").delete().eq("id", data.id);
+  } catch (e) { console.log(`  [diag] feedback explicit-user probe threw: ${errMsg(e)}`); }
+
   // ── 1. Create area ─────────────────────────────────────────────────────────
   let areaId: string | undefined;
   _nextLogLabel = "areas INSERT";
