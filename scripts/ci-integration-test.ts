@@ -75,6 +75,23 @@ async function run() {
     console.log("Cleanup done.");
   }
 
+  // ── 0. Diagnostic: verify auth.uid() via create_area RPC (SECURITY DEFINER) ─
+  // If this fails with "Not authenticated", auth.uid() is NULL — JWT not verified.
+  // If this succeeds, auth.uid() works in SECURITY DEFINER but may still fail in RLS.
+  try {
+    const { data: rpcData, error: rpcError } = await db
+      .rpc("create_area", { p_name: "CI Diagnostic Area", p_color: "#888888" });
+    if (rpcError) {
+      console.log(`  [diag] create_area RPC error: ${errMsg(rpcError)}`);
+    } else {
+      console.log(`  [diag] create_area RPC success (auth.uid() works in SECURITY DEFINER): id=${rpcData?.id}`);
+      if (rpcData?.id) {
+        created.areas.push(rpcData.id);
+        // Use this area for subsequent tests instead of re-creating
+      }
+    }
+  } catch (e) { console.log(`  [diag] create_area RPC threw: ${errMsg(e)}`); }
+
   // ── 1. Create area ─────────────────────────────────────────────────────────
   let areaId: string | undefined;
   try {
