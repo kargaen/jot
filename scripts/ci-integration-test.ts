@@ -120,6 +120,28 @@ async function run() {
     }
   } catch (e) { console.log(`  [diag] create_area RPC threw: ${errMsg(e)}`); }
 
+  // ── DIAG: live DIRECT-table insert probe via feedback ──────────────────────
+  // feedback has user_id DEFAULT auth.uid() and INSERT policy
+  // WITH CHECK (auth.uid() = user_id), TO authenticated. Unlike create_area,
+  // this is NOT SECURITY DEFINER, so it exercises the exact live
+  // authenticated + RLS path that the areas insert uses. If THIS succeeds, a
+  // direct authenticated insert whose WITH CHECK tests auth.uid() works live,
+  // and the areas failure is areas-specific. If THIS also fails with 42501,
+  // the live direct-insert auth.uid() path is broken across the board.
+  _nextLogLabel = "feedback INSERT (direct-table probe)";
+  try {
+    const { data, error } = await db
+      .from("feedback")
+      .insert({ text: "rls direct-insert probe" })
+      .select("id,user_id")
+      .single();
+    if (error) throw error;
+    console.log(`  [diag] feedback direct insert OK: stored user_id=${data.user_id} match=${data.user_id === userId}`);
+    await db.from("feedback").delete().eq("id", data.id);
+  } catch (e) {
+    console.log(`  [diag] feedback direct insert FAILED: ${errMsg(e)}`);
+  }
+
   // ── 1. Create area ─────────────────────────────────────────────────────────
   let areaId: string | undefined;
   _nextLogLabel = "areas INSERT";
