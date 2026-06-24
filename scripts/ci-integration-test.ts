@@ -61,7 +61,11 @@ async function run() {
   const accessToken = authData.session.access_token;
   const jwt = JSON.parse(Buffer.from(accessToken.split(".")[1], "base64url").toString());
   console.log(`Signed in as ${TEST_EMAIL} (${userId})`);
-  console.log(`JWT role=${jwt.role} sub=${jwt.sub} email_confirmed=${!!authData.user.email_confirmed_at}\n`);
+  console.log(`JWT role=${jwt.role} sub=${jwt.sub} email_confirmed=${!!authData.user.email_confirmed_at}`);
+
+  // Confirm session is live in the client before any CRUD call.
+  const { data: sessionCheck } = await authClient.auth.getSession();
+  console.log(`getSession after login: session=${sessionCheck.session ? "present" : "null"} user=${sessionCheck.session?.user?.id ?? "none"}\n`);
 
   // Use the same client for data operations — its in-memory session carries
   // the Bearer token automatically on every PostgREST request.
