@@ -30,7 +30,8 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          SUPABASE_DEBUG_USER_PASSWORD: ${{ secrets.SUPABASE_DEBUG_USER_PASSWORD }}
+          SUPABASE_TEST_USER_NAME: ${{ secrets.SUPABASE_TEST_USER_NAME }}
+          SUPABASE_TEST_USER_PASSWORD: ${{ secrets.SUPABASE_TEST_USER_PASSWORD }}
 
   migrate-db:
     name: Apply Database Migrations

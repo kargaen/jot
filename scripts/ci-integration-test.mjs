@@ -20,11 +20,11 @@ import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
-const DEBUG_PASSWORD = process.env.SUPABASE_DEBUG_USER_PASSWORD;
-const DEBUG_EMAIL = "jot-debug@karga.dk";
+const DEBUG_EMAIL = process.env.SUPABASE_TEST_USER_NAME;
+const DEBUG_PASSWORD = process.env.SUPABASE_TEST_USER_PASSWORD;
 
-if (!SUPABASE_URL || !ANON_KEY || !DEBUG_PASSWORD) {
-  console.error("Missing required env vars: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, SUPABASE_DEBUG_USER_PASSWORD");
+if (!SUPABASE_URL || !ANON_KEY || !DEBUG_EMAIL || !DEBUG_PASSWORD) {
+  console.error("Missing required env vars: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, SUPABASE_TEST_USER_NAME, SUPABASE_TEST_USER_PASSWORD");
   process.exit(1);
 }
 
