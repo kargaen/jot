@@ -85,7 +85,26 @@ async function run() {
   }
   const accessToken = authBody.access_token;
   const userId = authBody.user.id;
-  console.log(`Signed in as ${TEST_EMAIL} (${userId})\n`);
+  console.log(`Signed in as ${TEST_EMAIL} (${userId})`);
+
+  // Decode JWT payload to confirm sub claim and expiry
+  const jwtPayload = JSON.parse(Buffer.from(accessToken.split(".")[1], "base64url").toString());
+  console.log(`JWT sub=${jwtPayload.sub} role=${jwtPayload.role} exp=${new Date(jwtPayload.exp * 1000).toISOString()}`);
+  if (jwtPayload.sub !== userId) {
+    console.error(`ABORT: JWT sub does not match user.id`);
+    process.exit(1);
+  }
+
+  // Verify token is accepted by auth service
+  const meRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${accessToken}` },
+  });
+  if (!meRes.ok) {
+    console.error(`ABORT: /auth/v1/user rejected token (${meRes.status})`);
+    process.exit(1);
+  }
+  const meBody = await meRes.json();
+  console.log(`Auth confirmed: id=${meBody.id} email_confirmed=${!!meBody.email_confirmed_at}\n`);
 
   // ── 1. Create area ────────────────────────────────────────────────────────
   let areaId;
