@@ -3,6 +3,7 @@ import type { CSSProperties, FormEvent } from "react";
 import type { Area, AreaMember, Feedback, NlpLanguageMode } from "../../../../models/shared";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useFeedbackTab, useSharingTab } from "../../../../hooks/usePreferences";
+import Toggle from "../../../components/ui/Toggle.view";
 import {
   loadNlpLanguageMode,
   saveNlpLanguageMode,
@@ -28,6 +29,8 @@ interface SpaceActions {
 interface Props {
   email: string;
   areas: Area[];
+  hiddenAreaIds: string[];
+  onHiddenChange: (ids: string[]) => void;
   accountActions: AccountActions;
   spaceActions: SpaceActions;
   onSignedOut: () => void;
@@ -37,6 +40,8 @@ interface Props {
 export default function MobileSettingsView({
   email,
   areas,
+  hiddenAreaIds,
+  onHiddenChange,
   accountActions,
   spaceActions,
   onSignedOut,
@@ -47,7 +52,13 @@ export default function MobileSettingsView({
       <AccountSection email={email} actions={accountActions} onSignedOut={onSignedOut} />
       <AppearanceSection />
       <CaptureSection />
-      <SpacesSection areas={areas} actions={spaceActions} onChanged={onAreasChanged} />
+      <SpacesSection
+        areas={areas}
+        hiddenAreaIds={hiddenAreaIds}
+        onHiddenChange={onHiddenChange}
+        actions={spaceActions}
+        onChanged={onAreasChanged}
+      />
       <SharingSection areas={areas} onSharedChange={onAreasChanged} />
       <FeedbackSection />
     </div>
@@ -215,10 +226,14 @@ function CaptureSection() {
 
 function SpacesSection({
   areas,
+  hiddenAreaIds,
+  onHiddenChange,
   actions,
   onChanged,
 }: {
   areas: Area[];
+  hiddenAreaIds: string[];
+  onHiddenChange: (ids: string[]) => void;
   actions: SpaceActions;
   onChanged: () => void;
 }) {
@@ -268,9 +283,18 @@ function SpacesSection({
     setEditingName(area.name);
   }
 
+  function toggleVisibility(id: string) {
+    onHiddenChange(
+      hiddenAreaIds.includes(id)
+        ? hiddenAreaIds.filter((x) => x !== id)
+        : [...hiddenAreaIds, id],
+    );
+  }
+
   return (
     <section style={styles.section}>
       <div style={styles.sectionHeader}>Spaces</div>
+      <div style={styles.sectionHint}>Turn a space off to hide it on this device.</div>
       <div style={styles.card}>
         {areas.map((area, i) => (
           <div key={area.id}>
@@ -301,8 +325,9 @@ function SpacesSection({
               </div>
             ) : (
               <div style={styles.spaceRow}>
+                <Toggle on={!hiddenAreaIds.includes(area.id)} onToggle={() => toggleVisibility(area.id)} />
                 <span style={{ ...styles.dot, background: area.color }} />
-                <span style={styles.rowLabel}>{area.name}</span>
+                <span style={{ ...styles.rowLabel, opacity: hiddenAreaIds.includes(area.id) ? 0.45 : 1 }}>{area.name}</span>
                 <button type="button" onClick={() => startEdit(area)} style={styles.iconButton}>
                   ✎
                 </button>
@@ -563,6 +588,12 @@ const styles: Record<string, CSSProperties> = {
     textTransform: "uppercase",
     color: "var(--text-tertiary)",
     marginBottom: 8,
+    paddingLeft: 4,
+  },
+  sectionHint: {
+    fontSize: 12,
+    color: "var(--text-tertiary)",
+    margin: "-2px 0 8px",
     paddingLeft: 4,
   },
   card: {

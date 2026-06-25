@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Area, AreaMember, Feedback, Project, ProjectMember, Tag, TaskWithTags } from "../models/shared";
 import {
   acceptInvite,
@@ -33,6 +33,7 @@ import { logger } from "../utils/observability/logger";
 import { drainCaptureOutbox, syncWidgets } from "../services/sync/widgetSync.service";
 import { saveCreateTaskDraft } from "../controllers/tasks/saveCreateTask.controller";
 import { sortTasksBySchedule } from "../models/tasks/taskPresentation";
+import { filterVisibleProjects, filterVisibleTasks, loadHiddenAreas, saveHiddenAreas } from "../utils/preferences/hiddenAreas";
 
 // ── Main data + mutations ─────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ export function useMobileAppData(userId: string | null) {
   const [firstAreaName, setFirstAreaName] = useState("Personal");
   const [firstAreaBusy, setFirstAreaBusy] = useState(false);
   const [firstAreaError, setFirstAreaError] = useState("");
+  const [hiddenAreaIds, setHiddenAreaIds] = useState<string[]>(loadHiddenAreas);
   const areasRef = useRef<Area[]>(areas);
   useEffect(() => { areasRef.current = areas; }, [areas]);
 
@@ -140,8 +142,24 @@ export function useMobileAppData(userId: string | null) {
   }
   async function removeTask(id: string) { await deleteTask(id); await refresh(); }
 
+  const handleHiddenChange = useCallback((ids: string[]) => {
+    setHiddenAreaIds(ids);
+    saveHiddenAreas(ids);
+  }, []);
+
+  const visibleTasks = useMemo(
+    () => filterVisibleTasks(tasks, projects, hiddenAreaIds),
+    [tasks, projects, hiddenAreaIds],
+  );
+  const visibleProjects = useMemo(
+    () => filterVisibleProjects(projects, hiddenAreaIds),
+    [projects, hiddenAreaIds],
+  );
+
   return {
     areas, projects, tags, tasks, loadingData, error,
+    visibleTasks, visibleProjects,
+    hiddenAreaIds, handleHiddenChange,
     loadData, refresh,
     firstAreaName, setFirstAreaName, firstAreaBusy, firstAreaError,
     createFirstArea,

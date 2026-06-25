@@ -117,16 +117,16 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
       <div style={styles.screen}>
         {activeTab === "today" && (
           <MobileTodayView
-            tasks={appData.tasks}
+            tasks={appData.visibleTasks}
             loading={appData.loadingData}
             onComplete={appData.completeTask}
           />
         )}
         {activeTab === "tasks" && (
           <MobileTasksView
-            tasks={appData.tasks}
+            tasks={appData.visibleTasks}
             areas={appData.areas}
-            projects={appData.projects}
+            projects={appData.visibleProjects}
             loading={appData.loadingData}
             onComplete={appData.completeTask}
             onOpenTask={(id) => setSelectedTaskId(id)}
@@ -144,6 +144,8 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
           <MobileSettingsView
             email={user.email ?? ""}
             areas={appData.areas}
+            hiddenAreaIds={appData.hiddenAreaIds}
+            onHiddenChange={appData.handleHiddenChange}
             accountActions={accountActions}
             spaceActions={spaceActions}
             onSignedOut={() => appData.refresh()}
