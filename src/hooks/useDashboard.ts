@@ -7,6 +7,7 @@ import {
   closeDashboardProject,
   closeDashboardProjectWithTasks,
   completeDashboardTask,
+  reopenDashboardTask,
   createDashboardArea,
   dashboardErrorMessage,
   deleteDashboardProject,
@@ -356,6 +357,27 @@ export function useDashboard({ userId }: UseDashboardOptions) {
     [allTasks, projects],
   );
 
+  const handleReopen = useCallback(
+    (taskId: string) => {
+      // Optimistically drop the row from the logbook, then reopen and reload
+      // the open-task data so it returns to the active lists.
+      setLogbookTasks((current) => current.filter((item) => item.id !== taskId));
+      reopenDashboardTask(taskId)
+        .then(() => loadData())
+        .catch((error) => {
+          logger.error(
+            "dashboard",
+            "reopenDashboardTask failed",
+            error instanceof Error ? error.message : error,
+          );
+          loadDashboardLogbook()
+            .then((snapshot) => setLogbookTasks(snapshot.tasks))
+            .catch(() => {});
+        });
+    },
+    [loadData],
+  );
+
   const handleReorder = useCallback((newOrder: TaskWithTags[]) => {
     const updates = newOrder.map((task, index) => ({
       id: task.id,
@@ -624,6 +646,7 @@ export function useDashboard({ userId }: UseDashboardOptions) {
     addProject,
     handleHiddenChange,
     handleComplete,
+    handleReopen,
     handleReorder,
     handleProjectDrop,
     handleMoveTask,

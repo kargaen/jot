@@ -532,6 +532,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
     addProject,
     handleHiddenChange,
     handleComplete,
+    handleReopen,
     handleReorder,
     handleProjectDrop,
     handleMoveTask,
@@ -982,7 +983,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
         ) : view === "logbook" ? (
           <div style={{ display: "flex", flexDirection: "column" }}>
             {displayTasks.map((task) => (
-              <LogbookRow key={task.id} task={task} projects={projects} areas={areas} onClick={() => openTaskWindow(task)} />
+              <LogbookRow key={task.id} task={task} projects={projects} areas={areas} onRestore={handleReopen} />
             ))}
           </div>
         ) : (
@@ -1333,7 +1334,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
           ) : view === "logbook" ? (
             <div style={{ display: "flex", flexDirection: "column" }}>
               {displayTasks.map((task) => (
-                <LogbookRow key={task.id} task={task} projects={projects} areas={areas} onClick={() => openTaskWindow(task)} />
+                <LogbookRow key={task.id} task={task} projects={projects} areas={areas} onRestore={handleReopen} />
               ))}
             </div>
           ) : (

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { projectColor, spaceColor } from "../../../utils/presentation/colors";
 import { completionMessage } from "../../../utils/presentation/completionMessage";
 import type { Area, Project, TaskWithTags } from "../../../models/shared";
@@ -12,26 +13,27 @@ export default function LogbookRow({
   task,
   projects,
   areas: _areas,
-  onClick,
+  onRestore,
 }: {
   task: TaskWithTags;
   projects: Project[];
   areas: Area[];
-  onClick?: () => void;
+  onRestore?: (id: string) => void;
 }) {
+  const [hover, setHover] = useState(false);
   const project = projects.find((p) => p.id === task.project_id);
   const areaId = task.area_id ?? project?.area_id ?? null;
   const color = areaId ? spaceColor(areaId) : "var(--border-strong)";
 
   return (
     <div
-      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
         display: "flex",
         alignItems: "flex-start",
         gap: 10,
         padding: "5px 14px",
-        cursor: onClick ? "pointer" : "default",
         borderRadius: "var(--radius-md)",
       }}
     >
@@ -80,6 +82,31 @@ export default function LogbookRow({
           {task.completed_at ? ` · ${formatCompletedAt(task.completed_at)}` : ""}
         </div>
       </div>
+
+      {onRestore && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRestore(task.id); }}
+          title="Restore to active list"
+          style={{
+            flexShrink: 0,
+            alignSelf: "center",
+            opacity: hover ? 1 : 0,
+            pointerEvents: hover ? "auto" : "none",
+            transition: "opacity 120ms",
+            fontSize: 11,
+            fontWeight: 600,
+            color: "var(--accent)",
+            background: "var(--accent-light)",
+            border: "1px solid var(--accent)",
+            borderRadius: "var(--radius-sm)",
+            padding: "3px 8px",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          ↩ Restore
+        </button>
+      )}
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
   fetchTags,
   getSession,
   mergeProjects,
+  reopenTask,
   reorderProjects,
   reorderTasks,
   supabase,
@@ -79,6 +80,10 @@ export function subscribeToDashboardTaskChanges(onChange: () => void) {
 
 export async function completeDashboardTask(taskId: string): Promise<void> {
   await completeTask(taskId);
+}
+
+export async function reopenDashboardTask(taskId: string): Promise<void> {
+  await reopenTask(taskId);
 }
 
 export async function reorderDashboardTasks(
