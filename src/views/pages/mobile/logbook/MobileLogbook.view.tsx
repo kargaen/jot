@@ -1,4 +1,5 @@
-import type { CSSProperties } from "react";
+import { useRef, useState } from "react";
+import type { CSSProperties, TouchEvent } from "react";
 import type { TaskWithTags } from "../../../../models/shared";
 import CompletionHeatmap from "../../../components/pulse/CompletionHeatmap.view";
 import { completionMessage } from "../../../../utils/presentation/completionMessage";
@@ -12,7 +13,11 @@ interface Props {
   tasks: TaskWithTags[];
   loading: boolean;
   completionDates: string[];
+  onRestore: (id: string) => void;
 }
+
+const DRAG_MAX = 72;
+const DRAG_THRESHOLD = 52;
 
 interface DateGroup {
   key: string;
@@ -53,7 +58,7 @@ function buildGroups(tasks: TaskWithTags[]): DateGroup[] {
   }));
 }
 
-export default function MobileLogbookView({ tasks, loading, completionDates }: Props) {
+export default function MobileLogbookView({ tasks, loading, completionDates, onRestore }: Props) {
   const groups = buildGroups(tasks);
 
   return (
@@ -72,23 +77,68 @@ export default function MobileLogbookView({ tasks, loading, completionDates }: P
             <div key={group.key} style={styles.section}>
               <div style={styles.sectionHeader}>{group.label}</div>
               {group.tasks.map((task) => (
-                <div key={task.id} style={styles.row}>
-                  <span style={styles.check}>✓</span>
-                  <div style={styles.rowBody}>
-                    <span style={styles.title}>
-                      {task.icon ? `${task.icon} ` : ""}{task.title}
-                    </span>
-                    <span style={styles.message}>
-                      {completionMessage(task.id)}
-                      {task.completed_at ? ` · ${completedTime(task.completed_at)}` : ""}
-                    </span>
-                  </div>
-                </div>
+                <LogbookRow key={task.id} task={task} onRestore={onRestore} />
               ))}
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function LogbookRow({ task, onRestore }: { task: TaskWithTags; onRestore: (id: string) => void }) {
+  const startX = useRef<number | null>(null);
+  const [dragX, setDragX] = useState(0);
+  const [restoring, setRestoring] = useState(false);
+
+  function onTouchStart(e: TouchEvent) {
+    startX.current = e.touches[0].clientX;
+  }
+
+  function onTouchMove(e: TouchEvent) {
+    if (startX.current === null) return;
+    const delta = e.touches[0].clientX - startX.current;
+    // Restore is a right-swipe only.
+    if (delta < 0) return;
+    setDragX(Math.min(delta, DRAG_MAX));
+  }
+
+  function onTouchEnd() {
+    if (startX.current === null) return;
+    startX.current = null;
+    if (dragX >= DRAG_THRESHOLD) {
+      setRestoring(true);
+      setTimeout(() => onRestore(task.id), 200);
+    } else {
+      setDragX(0);
+    }
+  }
+
+  return (
+    <div style={{ ...styles.rowWrap, opacity: restoring ? 0 : 1, transition: restoring ? "opacity 0.2s ease" : undefined }}>
+      <div style={{ ...styles.restoreAction, opacity: Math.min(dragX / DRAG_THRESHOLD, 1) }}>↩</div>
+      <div
+        style={{
+          ...styles.row,
+          transform: `translateX(${dragX}px)`,
+          transition: dragX === 0 && !restoring ? "transform 0.2s ease" : undefined,
+        }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        <span style={styles.check}>✓</span>
+        <div style={styles.rowBody}>
+          <span style={styles.title}>
+            {task.icon ? `${task.icon} ` : ""}{task.title}
+          </span>
+          <span style={styles.message}>
+            {completionMessage(task.id)}
+            {task.completed_at ? ` · ${completedTime(task.completed_at)}` : ""}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -108,12 +158,32 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--text-tertiary)",
     padding: "8px 20px 6px",
   },
+  rowWrap: {
+    position: "relative",
+    overflow: "hidden",
+    borderBottom: "1px solid var(--border-subtle)",
+  },
+  restoreAction: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: DRAG_MAX,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#16a34a",
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: 700,
+  },
   row: {
     display: "flex",
     alignItems: "flex-start",
     gap: 12,
     padding: "10px 20px",
-    borderBottom: "1px solid var(--border-subtle)",
+    background: "var(--bg-primary)",
+    willChange: "transform",
   },
   check: {
     flexShrink: 0,

@@ -197,6 +197,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
             tasks={appData.logbookTasks}
             loading={appData.logbookLoading}
             completionDates={appData.completionDates}
+            onRestore={appData.reopenTask}
           />
         )}
         {activeTab === "capture" && (

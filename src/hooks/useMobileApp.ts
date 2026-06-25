@@ -25,6 +25,7 @@ import {
   fetchProjects,
   fetchTags,
   getSession,
+  reopenTask,
   inviteMember,
   removeAreaMember,
   signOutEverywhere,
@@ -149,6 +150,10 @@ export function useMobileAppData(userId: string | null) {
     await refresh();
   }
   async function removeTask(id: string) { await deleteTask(id); await refresh(); }
+  async function restoreTask(id: string) {
+    await reopenTask(id);
+    await Promise.all([refresh(), loadLogbook()]);
+  }
 
   const handleHiddenChange = useCallback((ids: string[]) => {
     setHiddenAreaIds(ids);
@@ -187,6 +192,7 @@ export function useMobileAppData(userId: string | null) {
     visibleTasks, visibleProjects,
     hiddenAreaIds, handleHiddenChange,
     logbookTasks, completionDates, logbookLoading, loadLogbook,
+    reopenTask: restoreTask,
     loadData, refresh,
     firstAreaName, setFirstAreaName, firstAreaBusy, firstAreaError,
     createFirstArea,

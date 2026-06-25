@@ -536,6 +536,15 @@ export async function completeTask(taskId: string): Promise<void> {
   if (error) logErr("completeTask", error);
 }
 
+export async function reopenTask(taskId: string): Promise<void> {
+  logger.info("supabase", `reopenTask: ${taskId}`);
+  const { error } = await supabase
+    .from("tasks")
+    .update({ status: "todo", completed_at: null })
+    .eq("id", taskId);
+  if (error) logErr("reopenTask", error);
+}
+
 export async function deleteTask(taskId: string): Promise<void> {
   logger.info("supabase", `deleteTask: ${taskId}`);
   const { error } = await supabase
