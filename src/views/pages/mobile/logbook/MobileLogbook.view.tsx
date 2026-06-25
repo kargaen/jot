@@ -1,6 +1,12 @@
 import type { CSSProperties } from "react";
 import type { TaskWithTags } from "../../../../models/shared";
 import CompletionHeatmap from "../../../components/pulse/CompletionHeatmap.view";
+import { completionMessage } from "../../../../utils/presentation/completionMessage";
+
+function completedTime(iso: string | null): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
 
 interface Props {
   tasks: TaskWithTags[];
@@ -68,9 +74,15 @@ export default function MobileLogbookView({ tasks, loading, completionDates }: P
               {group.tasks.map((task) => (
                 <div key={task.id} style={styles.row}>
                   <span style={styles.check}>✓</span>
-                  <span style={styles.title}>
-                    {task.icon ? `${task.icon} ` : ""}{task.title}
-                  </span>
+                  <div style={styles.rowBody}>
+                    <span style={styles.title}>
+                      {task.icon ? `${task.icon} ` : ""}{task.title}
+                    </span>
+                    <span style={styles.message}>
+                      {completionMessage(task.id)}
+                      {task.completed_at ? ` · ${completedTime(task.completed_at)}` : ""}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -117,12 +129,25 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
   },
-  title: {
+  rowBody: {
     flex: 1,
     minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+  },
+  title: {
     fontSize: 15,
-    color: "var(--text-tertiary)",
-    textDecoration: "line-through",
+    color: "var(--text-secondary)",
+    lineHeight: 1.3,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  message: {
+    fontSize: 12,
+    fontStyle: "italic",
+    color: "#16a34a",
     lineHeight: 1.3,
   },
   heatmapWrap: {
