@@ -130,6 +130,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
             loading={appData.loadingData}
             onComplete={appData.completeTask}
             onOpenTask={(id) => setSelectedTaskId(id)}
+            onDeleteTask={appData.deleteTask}
           />
         )}
         {activeTab === "capture" && (
