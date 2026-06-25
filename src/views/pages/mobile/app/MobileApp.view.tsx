@@ -27,6 +27,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const [activeTab, setActiveTab] = useState<Tab>("today");
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const { loadLogbook } = appData;
   useEffect(() => {
@@ -113,6 +114,8 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
     );
   }
 
+  const isTimeView = activeTab === "today" || activeTab === "upcoming" || activeTab === "logbook";
+
   return (
     <div style={styles.shell}>
       <TabHeader
@@ -121,6 +124,27 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
         onNewTask={() => setActiveTab("capture")}
         onRefresh={handleRefresh}
       />
+      {isTimeView ? (
+        <div style={styles.subSwitch}>
+          {TIME_VIEWS.map((v) => {
+            const active = activeTab === v.id;
+            return (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => { setActiveTab(v.id); setMenuOpen(false); }}
+                style={{
+                  ...styles.subSwitchItem,
+                  color: active ? "var(--accent)" : "var(--text-secondary)",
+                  borderBottomColor: active ? "var(--accent)" : "transparent",
+                }}
+              >
+                {v.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       <div style={styles.screen}>
         {activeTab === "today" && (
           <MobileTodayView
@@ -175,13 +199,42 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
         )}
       </div>
 
+      {menuOpen ? (
+        <>
+          <div style={styles.menuBackdrop} onClick={() => setMenuOpen(false)} />
+          <div style={styles.menu}>
+            {TIME_VIEWS.map((v) => {
+              const active = activeTab === v.id;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => { setActiveTab(v.id); setMenuOpen(false); }}
+                  style={styles.menuItem}
+                >
+                  <span style={{ fontSize: 16, width: 22, textAlign: "center" }}>{v.icon}</span>
+                  <span style={{ ...styles.menuItemLabel, color: active ? "var(--accent)" : "var(--text-primary)" }}>
+                    {v.label}
+                  </span>
+                  {active ? <span style={styles.menuCheck}>✓</span> : null}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
+
       <nav style={styles.tabBar}>
-        <TabButton label="Today" icon="☀️" active={activeTab === "today"} onPress={() => setActiveTab("today")} />
-        <TabButton label="Upcoming" icon="📅" active={activeTab === "upcoming"} onPress={() => setActiveTab("upcoming")} />
-        <TabButton label="Tasks" icon="✓" active={activeTab === "tasks"} onPress={() => setActiveTab("tasks")} />
-        <TabButton label="Logbook" icon="◎" active={activeTab === "logbook"} onPress={() => setActiveTab("logbook")} />
-        <TabButton label="Capture" icon="+" active={activeTab === "capture"} onPress={() => setActiveTab("capture")} />
-        <TabButton label="Settings" icon="⚙" active={activeTab === "settings"} onPress={() => setActiveTab("settings")} />
+        <LauncherButton
+          label="Tasks"
+          icon="✓"
+          active={isTimeView}
+          open={menuOpen}
+          onPress={() => setMenuOpen((o) => !o)}
+        />
+        <TabButton label="All" icon="≣" active={activeTab === "tasks"} onPress={() => { setActiveTab("tasks"); setMenuOpen(false); }} />
+        <TabButton label="Capture" icon="+" active={activeTab === "capture"} onPress={() => { setActiveTab("capture"); setMenuOpen(false); }} />
+        <TabButton label="Settings" icon="⚙" active={activeTab === "settings"} onPress={() => { setActiveTab("settings"); setMenuOpen(false); }} />
       </nav>
 
       {appData.error ? (
@@ -194,11 +247,17 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
 const TAB_TITLES: Record<Tab, string> = {
   today: "Today",
   upcoming: "Upcoming",
-  tasks: "Tasks",
+  tasks: "All",
   logbook: "Logbook",
   capture: "Capture",
   settings: "Settings",
 };
+
+const TIME_VIEWS: { id: Tab; label: string; icon: string }[] = [
+  { id: "today", label: "Today", icon: "☀️" },
+  { id: "upcoming", label: "Upcoming", icon: "📅" },
+  { id: "logbook", label: "Logbook", icon: "◎" },
+];
 
 function TabHeader({ tab, refreshing, onNewTask, onRefresh }: {
   tab: Tab;
@@ -242,6 +301,24 @@ function TabButton({ label, icon, active, onPress }: {
       <span style={{ fontSize: 20 }}>{icon}</span>
       <span style={{ ...styles.tabLabel, color: active ? "var(--accent)" : "var(--text-secondary)" }}>
         {label}
+      </span>
+    </button>
+  );
+}
+
+function LauncherButton({ label, icon, active, open, onPress }: {
+  label: string;
+  icon: string;
+  active: boolean;
+  open: boolean;
+  onPress: () => void;
+}) {
+  const color = active || open ? "var(--accent)" : "var(--text-secondary)";
+  return (
+    <button type="button" onClick={onPress} style={styles.tabButton} aria-haspopup="menu" aria-expanded={open}>
+      <span style={{ fontSize: 20 }}>{icon}</span>
+      <span style={{ ...styles.tabLabel, color }}>
+        {label} <span style={{ fontSize: 8 }}>{open ? "▴" : "▾"}</span>
       </span>
     </button>
   );
@@ -315,6 +392,67 @@ const styles: Record<string, CSSProperties> = {
   screen: {
     flex: 1,
     overflowY: "auto",
+  },
+  subSwitch: {
+    display: "flex",
+    gap: 4,
+    padding: "0 16px",
+    borderBottom: "1px solid var(--border-subtle)",
+    background: "var(--bg-primary)",
+  },
+  subSwitchItem: {
+    padding: "10px 8px 9px",
+    border: "none",
+    borderBottom: "2px solid transparent",
+    background: "transparent",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "inherit",
+    marginBottom: -1,
+  },
+  menuBackdrop: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 40,
+    background: "transparent",
+  },
+  menu: {
+    position: "fixed",
+    left: 12,
+    bottom: "calc(64px + env(safe-area-inset-bottom))",
+    zIndex: 41,
+    minWidth: 184,
+    padding: 6,
+    borderRadius: 14,
+    background: "var(--bg-primary)",
+    border: "1px solid var(--border-default)",
+    boxShadow: "0 12px 32px rgba(0,0,0,0.22)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+  },
+  menuItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "10px 10px",
+    borderRadius: 10,
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    fontFamily: "inherit",
+    textAlign: "left",
+  },
+  menuItemLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: 500,
+  },
+  menuCheck: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: "var(--accent)",
   },
   tabBar: {
     display: "flex",
