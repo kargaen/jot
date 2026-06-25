@@ -303,7 +303,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "12px 16px",
+    padding: "calc(12px + env(safe-area-inset-top)) 16px 12px",
     borderBottom: "1px solid var(--border-subtle)",
     flexShrink: 0,
   },
@@ -324,7 +324,7 @@ const styles: Record<string, CSSProperties> = {
   scroll: {
     flex: 1,
     overflowY: "auto",
-    padding: "16px 20px 40px",
+    padding: "16px 20px calc(40px + env(safe-area-inset-bottom))",
   },
   typeLabel: {
     fontSize: 11,
