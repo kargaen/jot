@@ -28,6 +28,10 @@ export interface UseTaskDetailOptions {
   projects: Project[];
   areas: Area[];
   onUpdated: () => void;
+  // Runs after a successful complete. Desktop opens the detail in its own
+  // webview window, so the default closes it. Mobile is single-window and
+  // passes a navigation callback instead.
+  onCompleted?: () => void | Promise<void>;
 }
 
 export function useTaskDetail({
@@ -35,6 +39,7 @@ export function useTaskDetail({
   projects,
   areas,
   onUpdated,
+  onCompleted,
 }: UseTaskDetailOptions) {
   const [title, setTitle] = useState(task.title);
   const [icon, setIcon] = useState<string | null>(task.icon);
@@ -237,7 +242,11 @@ export function useTaskDetail({
         fallbackAreaId: areas[0]?.id ?? null,
       });
       onUpdated();
-      await getCurrentWebviewWindow().close();
+      if (onCompleted) {
+        await onCompleted();
+      } else {
+        await getCurrentWebviewWindow().close();
+      }
     } catch (err) {
       logger.error(
         "task-detail",
@@ -251,7 +260,7 @@ export function useTaskDetail({
         setSaveStatus((state) => (state === "error" ? "idle" : state));
       }, 4000);
     }
-  }, [task.id, buildDraft, editor, areas, onUpdated]);
+  }, [task.id, buildDraft, editor, areas, onUpdated, onCompleted]);
 
   const openTaskLink = useCallback(() => {
     const url = normalizeTaskLink(link);

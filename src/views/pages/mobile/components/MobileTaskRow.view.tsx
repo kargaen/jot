@@ -7,12 +7,15 @@ import { friendlyDue } from "../../../../models/tasks/taskPresentation";
 interface Props {
   task: TaskWithTags;
   onComplete: (id: string) => void;
+  // When provided, a tap opens the task detail. Without it the row falls back
+  // to the inline expand of notes/tags (used by the Today view).
+  onOpen?: (id: string) => void;
 }
 
 const DRAG_MAX = 72;
 const DRAG_THRESHOLD = 52;
 
-export default function MobileTaskRow({ task, onComplete }: Props) {
+export default function MobileTaskRow({ task, onComplete, onOpen }: Props) {
   const today = new Date().toISOString().split("T")[0];
   const due = friendlyDue(task.due_date, task.due_time);
   const overdue = isOverdue(task, today);
@@ -43,7 +46,10 @@ export default function MobileTaskRow({ task, onComplete }: Props) {
       setTimeout(() => onComplete(task.id), 200);
     } else {
       setDragX(0);
-      if (!wasDrag) setExpanded((v) => !v);
+      if (!wasDrag) {
+        if (onOpen) onOpen(task.id);
+        else setExpanded((v) => !v);
+      }
     }
   }
 

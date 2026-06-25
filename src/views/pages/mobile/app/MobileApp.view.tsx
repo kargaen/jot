@@ -7,6 +7,7 @@ import { useMobileAppData, useCaptureComposer, useMobileAccountActions, useMobil
 import MobileAuthView from "../auth/MobileAuth.view";
 import MobileTodayView from "../today/MobileToday.view";
 import MobileTasksView from "../tasks/MobileTasks.view";
+import MobileTaskDetailView from "../tasks/MobileTaskDetail.view";
 import MobileCaptureView from "../capture/MobileCapture.view";
 import MobileSettingsView from "../settings/MobileSettings.view";
 import MobileOnboardingView from "../onboarding/MobileOnboarding.view";
@@ -23,10 +24,11 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const spaceActions = useMobileSpacesActions();
   const [activeTab, setActiveTab] = useState<Tab>("today");
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   async function handleCaptureSave(parsed: ParsedInput) {
     try {
-      await capture.saveDraft({
+      const result = await capture.saveDraft({
         title: parsed.title,
         projectId: parsed.project?.id ?? null,
         projectName: parsed.suggestedProjectName ?? undefined,
@@ -38,6 +40,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
         projects: appData.projects,
       });
       await appData.refresh();
+      setSelectedTaskId(result.task.id);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const isRls = msg.includes("42501") || msg.toLowerCase().includes("row-level security");
@@ -84,6 +87,25 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
     );
   }
 
+  const selectedTask = selectedTaskId
+    ? appData.tasks.find((t) => t.id === selectedTaskId) ?? null
+    : null;
+
+  if (selectedTask) {
+    return (
+      <div style={styles.shell}>
+        <MobileTaskDetailView
+          task={selectedTask}
+          projects={appData.projects}
+          areas={appData.areas}
+          allTags={appData.tags}
+          onUpdated={appData.refresh}
+          onBack={() => { setSelectedTaskId(null); setActiveTab("tasks"); }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div style={styles.shell}>
       <TabHeader
@@ -107,6 +129,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
             projects={appData.projects}
             loading={appData.loadingData}
             onComplete={appData.completeTask}
+            onOpenTask={(id) => setSelectedTaskId(id)}
           />
         )}
         {activeTab === "capture" && (

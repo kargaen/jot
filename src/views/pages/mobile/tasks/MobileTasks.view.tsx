@@ -9,6 +9,7 @@ interface Props {
   projects: Project[];
   loading: boolean;
   onComplete: (id: string) => void;
+  onOpenTask: (id: string) => void;
 }
 
 interface TaskGroup {
@@ -51,7 +52,7 @@ function buildGroups(
   return groups;
 }
 
-export default function MobileTasksView({ tasks, areas, projects, loading, onComplete }: Props) {
+export default function MobileTasksView({ tasks, areas, projects, loading, onComplete, onOpenTask }: Props) {
   if (loading) {
     return <div style={styles.empty}>Loading...</div>;
   }
@@ -70,13 +71,13 @@ export default function MobileTasksView({ tasks, areas, projects, loading, onCom
   return (
     <div style={styles.list}>
       {groups.map((group) => (
-        <TaskGroup key={group.label} group={group} onComplete={onComplete} />
+        <TaskGroup key={group.label} group={group} onComplete={onComplete} onOpenTask={onOpenTask} />
       ))}
     </div>
   );
 }
 
-function TaskGroup({ group, onComplete }: { group: TaskGroup; onComplete: (id: string) => void }) {
+function TaskGroup({ group, onComplete, onOpenTask }: { group: TaskGroup; onComplete: (id: string) => void; onOpenTask: (id: string) => void }) {
   return (
     <div style={styles.section}>
       <div style={styles.sectionHeader}>
@@ -85,7 +86,7 @@ function TaskGroup({ group, onComplete }: { group: TaskGroup; onComplete: (id: s
         <span style={styles.badge}>{group.tasks.length}</span>
       </div>
       {group.tasks.map((task) => (
-        <MobileTaskRow key={task.id} task={task} onComplete={onComplete} />
+        <MobileTaskRow key={task.id} task={task} onComplete={onComplete} onOpen={onOpenTask} />
       ))}
     </div>
   );
