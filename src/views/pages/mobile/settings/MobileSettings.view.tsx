@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
-import type { Area } from "../../../../models/shared";
-import type { NlpLanguageMode } from "../../../../models/shared";
+import type { Area, AreaMember, Feedback, NlpLanguageMode } from "../../../../models/shared";
+import { useAuth } from "../../../../hooks/useAuth";
+import { useFeedbackTab, useSharingTab } from "../../../../hooks/usePreferences";
 import {
   loadNlpLanguageMode,
   saveNlpLanguageMode,
@@ -47,6 +48,8 @@ export default function MobileSettingsView({
       <AppearanceSection />
       <CaptureSection />
       <SpacesSection areas={areas} actions={spaceActions} onChanged={onAreasChanged} />
+      <SharingSection areas={areas} onSharedChange={onAreasChanged} />
+      <FeedbackSection />
     </div>
   );
 }
@@ -332,6 +335,217 @@ function SpacesSection({
   );
 }
 
+// ── Sharing ───────────────────────────────────────────────────────────────────
+
+function SharingSection({ areas, onSharedChange }: { areas: Area[]; onSharedChange: () => void }) {
+  const { user } = useAuth();
+  const {
+    ownedAreas,
+    selectedAreaId,
+    setSelectedAreaId,
+    members,
+    pendingInvites,
+    pendingProjectInvites,
+    inviteEmail,
+    setInviteEmail,
+    inviteError,
+    setInviteError,
+    busy,
+    loadingMembers,
+    handleInvite,
+    handleRemove,
+    handleAccept,
+    handleDecline,
+    handleAcceptProject,
+    handleDeclineProject,
+  } = useSharingTab(areas, user?.id ?? "", onSharedChange);
+
+  const hasPending = pendingInvites.length > 0 || pendingProjectInvites.length > 0;
+
+  return (
+    <section style={styles.section}>
+      <div style={styles.sectionHeader}>Sharing</div>
+
+      {hasPending ? (
+        <div style={{ ...styles.card, marginBottom: 12 }}>
+          {pendingInvites.map((inv, i) => (
+            <div key={inv.id}>
+              {i > 0 ? <div style={styles.divider} /> : null}
+              <InviteRow label="Invited to a shared space" onAccept={() => handleAccept(inv)} onDecline={() => handleDecline(inv)} />
+            </div>
+          ))}
+          {pendingProjectInvites.map((inv, i) => (
+            <div key={inv.id}>
+              {(i > 0 || pendingInvites.length > 0) ? <div style={styles.divider} /> : null}
+              <InviteRow label="Invited to a shared project" onAccept={() => handleAcceptProject(inv)} onDecline={() => handleDeclineProject(inv)} />
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {ownedAreas.length === 0 ? (
+        <div style={styles.card}>
+          <div style={styles.emptyText}>You have no spaces to share. Create one above first.</div>
+        </div>
+      ) : (
+        <div style={styles.card}>
+          {/* Space selector */}
+          <div style={styles.chipRow}>
+            {ownedAreas.map((a) => {
+              const active = a.id === selectedAreaId;
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => setSelectedAreaId(a.id)}
+                  style={{
+                    ...styles.spaceChip,
+                    borderColor: active ? a.color : "var(--border-default)",
+                    background: active ? `${a.color}1f` : "transparent",
+                    color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                    fontWeight: active ? 600 : 400,
+                  }}
+                >
+                  <span style={{ ...styles.dot, background: a.color }} />
+                  {a.name}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={styles.divider} />
+
+          {/* Invite form */}
+          <form onSubmit={handleInvite} style={styles.passwordRow}>
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => { setInviteEmail(e.target.value); setInviteError(""); }}
+              placeholder="Invite by email"
+              autoComplete="off"
+              style={styles.inlineInput}
+            />
+            <button type="submit" disabled={busy || !inviteEmail.trim()} style={styles.inlineButton}>
+              {busy ? "…" : "Invite"}
+            </button>
+          </form>
+          {inviteError ? <div style={styles.error}>{inviteError}</div> : null}
+
+          {/* Members */}
+          {loadingMembers ? (
+            <div style={styles.emptyText}>Loading…</div>
+          ) : members.length === 0 ? (
+            <div style={styles.emptyText}>No one invited to this space yet.</div>
+          ) : (
+            members.map((m: AreaMember) => (
+              <div key={m.id}>
+                <div style={styles.divider} />
+                <div style={styles.memberRow}>
+                  <div style={styles.memberInfo}>
+                    <span style={styles.memberEmail}>{m.invited_email}</span>
+                    <MemberBadge status={m.status} />
+                  </div>
+                  <button type="button" onClick={() => handleRemove(m.id)} style={{ ...styles.iconButton, color: "#b91c1c" }}>
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function InviteRow({ label, onAccept, onDecline }: { label: string; onAccept: () => void; onDecline: () => void }) {
+  return (
+    <div style={styles.inviteRow}>
+      <span style={styles.rowLabel}>{label}</span>
+      <button type="button" onClick={onAccept} style={styles.inlineButton}>Accept</button>
+      <button type="button" onClick={onDecline} style={styles.cancelButton}>Decline</button>
+    </div>
+  );
+}
+
+function MemberBadge({ status }: { status: AreaMember["status"] }) {
+  const accepted = status === "accepted";
+  return (
+    <span
+      style={{
+        ...styles.badge,
+        background: accepted ? "rgba(22,163,74,0.14)" : "rgba(217,119,6,0.14)",
+        color: accepted ? "#16a34a" : "#d97706",
+      }}
+    >
+      {accepted ? "Active" : "Pending"}
+    </span>
+  );
+}
+
+// ── Feedback ──────────────────────────────────────────────────────────────────
+
+const FEEDBACK_STATUS: Record<Feedback["status"], { label: string; color: string }> = {
+  new: { label: "New", color: "#6b7280" },
+  reviewing: { label: "Reviewing", color: "#d97706" },
+  planned: { label: "Planned", color: "#3b82f6" },
+  in_progress: { label: "In Progress", color: "#8b5cf6" },
+  done: { label: "Done", color: "#16a34a" },
+  declined: { label: "Declined", color: "#57534e" },
+};
+
+function FeedbackSection() {
+  const { user } = useAuth();
+  const { items, text, setText, busy, loading, handleSubmit } = useFeedbackTab();
+
+  return (
+    <section style={styles.section}>
+      <div style={styles.sectionHeader}>Feedback</div>
+      <div style={styles.card}>
+        <form onSubmit={handleSubmit} style={styles.passwordRow}>
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Idea or bug…"
+            style={styles.inlineInput}
+          />
+          <button type="submit" disabled={busy || !text.trim()} style={styles.inlineButton}>
+            {busy ? "…" : "Send"}
+          </button>
+        </form>
+
+        {loading ? (
+          <div style={styles.emptyText}>Loading…</div>
+        ) : items.length === 0 ? (
+          <div style={styles.emptyText}>No feedback yet. Be the first!</div>
+        ) : (
+          items.map((item) => {
+            const meta = FEEDBACK_STATUS[item.status];
+            return (
+              <div key={item.id}>
+                <div style={styles.divider} />
+                <div style={styles.feedbackItem}>
+                  <div style={styles.feedbackHead}>
+                    <span style={{ ...styles.badge, background: `${meta.color}1f`, color: meta.color }}>
+                      {meta.label}
+                    </span>
+                    {item.user_id === user?.id ? <span style={styles.feedbackYou}>You</span> : null}
+                    <span style={styles.feedbackDate}>
+                      {new Date(item.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                    </span>
+                  </div>
+                  <div style={styles.feedbackText}>{item.text}</div>
+                  {item.admin_note ? <div style={styles.feedbackNote}>{item.admin_note}</div> : null}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </section>
+  );
+}
+
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles: Record<string, CSSProperties> = {
@@ -497,5 +711,93 @@ const styles: Record<string, CSSProperties> = {
     padding: "8px 0",
     fontSize: 13,
     color: "#b91c1c",
+  },
+  emptyText: {
+    padding: "14px 0",
+    fontSize: 13,
+    color: "var(--text-tertiary)",
+  },
+  chipRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+    padding: "12px 0",
+  },
+  spaceChip: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "6px 12px",
+    borderRadius: 20,
+    border: "1px solid var(--border-default)",
+    background: "transparent",
+    fontSize: 13,
+    cursor: "pointer",
+    fontFamily: "inherit",
+  },
+  inviteRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "12px 0",
+  },
+  memberRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "12px 0",
+  },
+  memberInfo: {
+    flex: 1,
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+  },
+  memberEmail: {
+    fontSize: 14,
+    color: "var(--text-primary)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  badge: {
+    alignSelf: "flex-start",
+    padding: "1px 8px",
+    borderRadius: 10,
+    fontSize: 11,
+    fontWeight: 600,
+  },
+  feedbackItem: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    padding: "12px 0",
+  },
+  feedbackHead: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  feedbackYou: {
+    fontSize: 10,
+    color: "var(--text-tertiary)",
+  },
+  feedbackDate: {
+    fontSize: 10,
+    color: "var(--text-tertiary)",
+    marginLeft: "auto",
+  },
+  feedbackText: {
+    fontSize: 14,
+    color: "var(--text-primary)",
+    lineHeight: 1.4,
+  },
+  feedbackNote: {
+    fontSize: 13,
+    color: "var(--accent)",
+    lineHeight: 1.4,
+    paddingTop: 6,
+    borderTop: "1px solid var(--border-subtle)",
   },
 };
