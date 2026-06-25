@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { ParsedInput } from "../../../../models/shared";
+import { randomCompletionMessage } from "../../../../utils/presentation/completionMessage";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useMobileAuth } from "../../../../hooks/useMobileAuth";
 import { useMobileAppData, useCaptureComposer, useMobileAccountActions, useMobileSpacesActions } from "../../../../hooks/useMobileApp";
@@ -28,11 +29,24 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [toast, setToast] = useState<{ quote: string; count: number } | null>(null);
+  const completedRef = useRef<{ date: string; count: number }>({ date: "", count: 0 });
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { loadLogbook } = appData;
+  const { loadLogbook, completeTask } = appData;
   useEffect(() => {
     if (activeTab === "logbook") void loadLogbook();
   }, [activeTab, loadLogbook]);
+
+  async function handleComplete(id: string) {
+    const today = new Date().toISOString().split("T")[0];
+    if (completedRef.current.date !== today) completedRef.current = { date: today, count: 0 };
+    completedRef.current.count += 1;
+    setToast({ quote: randomCompletionMessage(), count: completedRef.current.count });
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2400);
+    await completeTask(id);
+  }
 
   async function handleCaptureSave(parsed: ParsedInput) {
     try {
@@ -150,14 +164,14 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
           <MobileTodayView
             tasks={appData.visibleTasks}
             loading={appData.loadingData}
-            onComplete={appData.completeTask}
+            onComplete={handleComplete}
           />
         )}
         {activeTab === "upcoming" && (
           <MobileUpcomingView
             tasks={appData.visibleTasks}
             loading={appData.loadingData}
-            onComplete={appData.completeTask}
+            onComplete={handleComplete}
             onOpenTask={(id) => setSelectedTaskId(id)}
           />
         )}
@@ -167,7 +181,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
             areas={appData.areas}
             projects={appData.visibleProjects}
             loading={appData.loadingData}
-            onComplete={appData.completeTask}
+            onComplete={handleComplete}
             onOpenTask={(id) => setSelectedTaskId(id)}
             onDeleteTask={appData.deleteTask}
           />
@@ -237,6 +251,13 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
         <TabButton label="Capture" icon="+" active={activeTab === "capture"} onPress={() => { setActiveTab("capture"); setMenuOpen(false); }} />
         <TabButton label="Settings" icon="⚙" active={activeTab === "settings"} onPress={() => { setActiveTab("settings"); setMenuOpen(false); }} />
       </nav>
+
+      {toast ? (
+        <div style={styles.toast}>
+          <span style={styles.toastQuote}>{toast.quote}</span>
+          <span style={styles.toastCount}>{toast.count} done today</span>
+        </div>
+      ) : null}
 
       {appData.error ? (
         <div style={styles.errorBanner}>{appData.error}</div>
@@ -489,5 +510,38 @@ const styles: Record<string, CSSProperties> = {
     background: "rgba(220,38,38,0.10)",
     color: "#b91c1c",
     fontSize: 13,
+  },
+  toast: {
+    position: "fixed",
+    bottom: "calc(76px + env(safe-area-inset-bottom))",
+    left: 16,
+    right: 16,
+    zIndex: 50,
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "11px 14px",
+    borderRadius: 14,
+    background: "rgba(15,139,104,0.12)",
+    border: "1px solid rgba(15,139,104,0.28)",
+    boxShadow: "0 8px 24px rgba(0,0,0,0.16)",
+    backdropFilter: "blur(8px)",
+  },
+  toastQuote: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 13,
+    fontWeight: 600,
+    color: "#0f8b68",
+    lineHeight: 1.3,
+  },
+  toastCount: {
+    flexShrink: 0,
+    fontSize: 11,
+    fontWeight: 700,
+    color: "#0f8b68",
+    background: "rgba(15,139,104,0.16)",
+    borderRadius: 10,
+    padding: "2px 8px",
   },
 };
