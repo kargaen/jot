@@ -1,6 +1,11 @@
 import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import type { Area } from "../../../../models/shared";
+import type { NlpLanguageMode } from "../../../../models/shared";
+import {
+  loadNlpLanguageMode,
+  saveNlpLanguageMode,
+} from "../../../../services/capture/nlpSettings.service";
 import {
   type AppThemePreference,
   applyThemePreference,
@@ -40,6 +45,7 @@ export default function MobileSettingsView({
     <div style={styles.shell}>
       <AccountSection email={email} actions={accountActions} onSignedOut={onSignedOut} />
       <AppearanceSection />
+      <CaptureSection />
       <SpacesSection areas={areas} actions={spaceActions} onChanged={onAreasChanged} />
     </div>
   );
@@ -148,6 +154,46 @@ function AppearanceSection() {
             <div key={option.value}>
               {i > 0 ? <div style={styles.divider} /> : null}
               <button type="button" onClick={() => selectTheme(option.value)} style={styles.themeRow}>
+                <span style={styles.themeText}>
+                  <span style={styles.themeLabel}>{option.label}</span>
+                  <span style={styles.themeHint}>{option.hint}</span>
+                </span>
+                <span style={{ ...styles.themeCheck, opacity: active ? 1 : 0 }}>✓</span>
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ── Capture ─────────────────────────────────────────────────────────────────────
+
+const LANGUAGE_OPTIONS: { value: NlpLanguageMode; label: string; hint: string }[] = [
+  { value: "auto", label: "Auto", hint: "Use the current broad parser behavior." },
+  { value: "en", label: "English only", hint: "Only accept English date, time, and priority phrases." },
+  { value: "da", label: "Danish only", hint: "Only accept Danish date, time, and priority phrases." },
+];
+
+function CaptureSection() {
+  const [mode, setMode] = useState<NlpLanguageMode>(loadNlpLanguageMode);
+
+  function selectMode(next: NlpLanguageMode) {
+    setMode(next);
+    saveNlpLanguageMode(next);
+  }
+
+  return (
+    <section style={styles.section}>
+      <div style={styles.sectionHeader}>Capture</div>
+      <div style={styles.card}>
+        {LANGUAGE_OPTIONS.map((option, i) => {
+          const active = mode === option.value;
+          return (
+            <div key={option.value}>
+              {i > 0 ? <div style={styles.divider} /> : null}
+              <button type="button" onClick={() => selectMode(option.value)} style={styles.themeRow}>
                 <span style={styles.themeText}>
                   <span style={styles.themeLabel}>{option.label}</span>
                   <span style={styles.themeHint}>{option.hint}</span>
