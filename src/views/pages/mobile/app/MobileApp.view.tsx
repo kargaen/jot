@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import type { ParsedInput } from "../../../../models/shared";
 import { useAuth } from "../../../../hooks/useAuth";
@@ -8,13 +8,14 @@ import MobileAuthView from "../auth/MobileAuth.view";
 import MobileTodayView from "../today/MobileToday.view";
 import MobileUpcomingView from "../upcoming/MobileUpcoming.view";
 import MobileTasksView from "../tasks/MobileTasks.view";
+import MobileLogbookView from "../logbook/MobileLogbook.view";
 import MobileTaskDetailView from "../tasks/MobileTaskDetail.view";
 import MobileCaptureView from "../capture/MobileCapture.view";
 import MobileSettingsView from "../settings/MobileSettings.view";
 import MobileOnboardingView from "../onboarding/MobileOnboarding.view";
 import { logger } from "../../../../utils/observability/logger";
 
-type Tab = "today" | "upcoming" | "tasks" | "capture" | "settings";
+type Tab = "today" | "upcoming" | "tasks" | "logbook" | "capture" | "settings";
 
 export default function MobileApp({ launchNotice = null }: { launchNotice?: string | null }) {
   const { loading, user } = useAuth();
@@ -26,6 +27,11 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const [activeTab, setActiveTab] = useState<Tab>("today");
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  const { loadLogbook } = appData;
+  useEffect(() => {
+    if (activeTab === "logbook") void loadLogbook();
+  }, [activeTab, loadLogbook]);
 
   async function handleCaptureSave(parsed: ParsedInput) {
     try {
@@ -142,6 +148,12 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
             onDeleteTask={appData.deleteTask}
           />
         )}
+        {activeTab === "logbook" && (
+          <MobileLogbookView
+            tasks={appData.logbookTasks}
+            loading={appData.logbookLoading}
+          />
+        )}
         {activeTab === "capture" && (
           <MobileCaptureView
             projects={appData.projects}
@@ -167,6 +179,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
         <TabButton label="Today" icon="☀️" active={activeTab === "today"} onPress={() => setActiveTab("today")} />
         <TabButton label="Upcoming" icon="📅" active={activeTab === "upcoming"} onPress={() => setActiveTab("upcoming")} />
         <TabButton label="Tasks" icon="✓" active={activeTab === "tasks"} onPress={() => setActiveTab("tasks")} />
+        <TabButton label="Logbook" icon="◎" active={activeTab === "logbook"} onPress={() => setActiveTab("logbook")} />
         <TabButton label="Capture" icon="+" active={activeTab === "capture"} onPress={() => setActiveTab("capture")} />
         <TabButton label="Settings" icon="⚙" active={activeTab === "settings"} onPress={() => setActiveTab("settings")} />
       </nav>
@@ -182,6 +195,7 @@ const TAB_TITLES: Record<Tab, string> = {
   today: "Today",
   upcoming: "Upcoming",
   tasks: "Tasks",
+  logbook: "Logbook",
   capture: "Capture",
   settings: "Settings",
 };

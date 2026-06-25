@@ -15,6 +15,7 @@ import {
   fetchAllTasks,
   fetchAreaMembers,
   fetchAreas,
+  fetchLogbookTasks,
   fetchFeedback,
   fetchPendingInvites,
   fetchPendingProjectInvites,
@@ -48,6 +49,8 @@ export function useMobileAppData(userId: string | null) {
   const [firstAreaBusy, setFirstAreaBusy] = useState(false);
   const [firstAreaError, setFirstAreaError] = useState("");
   const [hiddenAreaIds, setHiddenAreaIds] = useState<string[]>(loadHiddenAreas);
+  const [logbookTasks, setLogbookTasks] = useState<TaskWithTags[]>([]);
+  const [logbookLoading, setLogbookLoading] = useState(false);
   const areasRef = useRef<Area[]>(areas);
   useEffect(() => { areasRef.current = areas; }, [areas]);
 
@@ -147,6 +150,17 @@ export function useMobileAppData(userId: string | null) {
     saveHiddenAreas(ids);
   }, []);
 
+  const loadLogbook = useCallback(async () => {
+    setLogbookLoading(true);
+    try {
+      setLogbookTasks(await fetchLogbookTasks());
+    } catch (err) {
+      logger.warn("mobile", "fetchLogbookTasks failed", err instanceof Error ? err.message : err);
+    } finally {
+      setLogbookLoading(false);
+    }
+  }, []);
+
   const visibleTasks = useMemo(
     () => filterVisibleTasks(tasks, projects, hiddenAreaIds),
     [tasks, projects, hiddenAreaIds],
@@ -160,6 +174,7 @@ export function useMobileAppData(userId: string | null) {
     areas, projects, tags, tasks, loadingData, error,
     visibleTasks, visibleProjects,
     hiddenAreaIds, handleHiddenChange,
+    logbookTasks, logbookLoading, loadLogbook,
     loadData, refresh,
     firstAreaName, setFirstAreaName, firstAreaBusy, firstAreaError,
     createFirstArea,
