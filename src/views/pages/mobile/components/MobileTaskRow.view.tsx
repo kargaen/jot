@@ -24,6 +24,8 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
   const overdue = isOverdue(task, today);
 
   const startX = useRef<number | null>(null);
+  const startY = useRef<number | null>(null);
+  const isScroll = useRef(false);
   const [dragX, setDragX] = useState(0);
   const [completing, setCompleting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -33,20 +35,32 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
   function onTouchStart(e: TouchEvent) {
     if (confirmingDelete) return;
     startX.current = e.touches[0].clientX;
+    startY.current = e.touches[0].clientY;
+    isScroll.current = false;
   }
 
   function onTouchMove(e: TouchEvent) {
-    if (startX.current === null) return;
-    const delta = e.touches[0].clientX - startX.current;
+    if (startX.current === null || startY.current === null) return;
+    const dx = e.touches[0].clientX - startX.current;
+    const dy = e.touches[0].clientY - startY.current;
+    // Once the gesture reads as a vertical scroll, never treat it as a swipe
+    // or a tap — otherwise releasing after a gentle scroll opens the task.
+    if (!isScroll.current && dragX === 0 && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) {
+      isScroll.current = true;
+    }
+    if (isScroll.current) return;
     // Right-swipe (delete) is only available when a delete handler is wired.
-    if (delta > 0 && !onDelete) return;
-    setDragX(Math.max(Math.min(delta, DRAG_MAX), -DRAG_MAX));
+    if (dx > 0 && !onDelete) return;
+    setDragX(Math.max(Math.min(dx, DRAG_MAX), -DRAG_MAX));
   }
 
   function onTouchEnd() {
     if (startX.current === null) return;
     const wasDrag = Math.abs(dragX) > 4;
+    const wasScroll = isScroll.current;
     startX.current = null;
+    startY.current = null;
+    isScroll.current = false;
     if (dragX <= -DRAG_THRESHOLD) {
       setCompleting(true);
       setTimeout(() => onComplete(task.id), 200);
@@ -55,7 +69,7 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
       setConfirmingDelete(true);
     } else {
       setDragX(0);
-      if (!wasDrag) {
+      if (!wasDrag && !wasScroll) {
         if (onOpen) onOpen(task.id);
         else setExpanded((v) => !v);
       }
