@@ -6,6 +6,7 @@ import { useMobileAuth } from "../../../../hooks/useMobileAuth";
 import { useMobileAppData, useCaptureComposer, useMobileAccountActions, useMobileSpacesActions } from "../../../../hooks/useMobileApp";
 import MobileAuthView from "../auth/MobileAuth.view";
 import MobileTodayView from "../today/MobileToday.view";
+import MobileUpcomingView from "../upcoming/MobileUpcoming.view";
 import MobileTasksView from "../tasks/MobileTasks.view";
 import MobileTaskDetailView from "../tasks/MobileTaskDetail.view";
 import MobileCaptureView from "../capture/MobileCapture.view";
@@ -13,7 +14,7 @@ import MobileSettingsView from "../settings/MobileSettings.view";
 import MobileOnboardingView from "../onboarding/MobileOnboarding.view";
 import { logger } from "../../../../utils/observability/logger";
 
-type Tab = "today" | "tasks" | "capture" | "settings";
+type Tab = "today" | "upcoming" | "tasks" | "capture" | "settings";
 
 export default function MobileApp({ launchNotice = null }: { launchNotice?: string | null }) {
   const { loading, user } = useAuth();
@@ -122,6 +123,14 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
             onComplete={appData.completeTask}
           />
         )}
+        {activeTab === "upcoming" && (
+          <MobileUpcomingView
+            tasks={appData.visibleTasks}
+            loading={appData.loadingData}
+            onComplete={appData.completeTask}
+            onOpenTask={(id) => setSelectedTaskId(id)}
+          />
+        )}
         {activeTab === "tasks" && (
           <MobileTasksView
             tasks={appData.visibleTasks}
@@ -156,6 +165,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
 
       <nav style={styles.tabBar}>
         <TabButton label="Today" icon="☀️" active={activeTab === "today"} onPress={() => setActiveTab("today")} />
+        <TabButton label="Upcoming" icon="📅" active={activeTab === "upcoming"} onPress={() => setActiveTab("upcoming")} />
         <TabButton label="Tasks" icon="✓" active={activeTab === "tasks"} onPress={() => setActiveTab("tasks")} />
         <TabButton label="Capture" icon="+" active={activeTab === "capture"} onPress={() => setActiveTab("capture")} />
         <TabButton label="Settings" icon="⚙" active={activeTab === "settings"} onPress={() => setActiveTab("settings")} />
@@ -170,6 +180,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
 
 const TAB_TITLES: Record<Tab, string> = {
   today: "Today",
+  upcoming: "Upcoming",
   tasks: "Tasks",
   capture: "Capture",
   settings: "Settings",
@@ -185,7 +196,7 @@ function TabHeader({ tab, refreshing, onNewTask, onRefresh }: {
     <header style={styles.header}>
       <span style={styles.headerTitle}>{TAB_TITLES[tab]}</span>
       <div style={styles.headerActions}>
-        {(tab === "today" || tab === "tasks") && (
+        {(tab === "today" || tab === "upcoming" || tab === "tasks") && (
           <button
             type="button"
             onClick={onRefresh}
