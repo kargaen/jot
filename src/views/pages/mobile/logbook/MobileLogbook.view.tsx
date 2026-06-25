@@ -1,9 +1,11 @@
 import type { CSSProperties } from "react";
 import type { TaskWithTags } from "../../../../models/shared";
+import CompletionHeatmap from "../../../components/pulse/CompletionHeatmap.view";
 
 interface Props {
   tasks: TaskWithTags[];
   loading: boolean;
+  completionDates: string[];
 }
 
 interface DateGroup {
@@ -45,37 +47,36 @@ function buildGroups(tasks: TaskWithTags[]): DateGroup[] {
   }));
 }
 
-export default function MobileLogbookView({ tasks, loading }: Props) {
-  if (loading && tasks.length === 0) {
-    return <div style={styles.empty}>Loading...</div>;
-  }
-
+export default function MobileLogbookView({ tasks, loading, completionDates }: Props) {
   const groups = buildGroups(tasks);
 
-  if (groups.length === 0) {
-    return (
-      <div style={styles.empty}>
-        <span style={styles.emptyIcon}>◎</span>
-        <span style={styles.emptyLabel}>No completed tasks yet</span>
-      </div>
-    );
-  }
-
   return (
-    <div style={styles.list}>
-      {groups.map((group) => (
-        <div key={group.key} style={styles.section}>
-          <div style={styles.sectionHeader}>{group.label}</div>
-          {group.tasks.map((task) => (
-            <div key={task.id} style={styles.row}>
-              <span style={styles.check}>✓</span>
-              <span style={styles.title}>
-                {task.icon ? `${task.icon} ` : ""}{task.title}
-              </span>
+    <div>
+      <div style={styles.heatmapWrap}>
+        <CompletionHeatmap dates={completionDates} />
+      </div>
+
+      {loading && tasks.length === 0 ? (
+        <div style={styles.emptyInline}>Loading…</div>
+      ) : groups.length === 0 ? (
+        <div style={styles.emptyInline}>No completed tasks yet</div>
+      ) : (
+        <div style={styles.list}>
+          {groups.map((group) => (
+            <div key={group.key} style={styles.section}>
+              <div style={styles.sectionHeader}>{group.label}</div>
+              {group.tasks.map((task) => (
+                <div key={task.id} style={styles.row}>
+                  <span style={styles.check}>✓</span>
+                  <span style={styles.title}>
+                    {task.icon ? `${task.icon} ` : ""}{task.title}
+                  </span>
+                </div>
+              ))}
             </div>
           ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -124,21 +125,14 @@ const styles: Record<string, CSSProperties> = {
     textDecoration: "line-through",
     lineHeight: 1.3,
   },
-  empty: {
-    minHeight: "60dvh",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+  heatmapWrap: {
+    padding: "0 16px",
+    overflowX: "auto",
+  },
+  emptyInline: {
+    padding: "28px 20px",
+    textAlign: "center",
+    fontSize: 13,
     color: "var(--text-tertiary)",
-  },
-  emptyIcon: {
-    fontSize: 32,
-    color: "var(--accent)",
-  },
-  emptyLabel: {
-    fontSize: 14,
-    fontWeight: 500,
   },
 };

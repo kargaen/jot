@@ -15,6 +15,7 @@ import {
   fetchAllTasks,
   fetchAreaMembers,
   fetchAreas,
+  fetchCompletionDates,
   fetchLogbookTasks,
   fetchFeedback,
   fetchPendingInvites,
@@ -50,6 +51,7 @@ export function useMobileAppData(userId: string | null) {
   const [firstAreaError, setFirstAreaError] = useState("");
   const [hiddenAreaIds, setHiddenAreaIds] = useState<string[]>(loadHiddenAreas);
   const [logbookTasks, setLogbookTasks] = useState<TaskWithTags[]>([]);
+  const [completionDates, setCompletionDates] = useState<string[]>([]);
   const [logbookLoading, setLogbookLoading] = useState(false);
   const areasRef = useRef<Area[]>(areas);
   useEffect(() => { areasRef.current = areas; }, [areas]);
@@ -153,9 +155,16 @@ export function useMobileAppData(userId: string | null) {
   const loadLogbook = useCallback(async () => {
     setLogbookLoading(true);
     try {
-      setLogbookTasks(await fetchLogbookTasks());
+      // ~16 weeks back to feed the completion heatmap.
+      const since = new Date(Date.now() - 16 * 7 * 86400000).toISOString();
+      const [tasks, dates] = await Promise.all([
+        fetchLogbookTasks(),
+        fetchCompletionDates(since),
+      ]);
+      setLogbookTasks(tasks);
+      setCompletionDates(dates);
     } catch (err) {
-      logger.warn("mobile", "fetchLogbookTasks failed", err instanceof Error ? err.message : err);
+      logger.warn("mobile", "loadLogbook failed", err instanceof Error ? err.message : err);
     } finally {
       setLogbookLoading(false);
     }
@@ -174,7 +183,7 @@ export function useMobileAppData(userId: string | null) {
     areas, projects, tags, tasks, loadingData, error,
     visibleTasks, visibleProjects,
     hiddenAreaIds, handleHiddenChange,
-    logbookTasks, logbookLoading, loadLogbook,
+    logbookTasks, completionDates, logbookLoading, loadLogbook,
     loadData, refresh,
     firstAreaName, setFirstAreaName, firstAreaBusy, firstAreaError,
     createFirstArea,
