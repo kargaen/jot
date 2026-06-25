@@ -1,6 +1,12 @@
 import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import type { Area } from "../../../../models/shared";
+import {
+  type AppThemePreference,
+  applyThemePreference,
+  loadThemePreference,
+  saveThemePreference,
+} from "../../../../utils/presentation/theme";
 
 interface AccountActions {
   changePassword: (password: string) => Promise<unknown>;
@@ -33,6 +39,7 @@ export default function MobileSettingsView({
   return (
     <div style={styles.shell}>
       <AccountSection email={email} actions={accountActions} onSignedOut={onSignedOut} />
+      <AppearanceSection />
       <SpacesSection areas={areas} actions={spaceActions} onChanged={onAreasChanged} />
     </div>
   );
@@ -109,6 +116,47 @@ function AccountSection({
         <button type="button" onClick={handleSignOut} disabled={busy} style={styles.destructiveButton}>
           Sign out everywhere
         </button>
+      </div>
+    </section>
+  );
+}
+
+// ── Appearance ──────────────────────────────────────────────────────────────────
+
+const THEME_OPTIONS: { value: AppThemePreference; label: string; hint: string }[] = [
+  { value: "system", label: "System", hint: "Follow your device setting." },
+  { value: "light", label: "Light", hint: "Keep the interface bright." },
+  { value: "dark", label: "Dark", hint: "Use the darker theme." },
+];
+
+function AppearanceSection() {
+  const [theme, setTheme] = useState<AppThemePreference>(loadThemePreference);
+
+  function selectTheme(next: AppThemePreference) {
+    setTheme(next);
+    saveThemePreference(next);
+    applyThemePreference(next);
+  }
+
+  return (
+    <section style={styles.section}>
+      <div style={styles.sectionHeader}>Appearance</div>
+      <div style={styles.card}>
+        {THEME_OPTIONS.map((option, i) => {
+          const active = theme === option.value;
+          return (
+            <div key={option.value}>
+              {i > 0 ? <div style={styles.divider} /> : null}
+              <button type="button" onClick={() => selectTheme(option.value)} style={styles.themeRow}>
+                <span style={styles.themeText}>
+                  <span style={styles.themeLabel}>{option.label}</span>
+                  <span style={styles.themeHint}>{option.hint}</span>
+                </span>
+                <span style={{ ...styles.themeCheck, opacity: active ? 1 : 0 }}>✓</span>
+              </button>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -348,6 +396,39 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 16,
     cursor: "pointer",
     fontFamily: "inherit",
+  },
+  themeRow: {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "12px 0",
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    fontFamily: "inherit",
+    textAlign: "left",
+  },
+  themeText: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+    minWidth: 0,
+  },
+  themeLabel: {
+    fontSize: 15,
+    color: "var(--text-primary)",
+  },
+  themeHint: {
+    fontSize: 12,
+    color: "var(--text-tertiary)",
+  },
+  themeCheck: {
+    flexShrink: 0,
+    fontSize: 16,
+    fontWeight: 700,
+    color: "var(--accent)",
   },
   destructiveButton: {
     width: "100%",
