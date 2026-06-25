@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
-import type { Area, AreaMember, Feedback, NlpLanguageMode } from "../../../../models/shared";
+import type { Area, AreaMember, Feedback, NlpLanguageMode, Project } from "../../../../models/shared";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useFeedbackTab, useSharingTab } from "../../../../hooks/usePreferences";
 import Toggle from "../../../components/ui/Toggle.view";
@@ -26,13 +26,21 @@ interface SpaceActions {
   addArea: (name: string) => Promise<unknown>;
 }
 
+interface ProjectActions {
+  addProject: (name: string, areaId: string | null) => Promise<unknown>;
+  renameProject: (id: string, name: string) => Promise<unknown>;
+  archiveProject: (id: string) => Promise<unknown>;
+}
+
 interface Props {
   email: string;
   areas: Area[];
+  projects: Project[];
   hiddenAreaIds: string[];
   onHiddenChange: (ids: string[]) => void;
   accountActions: AccountActions;
   spaceActions: SpaceActions;
+  projectActions: ProjectActions;
   onSignedOut: () => void;
   onAreasChanged: () => void;
 }
@@ -40,10 +48,12 @@ interface Props {
 export default function MobileSettingsView({
   email,
   areas,
+  projects,
   hiddenAreaIds,
   onHiddenChange,
   accountActions,
   spaceActions,
+  projectActions,
   onSignedOut,
   onAreasChanged,
 }: Props) {
@@ -57,6 +67,12 @@ export default function MobileSettingsView({
         hiddenAreaIds={hiddenAreaIds}
         onHiddenChange={onHiddenChange}
         actions={spaceActions}
+        onChanged={onAreasChanged}
+      />
+      <ProjectsSection
+        areas={areas}
+        projects={projects}
+        actions={projectActions}
         onChanged={onAreasChanged}
       />
       <SharingSection areas={areas} onSharedChange={onAreasChanged} />
@@ -356,6 +372,142 @@ function SpacesSection({
           </button>
         </form>
       </div>
+    </section>
+  );
+}
+
+// ── Projects ──────────────────────────────────────────────────────────────────
+
+function ProjectsSection({
+  areas,
+  projects,
+  actions,
+  onChanged,
+}: {
+  areas: Area[];
+  projects: Project[];
+  actions: ProjectActions;
+  onChanged: () => void;
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+
+  async function handleAdd(e: FormEvent, areaId: string) {
+    e.preventDefault();
+    const name = (drafts[areaId] ?? "").trim();
+    if (!name || busy) return;
+    setBusy(true);
+    try {
+      await actions.addProject(name, areaId);
+      setDrafts((d) => ({ ...d, [areaId]: "" }));
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRename(id: string) {
+    if (!editingName.trim() || busy) return;
+    setBusy(true);
+    try {
+      await actions.renameProject(id, editingName.trim());
+      setEditingId(null);
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleArchive(id: string) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await actions.archiveProject(id);
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section style={styles.section}>
+      <div style={styles.sectionHeader}>Projects</div>
+      <div style={styles.sectionHint}>Add, rename or archive projects within each space.</div>
+      {areas.length === 0 ? (
+        <div style={styles.card}>
+          <div style={styles.emptyText}>Create a space first.</div>
+        </div>
+      ) : (
+        areas.map((area) => {
+          const list = projects.filter((p) => p.area_id === area.id && p.status === "active");
+          return (
+            <div key={area.id} style={styles.projectArea}>
+              <div style={styles.projectAreaLabel}>
+                <span style={{ ...styles.dot, background: area.color }} />
+                {area.name}
+              </div>
+              <div style={styles.card}>
+                {list.map((project, i) => (
+                  <div key={project.id}>
+                    {i > 0 ? <div style={styles.divider} /> : null}
+                    {editingId === project.id ? (
+                      <div style={styles.passwordRow}>
+                        <input
+                          value={editingName}
+                          onChange={(e) => setEditingName(e.target.value)}
+                          style={styles.inlineInput}
+                          autoFocus
+                        />
+                        <button type="button" onClick={() => handleRename(project.id)} disabled={busy} style={styles.inlineButton}>
+                          Save
+                        </button>
+                        <button type="button" onClick={() => setEditingId(null)} style={styles.cancelButton}>
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={styles.spaceRow}>
+                        <span style={{ ...styles.dot, background: project.color }} />
+                        <span style={styles.rowLabel}>{project.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => { setEditingId(project.id); setEditingName(project.name); }}
+                          style={styles.iconButton}
+                          aria-label="Rename project"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleArchive(project.id)}
+                          disabled={busy}
+                          style={styles.archiveButton}
+                        >
+                          Archive
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {list.length > 0 ? <div style={styles.divider} /> : null}
+                <form onSubmit={(e) => handleAdd(e, area.id)} style={styles.passwordRow}>
+                  <input
+                    value={drafts[area.id] ?? ""}
+                    onChange={(e) => setDrafts((d) => ({ ...d, [area.id]: e.target.value }))}
+                    placeholder="New project"
+                    style={styles.inlineInput}
+                  />
+                  <button type="submit" disabled={busy || !(drafts[area.id] ?? "").trim()} style={styles.inlineButton}>
+                    Add
+                  </button>
+                </form>
+              </div>
+            </div>
+          );
+        })
+      )}
     </section>
   );
 }
@@ -747,6 +899,29 @@ const styles: Record<string, CSSProperties> = {
     padding: "14px 0",
     fontSize: 13,
     color: "var(--text-tertiary)",
+  },
+  projectArea: {
+    marginBottom: 14,
+  },
+  projectAreaLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontSize: 13,
+    fontWeight: 600,
+    color: "var(--text-secondary)",
+    margin: "0 4px 6px",
+  },
+  archiveButton: {
+    flexShrink: 0,
+    padding: "6px 10px",
+    border: "none",
+    background: "transparent",
+    color: "var(--text-tertiary)",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "inherit",
   },
   chipRow: {
     display: "flex",

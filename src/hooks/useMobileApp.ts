@@ -29,6 +29,7 @@ import {
   submitFeedback,
   updateArea,
   updatePassword,
+  updateProject,
   updateTask,
 } from "../services/backend/supabase.service";
 import { logger } from "../utils/observability/logger";
@@ -201,6 +202,16 @@ export function useMobileSpacesActions() {
     saveArea: (id: string, name: string) => updateArea(id, { name }),
     removeArea: (id: string) => deleteArea(id),
     addArea: (name: string) => createArea(name),
+  };
+}
+
+// ── Projects settings ─────────────────────────────────────────────────────────
+
+export function useMobileProjectsActions() {
+  return {
+    addProject: (name: string, areaId: string | null) => createProject(name, areaId),
+    renameProject: (id: string, name: string) => updateProject(id, { name }),
+    archiveProject: (id: string) => updateProject(id, { status: "archived" }),
   };
 }
 

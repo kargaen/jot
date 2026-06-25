@@ -4,7 +4,7 @@ import type { ParsedInput } from "../../../../models/shared";
 import { randomCompletionMessage } from "../../../../utils/presentation/completionMessage";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useMobileAuth } from "../../../../hooks/useMobileAuth";
-import { useMobileAppData, useCaptureComposer, useMobileAccountActions, useMobileSpacesActions } from "../../../../hooks/useMobileApp";
+import { useMobileAppData, useCaptureComposer, useMobileAccountActions, useMobileSpacesActions, useMobileProjectsActions } from "../../../../hooks/useMobileApp";
 import MobileAuthView from "../auth/MobileAuth.view";
 import MobileTodayView from "../today/MobileToday.view";
 import MobileUpcomingView from "../upcoming/MobileUpcoming.view";
@@ -25,6 +25,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const capture = useCaptureComposer();
   const accountActions = useMobileAccountActions();
   const spaceActions = useMobileSpacesActions();
+  const projectActions = useMobileProjectsActions();
   const [activeTab, setActiveTab] = useState<Tab>("today");
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -209,10 +210,12 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
           <MobileSettingsView
             email={user.email ?? ""}
             areas={appData.areas}
+            projects={appData.projects}
             hiddenAreaIds={appData.hiddenAreaIds}
             onHiddenChange={appData.handleHiddenChange}
             accountActions={accountActions}
             spaceActions={spaceActions}
+            projectActions={projectActions}
             onSignedOut={() => appData.refresh()}
             onAreasChanged={() => appData.refresh()}
           />
