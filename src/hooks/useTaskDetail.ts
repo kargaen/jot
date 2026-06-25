@@ -11,11 +11,15 @@ import type {
   Area,
   AssignablePerson,
   Project,
+  Tag,
   TaskWithTags,
 } from "../models/shared";
 import {
+  attachTaskTag,
   completeTaskDetail,
   completeTaskDetailSubtask,
+  createAndAttachTaskTag,
+  detachTaskTag,
   formatTaskEstimate,
   loadAssignablePeople,
   loadTaskDetailSubtasks,
@@ -55,6 +59,7 @@ export function useTaskDetail({
   );
   const [assignablePeople, setAssignablePeople] = useState<AssignablePerson[]>([]);
   const [subtasks, setSubtasks] = useState<TaskWithTags[]>([]);
+  const [tags, setTags] = useState<Tag[]>(task.tags ?? []);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">(
     "idle",
   );
@@ -267,6 +272,51 @@ export function useTaskDetail({
     if (url) void shellOpen(url);
   }, [link]);
 
+  const addTag = useCallback(
+    async (tag: Tag) => {
+      if (tags.some((item) => item.id === tag.id)) return;
+      setTags((previous) => [...previous, tag]);
+      try {
+        await attachTaskTag(task.id, tag.id);
+        onUpdated();
+      } catch (err) {
+        logger.error("task-detail", "addTag failed", err instanceof Error ? err.message : err);
+        setTags((previous) => previous.filter((item) => item.id !== tag.id));
+      }
+    },
+    [tags, task.id, onUpdated],
+  );
+
+  const removeTag = useCallback(
+    async (tagId: string) => {
+      const snapshot = tags;
+      setTags((previous) => previous.filter((item) => item.id !== tagId));
+      try {
+        await detachTaskTag(task.id, tagId);
+        onUpdated();
+      } catch (err) {
+        logger.error("task-detail", "removeTag failed", err instanceof Error ? err.message : err);
+        setTags(snapshot);
+      }
+    },
+    [tags, task.id, onUpdated],
+  );
+
+  const createTagAndAdd = useCallback(
+    async (name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      try {
+        const tag = await createAndAttachTaskTag(task.id, trimmed);
+        setTags((previous) => (previous.some((item) => item.id === tag.id) ? previous : [...previous, tag]));
+        onUpdated();
+      } catch (err) {
+        logger.error("task-detail", "createTag failed", err instanceof Error ? err.message : err);
+      }
+    },
+    [task.id, onUpdated],
+  );
+
   const updateTitle = useCallback(
     (value: string) => {
       setTitle(value);
@@ -345,6 +395,7 @@ export function useTaskDetail({
     estimatedMins,
     assignablePeople,
     subtasks,
+    tags,
     saveStatus,
     completing,
     editor,
@@ -367,6 +418,9 @@ export function useTaskDetail({
     refreshSubtasks,
     openTaskLink,
     normalizedLink,
+    addTag,
+    removeTag,
+    createTagAndAdd,
   };
 }
 

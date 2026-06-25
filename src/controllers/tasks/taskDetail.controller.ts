@@ -1,8 +1,11 @@
-import type { AssignablePerson, TaskWithTags } from "../../models/shared";
+import type { AssignablePerson, Tag, TaskWithTags } from "../../models/shared";
 import {
+  addTaskTag,
   completeTask,
+  createTag,
   fetchAssignablePeople,
   fetchSubtasks,
+  removeTaskTag,
   updateTask,
 } from "../../services/backend/supabase.service";
 import { normalizeTaskLink } from "../../models/tasks/taskPresentation";
@@ -104,4 +107,19 @@ export async function loadAssignablePeople(input: {
   areaId: string | null;
 }): Promise<AssignablePerson[]> {
   return fetchAssignablePeople(input);
+}
+
+export async function attachTaskTag(taskId: string, tagId: string): Promise<void> {
+  await addTaskTag(taskId, tagId);
+}
+
+export async function detachTaskTag(taskId: string, tagId: string): Promise<void> {
+  await removeTaskTag(taskId, tagId);
+}
+
+/** Create a tag by name (or reuse the existing one) and attach it to the task. */
+export async function createAndAttachTaskTag(taskId: string, name: string): Promise<Tag> {
+  const tag = await createTag(name.trim());
+  await addTaskTag(taskId, tag.id);
+  return tag;
 }

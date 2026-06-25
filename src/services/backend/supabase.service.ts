@@ -702,6 +702,22 @@ export async function createTag(name: string, color = "#6B7280"): Promise<Tag> {
   return data;
 }
 
+export async function addTaskTag(taskId: string, tagId: string): Promise<void> {
+  const { error } = await supabase
+    .from("task_tags")
+    .upsert({ task_id: taskId, tag_id: tagId }, { onConflict: "task_id,tag_id" });
+  if (error) logErr("addTaskTag", error);
+}
+
+export async function removeTaskTag(taskId: string, tagId: string): Promise<void> {
+  const { error } = await supabase
+    .from("task_tags")
+    .delete()
+    .eq("task_id", taskId)
+    .eq("tag_id", tagId);
+  if (error) logErr("removeTaskTag", error);
+}
+
 // ─── Feedback ────────────────────────────────────────────────────────────────
 
 export async function fetchFeedback(): Promise<Feedback[]> {

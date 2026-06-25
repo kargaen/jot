@@ -1,4 +1,5 @@
-import type { CSSProperties } from "react";
+import { useState } from "react";
+import type { CSSProperties, FormEvent } from "react";
 import { EditorContent } from "@tiptap/react";
 import type { Area, Project, Tag, TaskWithTags } from "../../../../models/shared";
 import { useTaskDetail } from "../../../../hooks/useTaskDetail";
@@ -24,10 +25,12 @@ export default function MobileTaskDetailView({
   task,
   projects,
   areas,
+  allTags,
   onUpdated,
   onBack,
   onCompleted,
 }: Props) {
+  const [newTag, setNewTag] = useState("");
   const {
     title,
     projectId,
@@ -39,6 +42,7 @@ export default function MobileTaskDetailView({
     estimatedMins,
     assignablePeople,
     subtasks,
+    tags,
     saveStatus,
     completing,
     editor,
@@ -58,9 +62,21 @@ export default function MobileTaskDetailView({
     handleCompleteSubtask,
     openTaskLink,
     normalizedLink,
+    addTag,
+    removeTag,
+    createTagAndAdd,
   } = useTaskDetail({ task, projects, areas, onUpdated, onCompleted });
 
   const areaFromProject = !!project;
+  const availableTags = allTags.filter((t) => !tags.some((x) => x.id === t.id));
+
+  function handleCreateTag(e: FormEvent) {
+    e.preventDefault();
+    const name = newTag.trim();
+    if (!name) return;
+    void createTagAndAdd(name);
+    setNewTag("");
+  }
 
   return (
     <div style={styles.shell}>
@@ -182,16 +198,54 @@ export default function MobileTaskDetailView({
           </Field>
         </div>
 
-        {task.tags && task.tags.length > 0 ? (
-          <div style={styles.tags}>
-            <div style={styles.sectionLabel}>Tags</div>
+        <div style={styles.tags}>
+          <div style={styles.sectionLabel}>Tags</div>
+          {tags.length > 0 ? (
             <div style={styles.tagChips}>
-              {task.tags.map((tag) => (
-                <span key={tag.id} style={styles.tagChip}>{tag.name}</span>
+              {tags.map((tag) => (
+                <span key={tag.id} style={styles.tagChip}>
+                  {tag.name}
+                  <button
+                    type="button"
+                    onClick={() => void removeTag(tag.id)}
+                    style={styles.tagRemove}
+                    aria-label={`Remove ${tag.name}`}
+                  >
+                    ×
+                  </button>
+                </span>
               ))}
             </div>
+          ) : null}
+          <div style={styles.tagAddRow}>
+            {availableTags.length > 0 ? (
+              <select
+                value=""
+                onChange={(e) => {
+                  const tag = allTags.find((t) => t.id === e.target.value);
+                  if (tag) void addTag(tag);
+                }}
+                style={styles.select}
+              >
+                <option value="">Add tag…</option>
+                {availableTags.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            ) : null}
+            <form onSubmit={handleCreateTag} style={styles.newTagForm}>
+              <input
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value)}
+                placeholder="New tag"
+                style={styles.select}
+              />
+              <button type="submit" disabled={!newTag.trim()} style={styles.tagAddButton}>
+                Add
+              </button>
+            </form>
           </div>
-        ) : null}
+        </div>
 
         <div style={styles.notes}>
           <EditorContent editor={editor} />
@@ -353,15 +407,50 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     flexWrap: "wrap",
     gap: 6,
+    marginBottom: 10,
   },
   tagChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
     fontSize: 12,
     fontWeight: 600,
     color: "var(--text-secondary)",
     background: "var(--surface-glass)",
     border: "1px solid var(--border-subtle)",
     borderRadius: 9,
-    padding: "4px 10px",
+    padding: "4px 6px 4px 10px",
+  },
+  tagRemove: {
+    border: "none",
+    background: "transparent",
+    color: "var(--text-tertiary)",
+    fontSize: 14,
+    lineHeight: 1,
+    cursor: "pointer",
+    fontFamily: "inherit",
+    padding: 0,
+  },
+  tagAddRow: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  newTagForm: {
+    display: "flex",
+    gap: 8,
+  },
+  tagAddButton: {
+    flexShrink: 0,
+    padding: "9px 14px",
+    borderRadius: 10,
+    border: "none",
+    background: "linear-gradient(135deg, #5b5bd6, #7a6cff)",
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "inherit",
   },
   notes: {
     padding: "12px 14px",
