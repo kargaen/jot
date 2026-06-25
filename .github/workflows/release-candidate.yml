@@ -5,6 +5,12 @@ on:
     branches:
       - dev
 
+# A new push to dev cancels any Release Candidate run already in progress
+# for the same branch, so only the latest commit gets built.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
