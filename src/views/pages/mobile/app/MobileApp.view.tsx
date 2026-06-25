@@ -211,6 +211,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
             email={user.email ?? ""}
             areas={appData.areas}
             projects={appData.projects}
+            tasks={appData.tasks}
             hiddenAreaIds={appData.hiddenAreaIds}
             onHiddenChange={appData.handleHiddenChange}
             accountActions={accountActions}

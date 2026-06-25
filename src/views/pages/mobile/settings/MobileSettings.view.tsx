@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
-import type { Area, AreaMember, Feedback, NlpLanguageMode, Project } from "../../../../models/shared";
+import type { Area, AreaMember, Feedback, NlpLanguageMode, Project, TaskWithTags } from "../../../../models/shared";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useFeedbackTab, useSharingTab } from "../../../../hooks/usePreferences";
 import Toggle from "../../../components/ui/Toggle.view";
@@ -29,13 +29,15 @@ interface SpaceActions {
 interface ProjectActions {
   addProject: (name: string, areaId: string | null) => Promise<unknown>;
   renameProject: (id: string, name: string) => Promise<unknown>;
-  archiveProject: (id: string) => Promise<unknown>;
+  closeProject: (id: string) => Promise<unknown>;
+  closeProjectWithTasks: (id: string, action: "complete" | "release") => Promise<unknown>;
 }
 
 interface Props {
   email: string;
   areas: Area[];
   projects: Project[];
+  tasks: TaskWithTags[];
   hiddenAreaIds: string[];
   onHiddenChange: (ids: string[]) => void;
   accountActions: AccountActions;
@@ -49,6 +51,7 @@ export default function MobileSettingsView({
   email,
   areas,
   projects,
+  tasks,
   hiddenAreaIds,
   onHiddenChange,
   accountActions,
@@ -72,6 +75,7 @@ export default function MobileSettingsView({
       <ProjectsSection
         areas={areas}
         projects={projects}
+        tasks={tasks}
         actions={projectActions}
         onChanged={onAreasChanged}
       />
@@ -381,11 +385,13 @@ function SpacesSection({
 function ProjectsSection({
   areas,
   projects,
+  tasks,
   actions,
   onChanged,
 }: {
   areas: Area[];
   projects: Project[];
+  tasks: TaskWithTags[];
   actions: ProjectActions;
   onChanged: () => void;
 }) {
@@ -393,6 +399,10 @@ function ProjectsSection({
   const [editingName, setEditingName] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [closing, setClosing] = useState<{ id: string; name: string; count: number } | null>(null);
+
+  const openCount = (projectId: string) =>
+    tasks.filter((t) => t.project_id === projectId && t.status === "todo").length;
 
   async function handleAdd(e: FormEvent, areaId: string) {
     e.preventDefault();
@@ -420,11 +430,28 @@ function ProjectsSection({
     }
   }
 
-  async function handleArchive(id: string) {
+  async function handleCloseClick(project: Project) {
     if (busy) return;
+    const count = openCount(project.id);
+    if (count === 0) {
+      setBusy(true);
+      try {
+        await actions.closeProject(project.id);
+        onChanged();
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    setClosing({ id: project.id, name: project.name, count });
+  }
+
+  async function handleCloseConfirm(action: "complete" | "release") {
+    if (!closing || busy) return;
     setBusy(true);
     try {
-      await actions.archiveProject(id);
+      await actions.closeProjectWithTasks(closing.id, action);
+      setClosing(null);
       onChanged();
     } finally {
       setBusy(false);
@@ -481,11 +508,11 @@ function ProjectsSection({
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleArchive(project.id)}
+                          onClick={() => handleCloseClick(project)}
                           disabled={busy}
                           style={styles.archiveButton}
                         >
-                          Archive
+                          Close
                         </button>
                       </div>
                     )}
@@ -508,7 +535,56 @@ function ProjectsSection({
           );
         })
       )}
+
+      {closing ? (
+        <CloseProjectDialog
+          name={closing.name}
+          count={closing.count}
+          busy={busy}
+          onComplete={() => handleCloseConfirm("complete")}
+          onRelease={() => handleCloseConfirm("release")}
+          onCancel={() => setClosing(null)}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function CloseProjectDialog({
+  name,
+  count,
+  busy,
+  onComplete,
+  onRelease,
+  onCancel,
+}: {
+  name: string;
+  count: number;
+  busy: boolean;
+  onComplete: () => void;
+  onRelease: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div style={styles.dialogBackdrop} onClick={onCancel}>
+      <div style={styles.dialog} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.dialogTitle}>Close “{name}”</div>
+        <p style={styles.dialogBody}>
+          This project has {count} remaining task{count !== 1 ? "s" : ""}. What should happen to {count !== 1 ? "them" : "it"}?
+        </p>
+        <button type="button" onClick={onComplete} disabled={busy} style={styles.dialogPrimary}>
+          Complete all tasks and close
+          <span style={styles.dialogSub}>Mark them done — they move to the Logbook</span>
+        </button>
+        <button type="button" onClick={onRelease} disabled={busy} style={styles.dialogSecondary}>
+          Move tasks out and close
+          <span style={styles.dialogSubMuted}>Tasks stay in their space, unlinked from the project</span>
+        </button>
+        <button type="button" onClick={onCancel} style={styles.dialogCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -920,6 +996,92 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--text-tertiary)",
     fontSize: 12,
     fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "inherit",
+  },
+  dialogBackdrop: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 60,
+    background: "rgba(0,0,0,0.45)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  dialog: {
+    width: "100%",
+    maxWidth: 360,
+    background: "var(--bg-primary)",
+    borderRadius: 18,
+    border: "1px solid var(--border-default)",
+    boxShadow: "0 18px 48px rgba(0,0,0,0.3)",
+    padding: "22px 20px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  dialogTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: "var(--text-primary)",
+  },
+  dialogBody: {
+    fontSize: 13,
+    color: "var(--text-secondary)",
+    lineHeight: 1.5,
+    margin: "0 0 8px",
+  },
+  dialogPrimary: {
+    width: "100%",
+    textAlign: "left",
+    padding: "11px 14px",
+    borderRadius: 12,
+    border: "none",
+    background: "linear-gradient(135deg, #5b5bd6, #7a6cff)",
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "inherit",
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+  },
+  dialogSecondary: {
+    width: "100%",
+    textAlign: "left",
+    padding: "11px 14px",
+    borderRadius: 12,
+    border: "1px solid var(--border-default)",
+    background: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "inherit",
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+  },
+  dialogSub: {
+    fontSize: 11,
+    fontWeight: 400,
+    opacity: 0.85,
+  },
+  dialogSubMuted: {
+    fontSize: 11,
+    fontWeight: 400,
+    color: "var(--text-tertiary)",
+  },
+  dialogCancel: {
+    width: "100%",
+    padding: "9px 14px",
+    marginTop: 2,
+    border: "none",
+    background: "transparent",
+    color: "var(--text-tertiary)",
+    fontSize: 14,
     cursor: "pointer",
     fontFamily: "inherit",
   },

@@ -4,6 +4,8 @@ import {
   acceptInvite,
   acceptProjectInvite,
   closeProject,
+  closeProjectAndCompleteTasks,
+  closeProjectAndReleaseTasks,
   completeTask,
   createArea,
   createProject,
@@ -211,7 +213,14 @@ export function useMobileProjectsActions() {
   return {
     addProject: (name: string, areaId: string | null) => createProject(name, areaId),
     renameProject: (id: string, name: string) => updateProject(id, { name }),
-    archiveProject: (id: string) => updateProject(id, { status: "archived" }),
+    // Mirrors the desktop "Close project" flow: closing sets the project
+    // to completed; remaining open tasks are either completed (→ Logbook)
+    // or released (unlinked, kept in their space).
+    closeProject: (id: string) => closeProject(id),
+    closeProjectWithTasks: (id: string, action: "complete" | "release") =>
+      action === "complete"
+        ? closeProjectAndCompleteTasks(id)
+        : closeProjectAndReleaseTasks(id),
   };
 }
 
