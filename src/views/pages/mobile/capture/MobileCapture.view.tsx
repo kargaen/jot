@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
-import type { ParsedInput, Project, Tag } from "../../../../models/shared";
+import type { ParsedInput, Project, Tag, Task } from "../../../../models/shared";
 import { parseInput } from "../../../../services/capture/nlp.service";
 import { friendlyDue } from "../../../../models/tasks/taskPresentation";
 
@@ -9,6 +9,13 @@ interface Props {
   tags: Tag[];
   onSave: (parsed: ParsedInput) => Promise<void>;
 }
+
+const PRIORITY_CHOICES: { value: Task["priority"]; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Med" },
+  { value: "high", label: "High" },
+];
 
 export default function MobileCaptureView({ projects, tags, onSave }: Props) {
   const [text, setText] = useState("");
@@ -19,9 +26,27 @@ export default function MobileCaptureView({ projects, tags, onSave }: Props) {
   const [saved, setSaved] = useState(false);
   const parseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Manual overrides. `undefined` means "not overridden — use the parsed value".
+  const [ovPriority, setOvPriority] = useState<Task["priority"] | undefined>(undefined);
+  const [ovDueDate, setOvDueDate] = useState<string | null | undefined>(undefined);
+  const [ovProjectId, setOvProjectId] = useState<string | null | undefined>(undefined);
+  const [ovRecurrence, setOvRecurrence] = useState<string | null | undefined>(undefined);
+
+  function resetOverrides() {
+    setOvPriority(undefined);
+    setOvDueDate(undefined);
+    setOvProjectId(undefined);
+    setOvRecurrence(undefined);
+  }
+
   useEffect(() => {
     if (parseTimer.current) clearTimeout(parseTimer.current);
-    if (!text.trim()) { setParsed(null); setParsing(false); return; }
+    if (!text.trim()) {
+      setParsed(null);
+      setParsing(false);
+      resetOverrides();
+      return;
+    }
     setParsing((prev) => prev || parsed === null);
     parseTimer.current = setTimeout(() => {
       try {
@@ -34,16 +59,43 @@ export default function MobileCaptureView({ projects, tags, onSave }: Props) {
     return () => { if (parseTimer.current) clearTimeout(parseTimer.current); };
   }, [text, projects, tags]);
 
+  // Effective values: overrides win over parsed.
+  const ePriority: Task["priority"] = ovPriority ?? parsed?.priority ?? "none";
+  const eDueDate = ovDueDate !== undefined ? ovDueDate : (parsed?.dueDate ?? null);
+  const eProjectId = ovProjectId !== undefined ? ovProjectId : (parsed?.project?.id ?? null);
+  const eRecurrence = ovRecurrence !== undefined ? ovRecurrence : (parsed?.recurrenceRule ?? null);
+  const suggestedProjectName = ovProjectId !== undefined ? null : (parsed?.suggestedProjectName ?? null);
+
+  function buildDraft(): ParsedInput {
+    const base = parsed ?? parseInput(text, projects, tags);
+    let project = base.project;
+    let suggested = base.suggestedProjectName;
+    if (ovProjectId !== undefined) {
+      project = ovProjectId ? (projects.find((p) => p.id === ovProjectId) ?? null) : null;
+      suggested = null;
+    }
+    return {
+      ...base,
+      priority: ePriority,
+      dueDate: eDueDate,
+      // A manually-picked date has no parsed time component.
+      dueTime: ovDueDate !== undefined ? null : base.dueTime,
+      project,
+      suggestedProjectName: suggested,
+      recurrenceRule: eRecurrence,
+    };
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!text.trim() || busy) return;
     setBusy(true);
     setError(null);
     try {
-      const draft = parsed ?? parseInput(text, projects, tags);
-      await onSave(draft);
+      await onSave(buildDraft());
       setText("");
       setParsed(null);
+      resetOverrides();
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     } catch (err) {
@@ -53,7 +105,11 @@ export default function MobileCaptureView({ projects, tags, onSave }: Props) {
     }
   }
 
-  const hasChips = parsed && (parsed.dueDate || parsed.project || parsed.suggestedProjectName || parsed.recurrenceRule || parsed.priority !== "none");
+  const showAdjust = text.trim().length > 0;
+  const projectChipColor = eProjectId ? "#16a34a" : suggestedProjectName ? "#d97706" : undefined;
+  const projectChipLabel = eProjectId
+    ? (projects.find((p) => p.id === eProjectId)?.name ?? "Project")
+    : suggestedProjectName;
 
   return (
     <div style={styles.shell}>
@@ -68,34 +124,97 @@ export default function MobileCaptureView({ projects, tags, onSave }: Props) {
           style={styles.input}
           autoFocus
         />
-        {parsing && !hasChips ? (
-          <div style={styles.parsingHint}>Parsing…</div>
-        ) : null}
-        {hasChips ? (
+
+        {parsing && !parsed ? <div style={styles.parsingHint}>Parsing…</div> : null}
+
+        {/* Glanceable summary of the effective values */}
+        {showAdjust ? (
           <div style={styles.chips}>
-            {parsed!.title !== text.trim() && (
-              <Chip label={parsed!.title} color="var(--text-secondary)" />
-            )}
-            {parsed!.dueDate && (
-              <Chip label={friendlyDue(parsed!.dueDate, parsed!.dueTime) ?? parsed!.dueDate} color="#0284c7" />
-            )}
-            {parsed!.recurrenceRule && (
-              <Chip label={parsed!.recurrenceRule} color="#7c3aed" />
-            )}
-            {(parsed!.project ?? parsed!.suggestedProjectName) && (
+            {eDueDate ? (
+              <Chip label={friendlyDue(eDueDate, ovDueDate !== undefined ? null : parsed?.dueTime ?? null) ?? eDueDate} color="#0284c7" />
+            ) : null}
+            {eRecurrence ? <Chip label={eRecurrence} color="#7c3aed" /> : null}
+            {projectChipLabel ? <Chip label={projectChipLabel} color={projectChipColor!} /> : null}
+            {ePriority !== "none" ? (
               <Chip
-                label={(parsed!.project?.name ?? parsed!.suggestedProjectName)!}
-                color={parsed!.project ? "#16a34a" : "#d97706"}
+                label={ePriority === "high" ? "!! High" : ePriority === "medium" ? "! Medium" : "~ Low"}
+                color={ePriority === "high" ? "#dc2626" : ePriority === "medium" ? "#d97706" : "#6b7280"}
               />
-            )}
-            {parsed!.priority !== "none" && (
-              <Chip
-                label={parsed!.priority === "high" ? "!! High" : parsed!.priority === "medium" ? "! Medium" : "~ Low"}
-                color={parsed!.priority === "high" ? "#dc2626" : parsed!.priority === "medium" ? "#d97706" : "#6b7280"}
-              />
-            )}
+            ) : null}
           </div>
         ) : null}
+
+        {/* Editable controls */}
+        {showAdjust ? (
+          <div style={styles.adjust}>
+            <div style={styles.adjustRow}>
+              <span style={styles.adjustLabel}>Priority</span>
+              <div style={styles.segment}>
+                {PRIORITY_CHOICES.map((choice) => {
+                  const active = ePriority === choice.value;
+                  return (
+                    <button
+                      key={choice.value}
+                      type="button"
+                      onClick={() => setOvPriority(choice.value)}
+                      style={{
+                        ...styles.segmentButton,
+                        background: active ? "var(--accent)" : "transparent",
+                        color: active ? "#fff" : "var(--text-secondary)",
+                      }}
+                    >
+                      {choice.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={styles.adjustRow}>
+              <span style={styles.adjustLabel}>Due</span>
+              <div style={styles.adjustControl}>
+                <input
+                  type="date"
+                  value={eDueDate ?? ""}
+                  onChange={(e) => setOvDueDate(e.target.value || null)}
+                  style={styles.control}
+                />
+                {eDueDate ? (
+                  <button type="button" onClick={() => setOvDueDate(null)} style={styles.clearButton} aria-label="Clear due date">
+                    ✕
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div style={styles.adjustRow}>
+              <span style={styles.adjustLabel}>Project</span>
+              <select
+                value={eProjectId ?? ""}
+                onChange={(e) => setOvProjectId(e.target.value || null)}
+                style={styles.control}
+              >
+                <option value="">{suggestedProjectName ? `New: ${suggestedProjectName}` : "No project"}</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {eRecurrence ? (
+              <div style={styles.adjustRow}>
+                <span style={styles.adjustLabel}>Repeats</span>
+                <div style={styles.adjustControl}>
+                  <span style={styles.recurrenceValue}>{eRecurrence}</span>
+                  <button type="button" onClick={() => setOvRecurrence(null)} style={styles.clearButton} aria-label="Clear recurrence">
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         {error ? <div style={styles.error}>{error}</div> : null}
         <button type="submit" disabled={busy || !text.trim()} style={styles.button}>
           {busy ? "Saving…" : "Add task"}
@@ -161,6 +280,81 @@ const styles: Record<string, CSSProperties> = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+  },
+  adjust: {
+    display: "grid",
+    gap: 10,
+    padding: "14px",
+    borderRadius: 16,
+    background: "var(--surface-glass)",
+    border: "1px solid var(--surface-border-accent)",
+  },
+  adjustRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+  },
+  adjustLabel: {
+    width: 64,
+    flexShrink: 0,
+    fontSize: 13,
+    color: "var(--text-tertiary)",
+  },
+  adjustControl: {
+    flex: 1,
+    minWidth: 0,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  segment: {
+    flex: 1,
+    display: "flex",
+    gap: 4,
+    padding: 3,
+    borderRadius: 10,
+    background: "var(--bg-secondary)",
+    border: "1px solid var(--border-subtle)",
+  },
+  segmentButton: {
+    flex: 1,
+    padding: "6px 0",
+    borderRadius: 7,
+    border: "none",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "inherit",
+  },
+  control: {
+    flex: 1,
+    minWidth: 0,
+    padding: "9px 10px",
+    borderRadius: 10,
+    border: "1px solid var(--border-default)",
+    background: "var(--bg-secondary)",
+    color: "var(--text-primary)",
+    fontSize: 14,
+    fontFamily: "inherit",
+    outline: "none",
+    boxSizing: "border-box",
+  },
+  clearButton: {
+    flexShrink: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    border: "1px solid var(--border-default)",
+    background: "transparent",
+    color: "var(--text-secondary)",
+    fontSize: 13,
+    cursor: "pointer",
+    fontFamily: "inherit",
+  },
+  recurrenceValue: {
+    flex: 1,
+    fontSize: 14,
+    color: "var(--text-primary)",
   },
   confirmation: {
     padding: "10px 14px",
