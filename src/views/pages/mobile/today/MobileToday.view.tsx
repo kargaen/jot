@@ -1,7 +1,9 @@
+import { useState } from "react";
 import type { CSSProperties } from "react";
 import type { TaskWithTags } from "../../../../models/shared";
 import { isDueToday, isOverdue, isUpcoming } from "../../../../models/tasks/taskVisibility";
 import { friendlyDue } from "../../../../models/tasks/taskPresentation";
+import { randomRelax } from "../../../../utils/presentation/relax";
 import MobileTaskList, { type TaskListGroup } from "../components/MobileTaskList.view";
 
 interface Props {
@@ -12,6 +14,7 @@ interface Props {
 
 export default function MobileTodayView({ tasks, loading, onComplete }: Props) {
   const today = new Date().toISOString().split("T")[0];
+  const [relax] = useState(randomRelax);
 
   const overdue = tasks.filter((t) => isOverdue(t, today));
   const dueToday = tasks.filter((t) => isDueToday(t, today));
@@ -24,9 +27,10 @@ export default function MobileTodayView({ tasks, loading, onComplete }: Props) {
 
   if (overdue.length === 0 && dueToday.length === 0) {
     return (
-      <div style={styles.empty}>
-        <span style={styles.emptyIcon}>✓</span>
-        <span style={styles.emptyLabel}>All clear for today</span>
+      <div style={styles.clear}>
+        <img src={relax.image} alt="" style={styles.clearImage} />
+        <span style={styles.clearTitle}>All clear for today</span>
+        <span style={styles.clearQuote}>{relax.quote}</span>
         {nextUpcoming ? (
           <div style={styles.nextPeek}>
             <span style={styles.nextLabel}>Next</span>
@@ -90,6 +94,35 @@ const styles: Record<string, CSSProperties> = {
   emptyLabel: {
     fontSize: 14,
     fontWeight: 500,
+  },
+  clear: {
+    minHeight: "60dvh",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: "24px 28px",
+  },
+  clearImage: {
+    width: "100%",
+    maxWidth: 320,
+    height: 180,
+    objectFit: "cover",
+    borderRadius: 18,
+    marginBottom: 12,
+  },
+  clearTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: "var(--text-primary)",
+  },
+  clearQuote: {
+    fontSize: 13,
+    color: "var(--text-tertiary)",
+    textAlign: "center",
+    lineHeight: 1.5,
+    maxWidth: 280,
   },
   nextPeek: {
     marginTop: 16,
