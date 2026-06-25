@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import type { TaskWithTags } from "../../../../models/shared";
 import { isUpcoming } from "../../../../models/tasks/taskVisibility";
 import { friendlyDue } from "../../../../models/tasks/taskPresentation";
-import MobileTaskRow from "../components/MobileTaskRow.view";
+import MobileTaskList, { type TaskListGroup } from "../components/MobileTaskList.view";
 
 interface Props {
   tasks: TaskWithTags[];
@@ -11,13 +11,7 @@ interface Props {
   onOpenTask: (id: string) => void;
 }
 
-interface DateGroup {
-  key: string;
-  label: string;
-  tasks: TaskWithTags[];
-}
-
-function buildGroups(tasks: TaskWithTags[], today: string): DateGroup[] {
+function buildGroups(tasks: TaskWithTags[], today: string): TaskListGroup[] {
   const upcoming = tasks.filter((t) => isUpcoming(t, today));
   const order: string[] = [];
   const byDate = new Map<string, TaskWithTags[]>();
@@ -55,35 +49,10 @@ export default function MobileUpcomingView({ tasks, loading, onComplete, onOpenT
     );
   }
 
-  return (
-    <div style={styles.list}>
-      {groups.map((group) => (
-        <div key={group.key} style={styles.section}>
-          <div style={styles.sectionHeader}>{group.label}</div>
-          {group.tasks.map((task) => (
-            <MobileTaskRow key={task.id} task={task} onComplete={onComplete} onOpen={onOpenTask} />
-          ))}
-        </div>
-      ))}
-    </div>
-  );
+  return <MobileTaskList groups={groups} onComplete={onComplete} onOpenTask={onOpenTask} />;
 }
 
 const styles: Record<string, CSSProperties> = {
-  list: {
-    padding: "16px 0 32px",
-  },
-  section: {
-    marginBottom: 8,
-  },
-  sectionHeader: {
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-    color: "var(--text-tertiary)",
-    padding: "8px 20px 6px",
-  },
   empty: {
     minHeight: "60dvh",
     display: "flex",

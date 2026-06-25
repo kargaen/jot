@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import type { TaskWithTags } from "../../../../models/shared";
 import { isDueToday, isOverdue, isUpcoming } from "../../../../models/tasks/taskVisibility";
 import { friendlyDue } from "../../../../models/tasks/taskPresentation";
-import MobileTaskRow from "../components/MobileTaskRow.view";
+import MobileTaskList, { type TaskListGroup } from "../components/MobileTaskList.view";
 
 interface Props {
   tasks: TaskWithTags[];
@@ -44,31 +44,15 @@ export default function MobileTodayView({ tasks, loading, onComplete }: Props) {
     );
   }
 
-  return (
-    <div style={styles.list}>
-      {overdue.length > 0 && (
-        <Section label="Overdue" tasks={overdue} onComplete={onComplete} />
-      )}
-      {dueToday.length > 0 && (
-        <Section label="Today" tasks={dueToday} onComplete={onComplete} />
-      )}
-      {nextUpcoming ? <UpcomingPeek task={nextUpcoming} more={upcoming.length - 1} /> : null}
-    </div>
-  );
-}
+  const groups: TaskListGroup[] = [];
+  if (overdue.length > 0) groups.push({ key: "overdue", label: "Overdue", tasks: overdue });
+  if (dueToday.length > 0) groups.push({ key: "today", label: "Today", tasks: dueToday });
 
-function Section({ label, tasks, onComplete }: {
-  label: string;
-  tasks: TaskWithTags[];
-  onComplete: (id: string) => void;
-}) {
   return (
-    <div style={styles.section}>
-      <div style={styles.sectionHeader}>{label}</div>
-      {tasks.map((task) => (
-        <MobileTaskRow key={task.id} task={task} onComplete={onComplete} />
-      ))}
-    </div>
+    <>
+      <MobileTaskList groups={groups} onComplete={onComplete} />
+      {nextUpcoming ? <UpcomingPeek task={nextUpcoming} more={upcoming.length - 1} /> : null}
+    </>
   );
 }
 
@@ -90,20 +74,6 @@ function UpcomingPeek({ task, more }: { task: TaskWithTags; more: number }) {
 }
 
 const styles: Record<string, CSSProperties> = {
-  list: {
-    padding: "16px 0 32px",
-  },
-  section: {
-    marginBottom: 8,
-  },
-  sectionHeader: {
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-    color: "var(--text-tertiary)",
-    padding: "8px 20px 6px",
-  },
   empty: {
     minHeight: "60dvh",
     display: "flex",
