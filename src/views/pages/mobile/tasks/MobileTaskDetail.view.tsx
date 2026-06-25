@@ -180,6 +180,17 @@ export default function MobileTaskDetailView({
           </Field>
         </div>
 
+        {task.tags && task.tags.length > 0 ? (
+          <div style={styles.tags}>
+            <div style={styles.sectionLabel}>Tags</div>
+            <div style={styles.tagChips}>
+              {task.tags.map((tag) => (
+                <span key={tag.id} style={styles.tagChip}>{tag.name}</span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div style={styles.notes}>
           <EditorContent editor={editor} />
         </div>
@@ -332,6 +343,23 @@ const styles: Record<string, CSSProperties> = {
     cursor: "pointer",
     fontFamily: "inherit",
     flexShrink: 0,
+  },
+  tags: {
+    marginBottom: 24,
+  },
+  tagChips: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  tagChip: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: "var(--text-secondary)",
+    background: "var(--surface-glass)",
+    border: "1px solid var(--border-subtle)",
+    borderRadius: 9,
+    padding: "4px 10px",
   },
   notes: {
     padding: "12px 14px",
