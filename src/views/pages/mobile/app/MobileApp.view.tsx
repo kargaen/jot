@@ -38,13 +38,17 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
     if (activeTab === "logbook") void loadLogbook();
   }, [activeTab, loadLogbook]);
 
-  async function handleComplete(id: string) {
+  function showCompletionToast() {
     const today = new Date().toISOString().split("T")[0];
     if (completedRef.current.date !== today) completedRef.current = { date: today, count: 0 };
     completedRef.current.count += 1;
     setToast({ quote: randomCompletionMessage(), count: completedRef.current.count });
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2400);
+  }
+
+  async function handleComplete(id: string) {
+    showCompletionToast();
     await completeTask(id);
   }
 
@@ -123,6 +127,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
           allTags={appData.tags}
           onUpdated={appData.refresh}
           onBack={() => { setSelectedTaskId(null); setActiveTab("tasks"); }}
+          onCompleted={() => { showCompletionToast(); setSelectedTaskId(null); setActiveTab("tasks"); }}
         />
       </div>
     );

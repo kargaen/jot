@@ -10,6 +10,7 @@ interface Props {
   allTags: Tag[];
   onUpdated: () => void;
   onBack: () => void;
+  onCompleted: () => void;
 }
 
 const PRIORITY_OPTIONS = [
@@ -25,6 +26,7 @@ export default function MobileTaskDetailView({
   areas,
   onUpdated,
   onBack,
+  onCompleted,
 }: Props) {
   const {
     title,
@@ -56,7 +58,7 @@ export default function MobileTaskDetailView({
     handleCompleteSubtask,
     openTaskLink,
     normalizedLink,
-  } = useTaskDetail({ task, projects, areas, onUpdated, onCompleted: onBack });
+  } = useTaskDetail({ task, projects, areas, onUpdated, onCompleted });
 
   const areaFromProject = !!project;
 
