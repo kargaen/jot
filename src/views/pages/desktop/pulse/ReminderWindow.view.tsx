@@ -13,6 +13,7 @@ import {
   loadThemePreference,
 } from "../../../../utils/presentation/theme";
 import { loadHiddenAreas } from "../../../../utils/preferences/hiddenAreas";
+import { randomRelax } from "../../../../utils/presentation/relax";
 import Toggle from "../../../components/ui/Toggle.view";
 
 const WINDOW_WIDTH  = 250;
@@ -24,22 +25,6 @@ const PULSE_THRESHOLD = 10;
 const FALLBACK_WINDOW_HEIGHT = 480;
 const EMPTY_AUTO_DURATION = 30;
 const CLEARED_DURATION = 10;
-const RELAX_IMAGES = [
-  "/zen-beach1.png",
-  "/zen-beach2.png",
-  "/zen-beach3.png",
-  "/zen-beach4.png",
-  "/zen-beach5.png",
-  "/zen-beach6.png",
-  "/zen-beach7.png",
-];
-const RELAX_QUOTES = [
-  "Enjoy the quiet. It counts too.",
-  "No rush. The day has room.",
-  "Clear skies, clear list.",
-  "A quiet Pulse is still progress.",
-  "Nothing due right now. Breathe.",
-];
 
 function loadDuration(): number {
   return parseInt(localStorage.getItem("jot_reminder_duration") ?? "180", 10);
@@ -263,10 +248,7 @@ export default function ReminderWindow() {
   const previousPulseCount = useRef<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(duration.current);
   const [paused,      setPaused]      = useState(false);
-  const [relax] = useState(() => ({
-    image: RELAX_IMAGES[Math.floor(Math.random() * RELAX_IMAGES.length)],
-    quote: RELAX_QUOTES[Math.floor(Math.random() * RELAX_QUOTES.length)],
-  }));
+  const [relax] = useState(randomRelax);
 
   // Inject pulse keyframe
   useEffect(() => {

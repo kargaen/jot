@@ -1,34 +1,6 @@
 import { projectColor, spaceColor } from "../../../utils/presentation/colors";
+import { completionMessage } from "../../../utils/presentation/completionMessage";
 import type { Area, Project, TaskWithTags } from "../../../models/shared";
-
-const COMPLETION_MESSAGES = [
-  "Executed with precision",
-  "Future you is grateful",
-  "One less thing standing between you and your goals",
-  "That's what momentum looks like",
-  "You showed up and delivered",
-  "Done is a beautiful word",
-  "Another one bites the dust",
-  "Quietly unstoppable",
-  "Consistency is the new talent — nice work",
-  "You make it look easy",
-  "That's exactly how it's done",
-  "Small win, real progress",
-  "Crossed off. Moving forward",
-  "Effort acknowledged, result delivered",
-  "The satisfaction of done",
-  "You didn't wait for perfect — you just did it",
-  "Checked. What's next?",
-  "Tasks fear you",
-  "Done before most people started",
-  "This is what a good day is made of",
-];
-
-function completionMessage(taskId: string): string {
-  let h = 5381;
-  for (let i = 0; i < taskId.length; i++) h = ((h << 5) + h + taskId.charCodeAt(i)) >>> 0;
-  return COMPLETION_MESSAGES[h % COMPLETION_MESSAGES.length];
-}
 
 function formatCompletedAt(iso: string): string {
   const d = new Date(iso);
