@@ -39,6 +39,30 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
     if (activeTab === "logbook") void loadLogbook();
   }, [activeTab, loadLogbook]);
 
+  // Android hardware back: unwind in-app navigation (open menu, task detail,
+  // non-default tab) one step per press before letting the system exit.
+  const backStateRef = useRef({ menuOpen, selectedTaskId, activeTab });
+  backStateRef.current = { menuOpen, selectedTaskId, activeTab };
+  useEffect(() => {
+    window.history.pushState({ jotNav: true }, "");
+    const onPopState = () => {
+      const state = backStateRef.current;
+      let handled = true;
+      if (state.menuOpen) setMenuOpen(false);
+      else if (state.selectedTaskId) { setSelectedTaskId(null); setActiveTab("tasks"); }
+      else if (state.activeTab !== "today") setActiveTab("today");
+      else handled = false;
+      if (handled) {
+        window.history.pushState({ jotNav: true }, "");
+      } else {
+        window.removeEventListener("popstate", onPopState);
+        window.history.back();
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   function showCompletionToast() {
     const today = new Date().toISOString().split("T")[0];
     if (completedRef.current.date !== today) completedRef.current = { date: today, count: 0 };
