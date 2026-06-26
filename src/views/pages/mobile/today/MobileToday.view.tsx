@@ -4,6 +4,7 @@ import type { TaskWithTags } from "../../../../models/shared";
 import { isDueToday, isOverdue, isUpcoming } from "../../../../models/tasks/taskVisibility";
 import { friendlyDue } from "../../../../models/tasks/taskPresentation";
 import { randomRelax } from "../../../../utils/presentation/relax";
+import TaskIcon from "../components/TaskIcon.view";
 import MobileTaskList, { type TaskListGroup } from "../components/MobileTaskList.view";
 
 interface Props {
@@ -35,8 +36,7 @@ export default function MobileTodayView({ tasks, loading, onComplete }: Props) {
           <div style={styles.nextPeek}>
             <span style={styles.nextLabel}>Next</span>
             <span style={styles.nextTitle}>
-              {nextUpcoming.icon ? `${nextUpcoming.icon} ` : ""}
-              {nextUpcoming.title}
+              <TaskIcon name={nextUpcoming.icon} size={13} />{nextUpcoming.title}
             </span>
             <span style={styles.nextDate}>
               {friendlyDue(nextUpcoming.due_date ?? nextUpcoming.scheduled_date, nextUpcoming.due_time)}
@@ -66,7 +66,7 @@ function UpcomingPeek({ task, more }: { task: TaskWithTags; more: number }) {
     <div style={styles.peek}>
       <span style={styles.peekLabel}>Next up</span>
       <span style={styles.peekTitle}>
-        {task.icon ? `${task.icon} ` : ""}{task.title}
+        <TaskIcon name={task.icon} size={13} />{task.title}
       </span>
       {date ? (
         <span style={styles.peekMeta}>

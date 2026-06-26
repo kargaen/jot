@@ -3,6 +3,7 @@ import type { CSSProperties, TouchEvent } from "react";
 import type { TaskWithTags } from "../../../../models/shared";
 import { isOverdue } from "../../../../models/tasks/taskVisibility";
 import { friendlyDue } from "../../../../models/tasks/taskPresentation";
+import TaskIcon from "./TaskIcon.view";
 
 interface Props {
   task: TaskWithTags;
@@ -124,7 +125,7 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
         </button>
         <div style={styles.rowBody}>
           <div style={styles.rowTitle}>
-            {task.icon ? `${task.icon} ${task.title}` : task.title}
+            <TaskIcon name={task.icon} size={14} />{task.title}
           </div>
           {due ? (
             <div style={{ ...styles.rowMeta, color: overdue ? "#b91c1c" : "var(--text-tertiary)" }}>

@@ -1,3 +1,4 @@
+import { suggestIcon } from "../../utils/presentation/icons";
 import type { CreateTaskInput } from "../../services/backend/supabase.service";
 import type { Project, Task } from "../../models/shared";
 import {
@@ -41,7 +42,7 @@ export async function saveCreateTaskDraft(
   }
 
   const task = await dependencies.createTask(
-    buildCreateTaskInput(request, resolvedProjectId, null),
+    buildCreateTaskInput(request, resolvedProjectId, suggestIcon(request.title.trim())),
   );
 
   return {

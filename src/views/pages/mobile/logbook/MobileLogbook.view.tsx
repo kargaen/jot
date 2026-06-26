@@ -3,6 +3,7 @@ import type { CSSProperties, TouchEvent } from "react";
 import type { TaskWithTags } from "../../../../models/shared";
 import CompletionHeatmap from "../../../components/pulse/CompletionHeatmap.view";
 import { completionMessage } from "../../../../utils/presentation/completionMessage";
+import TaskIcon from "../components/TaskIcon.view";
 
 function completedTime(iso: string | null): string {
   if (!iso) return "";
@@ -131,7 +132,7 @@ function LogbookRow({ task, onRestore }: { task: TaskWithTags; onRestore: (id: s
         <span style={styles.check}>✓</span>
         <div style={styles.rowBody}>
           <span style={styles.title}>
-            {task.icon ? `${task.icon} ` : ""}{task.title}
+            <TaskIcon name={task.icon} size={14} />{task.title}
           </span>
           <span style={styles.message}>
             {completionMessage(task.id)}
