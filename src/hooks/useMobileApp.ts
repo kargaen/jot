@@ -141,7 +141,24 @@ export function useMobileAppData(userId: string | null) {
     }
   }
 
-  async function markComplete(id: string) { await completeTask(id); await refresh(); }
+  async function markComplete(id: string) {
+    // Optimistic: mark complete locally so it leaves the open lists immediately,
+    // then sync + quietly reconcile in the background (revert on failure).
+    const nowIso = new Date().toISOString();
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, status: "completed", completed_at: nowIso } : t,
+      ),
+    );
+    try {
+      await completeTask(id);
+    } catch (err) {
+      logger.error("mobile-app", "completeTask failed", err instanceof Error ? err.message : err);
+      await refresh();
+      return;
+    }
+    void refresh();
+  }
   async function archiveProject(id: string) { await closeProject(id); await refresh(); }
   async function editTask(id: string, fields: Parameters<typeof updateTask>[1]) {
     await updateTask(id, fields);
