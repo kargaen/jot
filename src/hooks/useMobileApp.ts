@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Area, AreaMember, Feedback, Project, ProjectMember, Tag, TaskWithTags } from "../models/shared";
+import type { Area, AreaMember, Project, ProjectMember, Tag, TaskWithTags } from "../models/shared";
 import {
   acceptInvite,
   acceptProjectInvite,
@@ -19,7 +19,6 @@ import {
   fetchAreas,
   fetchCompletionDates,
   fetchLogbookTasks,
-  fetchFeedback,
   fetchPendingInvites,
   fetchPendingProjectInvites,
   fetchProjects,
@@ -29,7 +28,6 @@ import {
   inviteMember,
   removeAreaMember,
   signOutEverywhere,
-  submitFeedback,
   updateArea,
   updatePassword,
   updateProject,
@@ -310,33 +308,6 @@ export function useMobileSharingSettings(areas: Area[], currentUserId: string) {
     handleInvite, handleAccept, handleDecline, handleRemove,
     handleAcceptProject, handleDeclineProject,
   };
-}
-
-// ── Feedback settings ─────────────────────────────────────────────────────────
-
-export function useMobileFeedbackSettings() {
-  const [items, setItems] = useState<Feedback[]>([]);
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    void fetchFeedback().then(setItems).catch((err: unknown) => { logger.warn("mobile-app", "fetchFeedback failed", err instanceof Error ? err.message : err); });
-  }, []);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!text.trim() || busy) return;
-    setBusy(true);
-    try {
-      const item = await submitFeedback(text.trim());
-      setItems((prev) => [item, ...prev]);
-      setText("");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return { items, text, setText, busy, handleSubmit };
 }
 
 // ── Account settings ──────────────────────────────────────────────────────────

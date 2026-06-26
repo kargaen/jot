@@ -3,14 +3,15 @@ import {
   useAreasTabActions,
   useSharingTab,
   useAccountTabActions,
-  useFeedbackTab,
 } from "../../../../hooks/usePreferences";
+import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { useAuth } from "../../../../hooks/useAuth";
 import type {
   Area,
-  Feedback,
   NlpLanguageMode,
 } from "../../../../models/shared";
+
+const JOT_ISSUES_URL = "https://github.com/kargaen/jot/issues";
 import { loadNlpLanguageMode, saveNlpLanguageMode } from "../../../../services/capture/nlpSettings.service";
 import { spaceColor } from "../../../../utils/presentation/colors";
 import {
@@ -79,7 +80,7 @@ export default function Preferences({
           {tab === "reminders" && <RemindersTab />}
           {tab === "appearance" && <AppearanceTab />}
           {tab === "capture" && <CaptureTab />}
-          {tab === "feedback" && <FeedbackTab currentUserId={user?.id ?? ""} />}
+          {tab === "feedback" && <FeedbackTab />}
           {tab === "account" && (
             <AccountTab user={user} signOut={signOut} />
           )}
@@ -580,95 +581,23 @@ function CaptureTab() {
   );
 }
 
-const STATUS_LABELS: Record<Feedback["status"], string> = {
-  new: "New",
-  reviewing: "Reviewing",
-  planned: "Planned",
-  in_progress: "In Progress",
-  done: "Done",
-  declined: "Declined",
-};
-const STATUS_COLORS: Record<Feedback["status"], string> = {
-  new: "#6b7280",
-  reviewing: "#d97706",
-  planned: "#3b82f6",
-  in_progress: "#8b5cf6",
-  done: "#16a34a",
-  declined: "#57534e",
-};
-
-function FeedbackTab({ currentUserId }: { currentUserId: string }) {
-  const { items, text, setText, busy, loading, handleSubmit } = useFeedbackTab();
-
+function FeedbackTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <p style={{ fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-        Ideas, bugs, feature requests — anything goes. You can see what others have submitted and track status.
+        Found a bug or have an idea? Feedback for Jot is tracked on GitHub. Open
+        an issue and we'll pick it up there.
       </p>
-
-      {/* Submit form */}
-      <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8 }}>
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Describe your idea or bug…"
-          style={{ ...inputStyle, flex: 1 }}
-        />
-        <button
-          type="submit"
-          disabled={busy || !text.trim()}
-          style={{
-            padding: "7px 16px", background: "var(--accent)", color: "#fff",
-            borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 500,
-            opacity: busy || !text.trim() ? 0.6 : 1, flexShrink: 0,
-          }}
-        >
-          {busy ? "Sending…" : "Submit"}
-        </button>
-      </form>
-
-      {/* Feedback list */}
-      {loading ? (
-        <div style={{ fontSize: 13, color: "var(--text-tertiary)", textAlign: "center", padding: "20px 0" }}>Loading…</div>
-      ) : items.length === 0 ? (
-        <div style={{ fontSize: 13, color: "var(--text-tertiary)", textAlign: "center", padding: "20px 0" }}>No feedback yet. Be the first!</div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {items.map((item) => (
-            <div
-              key={item.id}
-              style={{
-                padding: "10px 12px", borderRadius: "var(--radius-md)",
-                background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <span style={{
-                  fontSize: 11, fontWeight: 600, padding: "1px 7px", borderRadius: 10,
-                  background: `${STATUS_COLORS[item.status]}18`,
-                  color: STATUS_COLORS[item.status],
-                }}>
-                  {STATUS_LABELS[item.status]}
-                </span>
-                {item.user_id === currentUserId && (
-                  <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>You</span>
-                )}
-                <span style={{ fontSize: 10, color: "var(--text-tertiary)", marginLeft: "auto" }}>
-                  {new Date(item.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                </span>
-              </div>
-              <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.4 }}>
-                {item.text}
-              </div>
-              {item.admin_note && (
-                <div style={{ fontSize: 12, color: "var(--accent)", marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--border-subtle)", lineHeight: 1.4 }}>
-                  {item.admin_note}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      <button
+        onClick={() => void shellOpen(JOT_ISSUES_URL)}
+        style={{
+          padding: "8px 16px", background: "var(--accent)", color: "#fff",
+          borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 600,
+          alignSelf: "flex-start", cursor: "pointer",
+        }}
+      >
+        Open GitHub Issues
+      </button>
     </div>
   );
 }

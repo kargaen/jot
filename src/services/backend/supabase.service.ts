@@ -3,7 +3,6 @@ import type {
   Area,
   AreaMember,
   AssignablePerson,
-  Feedback,
   Project,
   ProjectMember,
   Tag,
@@ -727,23 +726,3 @@ export async function removeTaskTag(taskId: string, tagId: string): Promise<void
   if (error) logErr("removeTaskTag", error);
 }
 
-// ─── Feedback ────────────────────────────────────────────────────────────────
-
-export async function fetchFeedback(): Promise<Feedback[]> {
-  const { data, error } = await supabase
-    .from("feedback")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) logErr("fetchFeedback", error);
-  return data ?? [];
-}
-
-export async function submitFeedback(text: string): Promise<Feedback> {
-  const { data, error } = await supabase
-    .from("feedback")
-    .insert({ text })
-    .select()
-    .single();
-  if (error) logErr("submitFeedback", error);
-  return data;
-}

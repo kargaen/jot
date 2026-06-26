@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Area, AreaMember, Feedback, ProjectMember } from "../models/shared";
+import type { Area, AreaMember, ProjectMember } from "../models/shared";
 import { logger } from "../utils/observability/logger";
 import {
   acceptInvite,
@@ -9,13 +9,11 @@ import {
   declineProjectInvite,
   deleteArea,
   fetchAreaMembers,
-  fetchFeedback,
   fetchPendingInvites,
   fetchPendingProjectInvites,
   inviteMember,
   removeAreaMember,
   signOutEverywhere,
-  submitFeedback,
   updateArea,
   updatePassword,
 } from "../services/backend/supabase.service";
@@ -137,32 +135,3 @@ export function useAccountTabActions() {
   };
 }
 
-// ── FeedbackTab ───────────────────────────────────────────────────────────────
-
-export function useFeedbackTab() {
-  const [items, setItems] = useState<Feedback[]>([]);
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchFeedback()
-      .then(setItems)
-      .catch((err: unknown) => { logger.warn("preferences", "fetchFeedback failed", err instanceof Error ? err.message : err); })
-      .finally(() => setLoading(false));
-  }, []);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!text.trim() || busy) return;
-    setBusy(true);
-    try {
-      const item = await submitFeedback(text.trim());
-      setItems((prev) => [item, ...prev]);
-      setText("");
-    } catch {}
-    setBusy(false);
-  }
-
-  return { items, text, setText, busy, loading, handleSubmit };
-}
