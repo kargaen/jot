@@ -328,6 +328,7 @@ const styles: Record<string, CSSProperties> = {
   },
   scroll: {
     flex: 1,
+    minHeight: 0,
     overflowY: "auto",
     padding: "16px 20px calc(40px + env(safe-area-inset-bottom))",
   },

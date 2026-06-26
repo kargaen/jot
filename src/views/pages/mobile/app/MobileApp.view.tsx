@@ -389,6 +389,7 @@ const styles: Record<string, CSSProperties> = {
     paddingTop: "calc(16px + env(safe-area-inset-top))",
     borderBottom: "1px solid var(--border-subtle)",
     background: "var(--bg-primary)",
+    flexShrink: 0,
   },
   headerTitle: {
     fontSize: 22,
@@ -440,13 +441,15 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 14,
   },
   shell: {
-    minHeight: "100dvh",
+    height: "100dvh",
+    overflow: "hidden",
     display: "flex",
     flexDirection: "column",
     background: "var(--bg-primary)",
   },
   screen: {
     flex: 1,
+    minHeight: 0,
     overflowY: "auto",
   },
   subSwitch: {
@@ -455,6 +458,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "0 16px",
     borderBottom: "1px solid var(--border-subtle)",
     background: "var(--bg-primary)",
+    flexShrink: 0,
   },
   subSwitchItem: {
     padding: "10px 8px 9px",
@@ -516,6 +520,7 @@ const styles: Record<string, CSSProperties> = {
     background: "var(--surface-glass)",
     backdropFilter: "blur(12px)",
     paddingBottom: "env(safe-area-inset-bottom)",
+    flexShrink: 0,
   },
   tabButton: {
     flex: 1,
