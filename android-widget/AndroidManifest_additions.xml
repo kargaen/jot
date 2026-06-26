@@ -43,5 +43,5 @@
 
 <!-- strings.xml additions (res/values/strings.xml):
 <string name="pulse_widget_description">Shows today\'s tasks and overdue items</string>
-<string name="capture_widget_description">Quickly add a task or capture by voice</string>
+<string name="capture_widget_description">Tap to add a task — opens a fresh capture screen</string>
 -->

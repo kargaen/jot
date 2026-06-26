@@ -4,7 +4,7 @@
     <string name="pulse_widget_label">Daily Pulse</string>
     <string name="capture_widget_label">Quick Capture</string>
     <string name="pulse_widget_description">See today\'s focus, overdue work, and all-clear states at a glance.</string>
-    <string name="capture_widget_description">Jump straight into typing or voice capture from the home screen.</string>
+    <string name="capture_widget_description">Tap to add a task — opens a fresh capture screen.</string>
     <string name="text_capture_widget_label">Text Capture</string>
     <string name="voice_capture_widget_label">Voice Capture</string>
     <string name="text_capture_widget_description">Tap to type a quick thought - keyboard opens instantly.</string>

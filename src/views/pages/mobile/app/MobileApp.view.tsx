@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import type { CSSProperties } from "react";
 import type { ParsedInput } from "../../../../models/shared";
 import { randomCompletionMessage } from "../../../../utils/presentation/completionMessage";
@@ -30,6 +31,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [captureResetToken, setCaptureResetToken] = useState(0);
   const [toast, setToast] = useState<{ quote: string; count: number } | null>(null);
   const completedRef = useRef<{ date: string; count: number }>({ date: "", count: 0 });
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -38,6 +40,33 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   useEffect(() => {
     if (activeTab === "logbook") void loadLogbook();
   }, [activeTab, loadLogbook]);
+
+  // Widget launch: when opened from the quick-capture widget (cold or warm
+  // start), jump to a clean Capture tab. The pending action is consumed once.
+  useEffect(() => {
+    async function checkLaunchAction() {
+      try {
+        const action = await invoke<string | null>("take_mobile_launch_action");
+        if (action === "capture" || action === "voice") {
+          setSelectedTaskId(null);
+          setMenuOpen(false);
+          setActiveTab("capture");
+          setCaptureResetToken((token) => token + 1);
+        } else if (action === "pulse") {
+          setSelectedTaskId(null);
+          setActiveTab("today");
+        }
+      } catch {
+        // not on mobile / command unavailable — ignore
+      }
+    }
+    void checkLaunchAction();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void checkLaunchAction();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   // Android hardware back: unwind in-app navigation (open menu, task detail,
   // non-default tab) one step per press before letting the system exit.
@@ -233,6 +262,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
             projects={appData.projects}
             tags={appData.tags}
             onSave={handleCaptureSave}
+            resetToken={captureResetToken}
           />
         )}
         {activeTab === "settings" && (

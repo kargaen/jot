@@ -12,6 +12,8 @@ interface Props {
     parsed: ParsedInput,
     opts?: { description?: Record<string, unknown> | null },
   ) => Promise<void>;
+  // Bumped when opened fresh from the quick-capture widget — clears the form.
+  resetToken?: number;
 }
 
 const PRIORITY_CHOICES: { value: Task["priority"]; label: string }[] = [
@@ -21,7 +23,7 @@ const PRIORITY_CHOICES: { value: Task["priority"]; label: string }[] = [
   { value: "high", label: "High" },
 ];
 
-export default function MobileCaptureView({ projects, tags, onSave }: Props) {
+export default function MobileCaptureView({ projects, tags, onSave, resetToken }: Props) {
   const [text, setText] = useState("");
   const [parsed, setParsed] = useState<ParsedInput | null>(null);
   const [parsing, setParsing] = useState(false);
@@ -64,6 +66,15 @@ export default function MobileCaptureView({ projects, tags, onSave }: Props) {
     }, 120);
     return () => { if (parseTimer.current) clearTimeout(parseTimer.current); };
   }, [text, projects, tags]);
+
+  // Opened fresh from the widget — start with a clean form.
+  useEffect(() => {
+    if (!resetToken) return;
+    setText("");
+    setParsed(null);
+    resetOverrides();
+    setSplitLong(false);
+  }, [resetToken]);
 
   // Effective values: overrides win over parsed.
   const ePriority: Task["priority"] = ovPriority ?? parsed?.priority ?? "none";

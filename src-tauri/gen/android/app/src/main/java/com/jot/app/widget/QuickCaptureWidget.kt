@@ -27,26 +27,13 @@ class QuickCaptureWidget : AppWidgetProvider() {
         fun updateWidget(context: Context, appWidgetManager: AppWidgetManager, widgetId: Int) {
             val views = RemoteViews(context.packageName, R.layout.widget_quick_capture)
 
-            // Tap field → open app Capture tab with keyboard raised
+            // Tap the 1x1 tile → open a clean Capture tab in the app
             views.setOnClickPendingIntent(
                 R.id.capture_field,
                 PendingIntent.getActivity(
                     context, widgetId * 2,
                     Intent(context, mainActivity()).apply {
                         action = ACTION_OPEN_CAPTURE
-                        flags  = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    },
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                ),
-            )
-
-            // Tap mic → open Capture tab with voice input
-            views.setOnClickPendingIntent(
-                R.id.capture_button,
-                PendingIntent.getActivity(
-                    context, widgetId * 2 + 1,
-                    Intent(context, mainActivity()).apply {
-                        action = ACTION_OPEN_VOICE
                         flags  = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                     },
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
