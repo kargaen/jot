@@ -160,6 +160,9 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(function CreateTas
     parsed,
     saving,
     error,
+    longSplit,
+    splitLong,
+    setSplitLong,
     metaTitle,
     metaProjectName,
     metaDateText,
@@ -534,6 +537,35 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(function CreateTas
           </button>
         )}
       </div>
+
+      {longSplit && (
+        <label
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 8,
+            padding: "8px 14px 0",
+            fontSize: 12,
+            color: "var(--text-secondary)",
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={splitLong}
+            onChange={(e) => setSplitLong(e.target.checked)}
+            style={{ marginTop: 2, flexShrink: 0 }}
+          />
+          <span>
+            Long title — shorten it and move the rest into a note
+            {splitLong && (
+              <span style={{ display: "block", color: "var(--text-tertiary)", fontStyle: "italic", marginTop: 2 }}>
+                {longSplit.title}
+              </span>
+            )}
+          </span>
+        </label>
+      )}
 
       {error && (
         <div style={{ padding: "6px 14px 0", fontSize: 12, color: "#dc2626" }}>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import type { ParsedInput, Project, Tag, Task } from "../../../../models/shared";
 import { parseInput } from "../../../../services/capture/nlp.service";
-import { friendlyDue, splitLongCapture, textToDescriptionDoc } from "../../../../models/tasks/taskPresentation";
+import { friendlyDue, textToDescriptionDoc } from "../../../../models/tasks/taskPresentation";
 import Spinner from "../../../components/ui/Spinner.view";
 
 interface Props {
@@ -71,7 +71,7 @@ export default function MobileCaptureView({ projects, tags, onSave }: Props) {
   const eProjectId = ovProjectId !== undefined ? ovProjectId : (parsed?.project?.id ?? null);
   const eRecurrence = ovRecurrence !== undefined ? ovRecurrence : (parsed?.recurrenceRule ?? null);
   const suggestedProjectName = ovProjectId !== undefined ? null : (parsed?.suggestedProjectName ?? null);
-  const splittable = parsed ? splitLongCapture(parsed.title) : null;
+  const splittable = parsed?.longSplit ?? null;
 
   function buildDraft(): ParsedInput {
     const base = parsed ?? parseInput(text, projects, tags);

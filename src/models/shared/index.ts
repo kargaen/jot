@@ -106,6 +106,10 @@ export interface ParsedInput {
   suggestedTagNames: string[];
   recurrenceRule: string | null;
   projectMatchConfidence: number;
+  // When the title is long, a suggested split into a capped title and the
+  // remainder for the description (both keep literal "..." markers). Null
+  // otherwise. Detection lives in the NLP layer so all capture surfaces share it.
+  longSplit: { title: string; descriptionText: string } | null;
 }
 
 export type NlpLanguageMode = "auto" | "en" | "da";

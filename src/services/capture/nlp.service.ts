@@ -1,4 +1,5 @@
 import type { NlpLanguageMode, ParsedInput, Project, Tag } from "../../models/shared";
+import { splitLongCapture } from "../../models/tasks/taskPresentation";
 
 function toISODate(d: Date): string {
   const y = d.getFullYear();
@@ -1119,8 +1120,9 @@ export function parseInput(
     .replace(/\s*[,;:]+\s*$/, "")
     .trim();
 
+  const finalTitle = title || raw.trim();
   return {
-    title: title || raw.trim(),
+    title: finalTitle,
     project,
     suggestedProjectName: projResult.suggestedName,
     dueDate,
@@ -1130,6 +1132,7 @@ export function parseInput(
     suggestedTagNames: tagResult.newTagNames,
     recurrenceRule,
     projectMatchConfidence: projResult.confidence,
+    longSplit: splitLongCapture(finalTitle),
   };
 }
 

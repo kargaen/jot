@@ -4,6 +4,7 @@ import { saveCreateTaskDraft } from "../controllers/tasks/saveCreateTask.control
 import { createProject, createTask } from "../services/backend/supabase.service";
 import { loadNlpLanguageMode } from "../services/capture/nlpSettings.service";
 import { parseInput } from "../services/capture/nlp.service";
+import { splitLongCapture, textToDescriptionDoc } from "../models/tasks/taskPresentation";
 import { logger } from "../utils/observability/logger";
 
 export interface UseCreateTaskOptions {
@@ -51,6 +52,7 @@ export function useCreateTask({
   const [metaRecurrenceRule, setMetaRecurrenceRule] = useState<string | null>(
     null,
   );
+  const [splitLong, setSplitLong] = useState(false);
 
   const userEditedRef = useRef<Set<string>>(new Set());
   const parseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,6 +123,7 @@ export function useCreateTask({
     setInput("");
     setParsed(null);
     setError(null);
+    setSplitLong(false);
     resetAllFields();
   }
 
@@ -180,6 +183,8 @@ export function useCreateTask({
     const titleToSave = metaTitle.trim() || input.trim();
     if (!titleToSave || saving) return;
 
+    const split = splitLong ? splitLongCapture(titleToSave) : null;
+
     setSaving(true);
     setError(null);
 
@@ -194,7 +199,8 @@ export function useCreateTask({
         { createProject, createTask },
         {
           projects,
-          title: titleToSave,
+          title: split ? split.title : titleToSave,
+          description: split ? textToDescriptionDoc(split.descriptionText) : null,
           projectName: metaProjectName,
           parentTaskId: parentTaskId ?? null,
           projectId: projectId ?? null,
@@ -225,11 +231,16 @@ export function useCreateTask({
     }
   }
 
+  const longSplit = splitLongCapture(metaTitle.trim() || input.trim());
+
   return {
     input,
     parsed,
     saving,
     error,
+    longSplit,
+    splitLong,
+    setSplitLong,
     metaTitle,
     metaProjectName,
     metaDateText,
