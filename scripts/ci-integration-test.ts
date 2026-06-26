@@ -120,28 +120,6 @@ async function run() {
     }
   } catch (e) { console.log(`  [diag] create_area RPC threw: ${errMsg(e)}`); }
 
-  // ── DIAG: live DIRECT-table insert probe via feedback ──────────────────────
-  // feedback has user_id DEFAULT auth.uid() and INSERT policy
-  // WITH CHECK (auth.uid() = user_id), TO authenticated. Unlike create_area,
-  // this is NOT SECURITY DEFINER, so it exercises the exact live
-  // authenticated + RLS path that the areas insert uses. If THIS succeeds, a
-  // direct authenticated insert whose WITH CHECK tests auth.uid() works live,
-  // and the areas failure is areas-specific. If THIS also fails with 42501,
-  // the live direct-insert auth.uid() path is broken across the board.
-  _nextLogLabel = "feedback INSERT (direct-table probe)";
-  try {
-    const { data, error } = await db
-      .from("feedback")
-      .insert({ text: "rls direct-insert probe" })
-      .select("id,user_id")
-      .single();
-    if (error) throw error;
-    console.log(`  [diag] feedback direct insert OK: stored user_id=${data.user_id} match=${data.user_id === userId}`);
-    await db.from("feedback").delete().eq("id", data.id);
-  } catch (e) {
-    console.log(`  [diag] feedback direct insert FAILED: ${errMsg(e)}`);
-  }
-
   // ── DIAG: isolate INSERT WITH CHECK from the RETURNING/SELECT policy ────────
   // .insert().select() does INSERT ... RETURNING, which must ALSO satisfy the
   // SELECT policy. areas_select/tasks_select use can_access_area/can_access_task;
@@ -159,17 +137,6 @@ async function run() {
       await db.from("areas").delete().eq("name", "CI diag no-return area").eq("user_id", userId);
     }
   } catch (e) { console.log(`  [diag] areas bare insert threw: ${errMsg(e)}`); }
-
-  // Does an explicit (client-sent) user_id break feedback the way it might areas?
-  try {
-    const { data, error } = await db
-      .from("feedback")
-      .insert({ text: "rls explicit-user probe", user_id: userId })
-      .select("id,user_id")
-      .single();
-    console.log(`  [diag] feedback insert w/ explicit user_id + RETURNING: ${error ? "FAILED " + errMsg(error) : "OK user_id=" + data.user_id}`);
-    if (!error) await db.from("feedback").delete().eq("id", data.id);
-  } catch (e) { console.log(`  [diag] feedback explicit-user probe threw: ${errMsg(e)}`); }
 
   // ── 1. Create area ─────────────────────────────────────────────────────────
   let areaId: string | undefined;
