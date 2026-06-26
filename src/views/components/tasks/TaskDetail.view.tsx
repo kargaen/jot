@@ -210,6 +210,22 @@ export default function TaskDetail({
   });
 
   const IconComponent = getTaskDetailIconComponent(icon, LucideIcons);
+
+  // Title: grow with content but clamp to 3 lines, with a show more/less toggle.
+  const TITLE_LINE_HEIGHT = 26;
+  const TITLE_COLLAPSED_MAX = TITLE_LINE_HEIGHT * 3;
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+  const [titleExpanded, setTitleExpanded] = useState(false);
+  const [titleOverflows, setTitleOverflows] = useState(false);
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const full = el.scrollHeight;
+    setTitleOverflows(full > TITLE_COLLAPSED_MAX + 1);
+    el.style.height = `${titleExpanded ? full : Math.min(full, TITLE_COLLAPSED_MAX)}px`;
+  }, [title, titleExpanded, TITLE_COLLAPSED_MAX]);
+
   const projectOptions = [
     { value: "", label: "No project", color: "var(--text-tertiary)" },
     ...projects.map((item) => ({ value: item.id, label: item.name })),
@@ -295,7 +311,7 @@ export default function TaskDetail({
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             gap: 12,
             marginBottom: 24,
           }}
@@ -319,20 +335,47 @@ export default function TaskDetail({
               <span style={{ fontSize: 16, color: "var(--text-tertiary)" }}>○</span>
             )}
           </div>
-          <input
-            value={title}
-            onChange={(event) => updateTitle(event.target.value)}
-            style={{
-              flex: 1,
-              fontSize: 20,
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              fontFamily: "inherit",
-            }}
-          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <textarea
+              ref={titleRef}
+              value={title}
+              onChange={(event) => updateTitle(event.target.value)}
+              rows={1}
+              style={{
+                width: "100%",
+                fontSize: 20,
+                fontWeight: 600,
+                color: "var(--text-primary)",
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                fontFamily: "inherit",
+                lineHeight: `${TITLE_LINE_HEIGHT}px`,
+                resize: "none",
+                overflow: "hidden",
+                display: "block",
+                boxSizing: "border-box",
+              }}
+            />
+            {titleOverflows && (
+              <button
+                type="button"
+                onClick={() => setTitleExpanded((value) => !value)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  marginTop: 2,
+                  fontSize: 12,
+                  fontFamily: "inherit",
+                  color: "var(--text-tertiary)",
+                  cursor: "pointer",
+                }}
+              >
+                {titleExpanded ? "Show less" : "Show more"}
+              </button>
+            )}
+          </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", marginBottom: 24 }}>
