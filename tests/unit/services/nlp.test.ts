@@ -336,6 +336,10 @@ const groups: TestGroup[] = [
       { input: "#Shopping buy groceries",      expected: { title: "buy groceries",        projectName: "Shopping" } },
       { input: "#Mit Projekt implement feature", expected: { title: "implement feature",  projectName: "Mit Projekt" } },
       { input: "#Jot Project design new UI",   expected: { title: "design new UI",        projectName: "Jot Project" } },
+      // Periods must not break #project capture (regression)
+      { input: "fix bug #Jot.",                expected: { title: "fix bug.",             projectName: "Jot" } },
+      { input: "#Jot fix the bug.",            expected: { title: "fix the bug.",         projectName: "Jot" } },
+      { input: "Call John. #Jot",              expected: { title: "Call John.",           projectName: "Jot" } },
     ],
   },
 

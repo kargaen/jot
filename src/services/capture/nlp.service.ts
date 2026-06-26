@@ -942,7 +942,7 @@ export function parseProject(
   // shorten by one word at a time until we find a matching project — this prevents
   // "Buy milk #Jot fix bug" from consuming "Jot fix bug" as the project name.
   const hashMatch = input.match(
-    /#([\w\sæøåÆØÅ\d-]+?)(?=\s[@!]|\s(?:due|at|kl|i\s(?:dag|morgen|overmorgen)|næste|every|hver)|$)/i,
+    /#([\w\sæøåÆØÅ\d-]+?)(?=\s[@!]|\s(?:due|at|kl|i\s(?:dag|morgen|overmorgen)|næste|every|hver)|\s*[.,;:!?]|$)/i,
   );
   if (hashMatch) {
     const words = hashMatch[1].trim().split(/\s+/);
@@ -1114,6 +1114,7 @@ export function parseInput(
 
   const title = working
     .replace(/\s+/g, " ")
+    .replace(/\s+([.,;:!?])/g, "$1")
     .replace(/^\s*[,;:]+\s*/, "")
     .replace(/\s*[,;:]+\s*$/, "")
     .trim();
