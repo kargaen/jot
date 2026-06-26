@@ -5,7 +5,6 @@ import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
-import { suggestIcon } from "../utils/presentation/icons";
 import { logger } from "../utils/observability/logger";
 import type {
   Area,
@@ -46,7 +45,7 @@ export function useTaskDetail({
   onCompleted,
 }: UseTaskDetailOptions) {
   const [title, setTitle] = useState(task.title);
-  const [icon, setIcon] = useState<string | null>(task.icon);
+  const [icon] = useState<string | null>(task.icon);
   const [projectId, setProjectId] = useState<string | null>(task.project_id);
   const [areaId, setAreaId] = useState<string | null>(task.area_id);
   const [priority, setPriority] = useState(task.priority);
@@ -68,7 +67,6 @@ export function useTaskDetail({
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveRef = useRef<() => void>(() => {});
   const scheduleRef = useRef(() => {});
-  const iconSuggested = useRef(task.icon);
   const resetSavedStateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const project = projects.find((item) => item.id === projectId);
@@ -180,14 +178,6 @@ export function useTaskDetail({
       saveRef.current();
     };
   }, []);
-
-  useEffect(() => {
-    if (icon === iconSuggested.current) {
-      const suggested = suggestIcon(title);
-      setIcon(suggested);
-      iconSuggested.current = suggested;
-    }
-  }, [title, icon]);
 
   const refreshSubtasks = useCallback(async () => {
     const updated = await loadTaskDetailSubtasks(task.id);
