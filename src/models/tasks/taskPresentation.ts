@@ -9,6 +9,31 @@ function todayIso() {
   ].join("-");
 }
 
+// When a captured title is very long, optionally split it into a capped title
+// (suffixed "...") and the remainder (prefixed "...") for the description. The
+// "..." markers are kept literally so the relationship is visible when editing.
+export function splitLongCapture(
+  text: string,
+  maxChars = 60,
+): { title: string; descriptionText: string } | null {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxChars) return null;
+  let cut = trimmed.lastIndexOf(" ", maxChars);
+  if (cut < Math.floor(maxChars * 0.5)) cut = maxChars; // no good word break → hard cap
+  const head = trimmed.slice(0, cut).trimEnd();
+  const tail = trimmed.slice(cut).trimStart();
+  if (!head || !tail) return null;
+  return { title: `${head}...`, descriptionText: `...${tail}` };
+}
+
+// Wrap plain text in a minimal TipTap doc for the task description field.
+export function textToDescriptionDoc(text: string): Record<string, unknown> {
+  return {
+    type: "doc",
+    content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+  };
+}
+
 export function friendlyDue(dueDate: string | null, dueTime: string | null) {
   if (!dueDate) return null;
   const date = new Date(`${dueDate}T00:00:00`);

@@ -2,13 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import type { ParsedInput, Project, Tag, Task } from "../../../../models/shared";
 import { parseInput } from "../../../../services/capture/nlp.service";
-import { friendlyDue } from "../../../../models/tasks/taskPresentation";
+import { friendlyDue, splitLongCapture, textToDescriptionDoc } from "../../../../models/tasks/taskPresentation";
 import Spinner from "../../../components/ui/Spinner.view";
 
 interface Props {
   projects: Project[];
   tags: Tag[];
-  onSave: (parsed: ParsedInput) => Promise<void>;
+  onSave: (
+    parsed: ParsedInput,
+    opts?: { description?: Record<string, unknown> | null },
+  ) => Promise<void>;
 }
 
 const PRIORITY_CHOICES: { value: Task["priority"]; label: string }[] = [
@@ -25,6 +28,7 @@ export default function MobileCaptureView({ projects, tags, onSave }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [splitLong, setSplitLong] = useState(false);
   const parseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Manual overrides. `undefined` means "not overridden — use the parsed value".
@@ -46,6 +50,7 @@ export default function MobileCaptureView({ projects, tags, onSave }: Props) {
       setParsed(null);
       setParsing(false);
       resetOverrides();
+      setSplitLong(false);
       return;
     }
     setParsing((prev) => prev || parsed === null);
@@ -66,6 +71,7 @@ export default function MobileCaptureView({ projects, tags, onSave }: Props) {
   const eProjectId = ovProjectId !== undefined ? ovProjectId : (parsed?.project?.id ?? null);
   const eRecurrence = ovRecurrence !== undefined ? ovRecurrence : (parsed?.recurrenceRule ?? null);
   const suggestedProjectName = ovProjectId !== undefined ? null : (parsed?.suggestedProjectName ?? null);
+  const splittable = parsed ? splitLongCapture(parsed.title) : null;
 
   function buildDraft(): ParsedInput {
     const base = parsed ?? parseInput(text, projects, tags);
@@ -93,10 +99,19 @@ export default function MobileCaptureView({ projects, tags, onSave }: Props) {
     setBusy(true);
     setError(null);
     try {
-      await onSave(buildDraft());
+      const draft = buildDraft();
+      if (splittable && splitLong) {
+        await onSave(
+          { ...draft, title: splittable.title },
+          { description: textToDescriptionDoc(splittable.descriptionText) },
+        );
+      } else {
+        await onSave(draft);
+      }
       setText("");
       setParsed(null);
       resetOverrides();
+      setSplitLong(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     } catch (err) {
@@ -214,6 +229,21 @@ export default function MobileCaptureView({ projects, tags, onSave }: Props) {
               </div>
             ) : null}
           </div>
+        ) : null}
+
+        {splittable ? (
+          <label style={styles.splitRow}>
+            <input
+              type="checkbox"
+              checked={splitLong}
+              onChange={(e) => setSplitLong(e.target.checked)}
+              style={styles.splitCheckbox}
+            />
+            <span style={styles.splitText}>
+              Long title — shorten it and move the rest into a note
+              {splitLong ? <span style={styles.splitPreview}>{splittable.title}</span> : null}
+            </span>
+          </label>
         ) : null}
 
         {error ? <div style={styles.error}>{error}</div> : null}
@@ -370,6 +400,29 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 600,
     marginBottom: 14,
     textAlign: "center" as const,
+  },
+  splitRow: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 8,
+    cursor: "pointer",
+  },
+  splitCheckbox: {
+    marginTop: 2,
+    flexShrink: 0,
+  },
+  splitText: {
+    fontSize: 13,
+    color: "var(--text-secondary)",
+    lineHeight: 1.4,
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+  },
+  splitPreview: {
+    fontSize: 12,
+    color: "var(--text-tertiary)",
+    fontStyle: "italic" as const,
   },
   error: {
     padding: "10px 12px",

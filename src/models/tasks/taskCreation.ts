@@ -7,6 +7,7 @@ export interface TaskCreationDraft {
   projectName?: string;
   areaId?: string | null;
   parentTaskId?: string | null;
+  description?: Record<string, unknown> | null;
   dueDate?: string | null;
   dueTime?: string | null;
   priority?: Task["priority"];
@@ -48,6 +49,7 @@ export function buildCreateTaskInput(
     projectId: resolvedProjectId,
     areaId: draft.areaId ?? null,
     icon,
+    description: draft.description ?? null,
     dueDate: draft.dueDate ?? null,
     dueTime: draft.dueTime ?? null,
     priority: draft.priority ?? "none",

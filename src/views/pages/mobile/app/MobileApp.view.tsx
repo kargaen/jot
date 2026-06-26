@@ -77,7 +77,10 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
     await completeTask(id);
   }
 
-  async function handleCaptureSave(parsed: ParsedInput) {
+  async function handleCaptureSave(
+    parsed: ParsedInput,
+    opts?: { description?: Record<string, unknown> | null },
+  ) {
     try {
       const result = await capture.saveDraft({
         title: parsed.title,
@@ -88,6 +91,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
         priority: parsed.priority,
         recurrenceRule: parsed.recurrenceRule ?? null,
         tagIds: parsed.tags.map((t) => t.id),
+        description: opts?.description ?? null,
         projects: appData.projects,
       });
       await appData.refresh();

@@ -49,6 +49,7 @@ assertEqual(
     projectId: "proj-1",
     areaId: "area-1",
     icon: "Rocket",
+    description: null,
     dueDate: "2026-05-01",
     dueTime: "09:00",
     priority: "high",

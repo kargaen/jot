@@ -625,6 +625,7 @@ export interface CreateTaskInput {
   areaId?: string | null;
   parentTaskId?: string | null;
   icon?: string | null;
+  description?: Record<string, unknown> | null;
   dueDate?: string | null;
   dueTime?: string | null;
   scheduledDate?: string | null;
@@ -655,6 +656,7 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
       area_id: resolvedAreaId,
       parent_task_id: taskFields.parentTaskId ?? null,
       icon: taskFields.icon ?? null,
+      description: taskFields.description ?? null,
       due_date: taskFields.dueDate ?? null,
       due_time: taskFields.dueTime ?? null,
       scheduled_date: taskFields.scheduledDate ?? null,
