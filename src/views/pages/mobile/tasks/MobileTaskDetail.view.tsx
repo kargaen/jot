@@ -3,6 +3,7 @@ import type { CSSProperties, FormEvent } from "react";
 import { EditorContent } from "@tiptap/react";
 import type { Area, Project, Tag, TaskWithTags } from "../../../../models/shared";
 import { useTaskDetail } from "../../../../hooks/useTaskDetail";
+import Spinner from "../../../components/ui/Spinner.view";
 
 interface Props {
   task: TaskWithTags;
@@ -276,7 +277,11 @@ export default function MobileTaskDetailView({
           disabled={completing}
           style={styles.completeButton}
         >
-          {completing ? "Completing…" : "Mark complete"}
+          {completing ? (
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <Spinner size={14} /> Completing…
+            </span>
+          ) : "Mark complete"}
         </button>
       </div>
     </div>
