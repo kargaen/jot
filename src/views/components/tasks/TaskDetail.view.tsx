@@ -211,20 +211,16 @@ export default function TaskDetail({
 
   const IconComponent = getTaskDetailIconComponent(icon, LucideIcons);
 
-  // Title: grow with content but clamp to 3 lines, with a show more/less toggle.
+  // Title grows to fit its content (no scroll, no clamp) — long titles are
+  // shown in full so the length is a natural nudge toward shorter titles.
   const TITLE_LINE_HEIGHT = 26;
-  const TITLE_COLLAPSED_MAX = TITLE_LINE_HEIGHT * 3;
   const titleRef = useRef<HTMLTextAreaElement>(null);
-  const [titleExpanded, setTitleExpanded] = useState(false);
-  const [titleOverflows, setTitleOverflows] = useState(false);
   useEffect(() => {
     const el = titleRef.current;
     if (!el) return;
     el.style.height = "auto";
-    const full = el.scrollHeight;
-    setTitleOverflows(full > TITLE_COLLAPSED_MAX + 1);
-    el.style.height = `${titleExpanded ? full : Math.min(full, TITLE_COLLAPSED_MAX)}px`;
-  }, [title, titleExpanded, TITLE_COLLAPSED_MAX]);
+    el.style.height = `${el.scrollHeight}px`;
+  }, [title]);
 
   const projectOptions = [
     { value: "", label: "No project", color: "var(--text-tertiary)" },
@@ -357,24 +353,6 @@ export default function TaskDetail({
                 boxSizing: "border-box",
               }}
             />
-            {titleOverflows && (
-              <button
-                type="button"
-                onClick={() => setTitleExpanded((value) => !value)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  marginTop: 2,
-                  fontSize: 12,
-                  fontFamily: "inherit",
-                  color: "var(--text-tertiary)",
-                  cursor: "pointer",
-                }}
-              >
-                {titleExpanded ? "Show less" : "Show more"}
-              </button>
-            )}
           </div>
         </div>
 

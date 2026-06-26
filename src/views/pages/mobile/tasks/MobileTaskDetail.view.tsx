@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { EditorContent } from "@tiptap/react";
 import type { Area, Project, Tag, TaskWithTags } from "../../../../models/shared";
@@ -68,6 +68,15 @@ export default function MobileTaskDetailView({
     createTagAndAdd,
   } = useTaskDetail({ task, projects, areas, onUpdated, onCompleted });
 
+  // Title grows to fit content (no scroll, no clamp) — long titles show in full.
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [title]);
+
   const areaFromProject = !!project;
   const availableTags = allTags.filter((t) => !tags.some((x) => x.id === t.id));
 
@@ -100,9 +109,10 @@ export default function MobileTaskDetailView({
         <span style={styles.typeLabel}>{typeLabel}</span>
 
         <textarea
+          ref={titleRef}
           value={title}
           onChange={(e) => updateTitle(e.target.value)}
-          rows={2}
+          rows={1}
           style={styles.titleInput}
           placeholder="Task title"
         />
@@ -350,6 +360,7 @@ const styles: Record<string, CSSProperties> = {
     border: "none",
     outline: "none",
     resize: "none",
+    overflow: "hidden",
     fontFamily: "inherit",
     lineHeight: 1.3,
     boxSizing: "border-box",
