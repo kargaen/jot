@@ -431,7 +431,12 @@ export function getTaskDetailIconComponent(
 ): React.ComponentType<{ size?: number; color?: string }> | null {
   if (!name) return null;
   const icon = icons[name];
-  return typeof icon === "function"
+  // lucide-react icons are forwardRef/memo objects (not plain functions), so
+  // accept any renderable component value and reject strings/maps/etc.
+  const isComponent =
+    typeof icon === "function" ||
+    (typeof icon === "object" && icon !== null && "$$typeof" in icon);
+  return isComponent
     ? (icon as React.ComponentType<{ size?: number; color?: string }>)
     : null;
 }
