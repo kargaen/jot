@@ -3,7 +3,7 @@ import type { CSSProperties, FormEvent } from "react";
 import type { ParsedInput, Project, Tag, Task } from "../../../../models/shared";
 import { parseInput } from "../../../../services/capture/nlp.service";
 import { friendlyDue, textToDescriptionDoc } from "../../../../models/tasks/taskPresentation";
-import Spinner from "../../../components/ui/Spinner.view";
+import Button from "../../../components/ui/Button.view";
 
 interface Props {
   projects: Project[];
@@ -258,13 +258,9 @@ export default function MobileCaptureView({ projects, tags, onSave, resetToken }
         ) : null}
 
         {error ? <div style={styles.error}>{error}</div> : null}
-        <button type="submit" disabled={busy || !text.trim()} style={styles.button}>
-          {busy ? (
-            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-              <Spinner size={14} /> Saving…
-            </span>
-          ) : "Add task"}
-        </button>
+        <Button type="submit" variant="primary" size="lg" fullWidth disabled={!text.trim()} loading={busy}>
+          {busy ? "Saving…" : "Add task"}
+        </Button>
       </form>
     </div>
   );
