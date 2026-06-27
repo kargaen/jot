@@ -3,12 +3,13 @@ import { useAuth } from "./hooks/useAuth";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import { platform } from "@tauri-apps/plugin-os";
+import { RouterProvider } from "react-router-dom";
+import { router } from "./router/routes";
 import QuickCapture from "./views/pages/desktop/capture/QuickCapture.view";
 import Dashboard from "./views/pages/desktop/dashboard/Dashboard.view";
 import TaskDetailWindow from "./views/pages/desktop/tasks/TaskDetailWindow.view";
 import ReminderWindow from "./views/pages/desktop/pulse/ReminderWindow.view";
 import AboutWindow from "./views/pages/desktop/about/AboutWindow.view";
-import MobileApp from "./views/pages/mobile/app/MobileApp.view";
 import { logger } from "./utils/observability/logger";
 import { startThemeSync } from "./utils/presentation/theme";
 import {
@@ -93,7 +94,7 @@ export default function App() {
     );
   }
 
-  if (isMobile) return <MobileApp launchNotice={launchNotice} />;
+  if (isMobile) return <RouterProvider router={router} />;
 
   if (windowLabel === "quick-capture" && !user) {
     logger.info("app", "quick-capture: not logged in -> opening dashboard");
