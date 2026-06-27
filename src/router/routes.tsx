@@ -5,6 +5,7 @@ import UpcomingRoute from "./Upcoming.route";
 import AllRoute from "./All.route";
 import CaptureRoute from "./Capture.route";
 import LogbookRoute from "./Logbook.route";
+import SettingsRoute from "./Settings.route";
 import MobileApp from "../views/pages/mobile/app/MobileApp.view";
 
 // Renders nothing — a protected surface not yet ported into the router.
@@ -34,7 +35,7 @@ export const router = createBrowserRouter([
       { path: "all", handle: { title: "All" }, element: <AllRoute /> },
       { path: "logbook", handle: { title: "Logbook" }, element: <LogbookRoute /> },
       { path: "capture", handle: { title: "Capture" }, element: <CaptureRoute /> },
-      { path: "settings", handle: { title: "Settings" }, element: <Pending /> },
+      { path: "settings", handle: { title: "Settings" }, element: <SettingsRoute /> },
       { path: "spaces/:areaId", handle: { title: "Space" }, element: <Pending /> },
       { path: "projects/:projectId", handle: { title: "Project" }, element: <Pending /> },
       { path: "tasks/:taskId", handle: { title: "Task" }, element: <Pending /> },
