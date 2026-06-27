@@ -2,7 +2,7 @@
 
 ## Primary Instruction
 
-Follow `architecture.md` as the source of truth for how this app is structured and developed.
+Follow `ARCHITECTURE.md` as the source of truth for how this app is structured and developed.
 
 This file defines how agents must work inside the repository.
 
@@ -59,12 +59,12 @@ It is better to explain to the user why a requested feature in a requested file 
 
 ### Preserve Architecture
 
-Always follow `architecture.md`.
+Always follow `ARCHITECTURE.md`.
 
 Do not invent new structure, naming conventions, state-management patterns, routing patterns, dependency directions, or abstractions.
 
-- If there is a conflict between this file and `architecture.md`, follow `architecture.md`.
-- If the user's request conflicts with `architecture.md`, stop and explain the conflict before editing.
+- If there is a conflict between this file and `ARCHITECTURE.md`, follow `ARCHITECTURE.md`.
+- If the user's request conflicts with `ARCHITECTURE.md`, stop and explain the conflict before editing.
 
 ---
 
@@ -172,7 +172,7 @@ Stop instead of continuing when any of these are true:
 - The task requires touching several files but the user did not explicitly allow it
 - The task crosses MVC layers but the user did not explicitly allow it
 - The task breakdown would require multiple files or MVC layers to keep the code working
-- The current request conflicts with `architecture.md`
+- The current request conflicts with `ARCHITECTURE.md`
 - The implementation depends on unconfirmed assumptions
 - The context is insufficient
 - The requested change is likely to cause side effects outside the current layer
@@ -213,7 +213,7 @@ In this case, make no broad changes. Either make a small safe change or report t
 
 The user is primarily a product developer. They may think in terms of product behavior, user flows, fast iteration, and visible outcomes rather than implementation constraints. They may also get carried away and accidentally request work that drifts from the architecture, creates unnecessary complexity, or pushes the app toward brittle hacks.
 
-If a request appears to violate `architecture.md`, require a nasty workaround, introduce avoidable technical debt, or go far outside established best practices — **stop before editing**.
+If a request appears to violate `ARCHITECTURE.md`, require a nasty workaround, introduce avoidable technical debt, or go far outside established best practices — **stop before editing**.
 
 Use the phrase **rabbit hole** explicitly so the user knows the request needs reassessment.
 
@@ -516,6 +516,30 @@ This rule has no exceptions. A view with developer notes in it is not a testable
 
 ---
 
+## Avoid Custom Markup and Styling
+
+Avoid hand-rolled markup and styling **like the plague**. Bespoke, one-off UI code is the thing this codebase works hardest to prevent — it duplicates decisions, drifts from the rest of the app, and rots the moment a token or component changes.
+
+This is a general principle (it holds in every project), so it lives here. The concrete how — which primitives exist, which tokens to use, where they live — is owned by `ARCHITECTURE.md` (see its **Key Conventions → Styling & design system** section). Follow the reference; do not restate the specifics here (SSOT).
+
+**Always prefer, in this order:**
+
+1. An existing reusable component/primitive that already does the job.
+2. Extending that primitive (a new variant/size/prop) so the next caller benefits too.
+3. Composing existing primitives + design tokens.
+
+**Only as a last resort**, and only after explaining why the above cannot work, write new custom markup/styling — and when you do, build it as a reusable primitive driven by tokens, not an inline one-off.
+
+**Do not:**
+
+- Hardcode colors, spacing, radii, shadows, or font sizes when a design token exists.
+- Re-implement a button, input, spinner, toggle, chip, etc. inline when a primitive exists.
+- Copy an existing component's styles into a new bespoke element instead of reusing it.
+
+When a genuinely new reusable primitive or token is introduced, it is conventional and **must** be recorded in `ARCHITECTURE.md` (see "Documenting New Conventions" above).
+
+---
+
 ## Product-Development Alignment
 
 The user works best by seeing something working quickly, validating the direction, and then refining.
@@ -628,7 +652,7 @@ Then wait for a narrower instruction, or complete only the safe portion.
 The priority order is:
 
 1. Preserve existing working behavior
-2. Follow `architecture.md`
+2. Follow `ARCHITECTURE.md`
 3. Satisfy the user's exact request
 4. Keep the diff small
 5. Stay within one file
