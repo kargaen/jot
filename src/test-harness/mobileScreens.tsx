@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import type { Area, Project, Tag, TaskWithTags } from "../models/shared";
 import MobileTasksView from "../views/pages/mobile/tasks/MobileTasks.view";
 import MobileCaptureView from "../views/pages/mobile/capture/MobileCapture.view";
+import Button from "../views/components/ui/Button.view";
 import "../styles/global.css";
 
 // ── Mock data ───────────────────────────────────────────────────────────────
@@ -92,9 +93,39 @@ function CaptureFrame() {
   );
 }
 
+function ButtonsFrame() {
+  const variants = ["primary", "secondary", "danger", "ghost"] as const;
+  const sizes = ["sm", "md", "lg"] as const;
+  return (
+    <Phone label="Components — Button (variants × sizes)">
+      <div style={{ height: "100%", overflowY: "auto", padding: 20, display: "grid", gap: 16, background: "var(--bg-primary)" }}>
+        {variants.map((v) => (
+          <div key={v} style={{ display: "grid", gap: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{v}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              {sizes.map((s) => (
+                <Button key={s} variant={v} size={s}>{s}</Button>
+              ))}
+            </div>
+          </div>
+        ))}
+        <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>states</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Button loading>Saving…</Button>
+            <Button disabled>Disabled</Button>
+          </div>
+          <Button variant="primary" fullWidth>Full width</Button>
+        </div>
+      </div>
+    </Phone>
+  );
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <div style={{ display: "flex", gap: 32, padding: 32, flexWrap: "wrap", background: "#e2e8f0", minHeight: "100vh" }}>
     <TasksFrame />
     <CaptureFrame />
+    <ButtonsFrame />
   </div>,
 );

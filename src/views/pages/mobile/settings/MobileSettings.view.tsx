@@ -7,6 +7,7 @@ import { useSharingTab } from "../../../../hooks/usePreferences";
 
 const JOT_ISSUES_URL = "https://github.com/kargaen/jot/issues";
 import Toggle from "../../../components/ui/Toggle.view";
+import Button from "../../../components/ui/Button.view";
 import {
   loadNlpLanguageMode,
   saveNlpLanguageMode,
@@ -149,9 +150,9 @@ function AccountSection({
             autoComplete="new-password"
             style={styles.inlineInput}
           />
-          <button type="submit" disabled={busy || !newPassword.trim()} style={styles.inlineButton}>
+          <Button type="submit" variant="primary" size="sm" disabled={busy || !newPassword.trim()}>
             Update
-          </button>
+          </Button>
         </form>
         {notice ? <div style={styles.notice}>{notice}</div> : null}
         {error ? <div style={styles.error}>{error}</div> : null}
