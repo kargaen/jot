@@ -50,6 +50,14 @@
   --priority-medium: #d97706;
   --priority-low: #6b7280;
 
+  /* Semantic feedback colors (shared across light + dark) */
+  --danger: #dc2626;
+  --danger-strong: #b91c1c;
+  --success: #16a34a;
+  --success-strong: #166534;
+  --warning: #d97706;
+  --info: #0891b2;
+
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;

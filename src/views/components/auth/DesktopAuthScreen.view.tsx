@@ -243,7 +243,7 @@ export default function DesktopAuthScreen({
               padding: "8px 12px",
               borderRadius: "var(--radius-sm)",
               background: "rgba(220,38,38,0.08)",
-              color: "#dc2626",
+              color: "var(--danger)",
               fontSize: 13,
             }}
           >
@@ -259,7 +259,7 @@ export default function DesktopAuthScreen({
               padding: "8px 12px",
               borderRadius: "var(--radius-sm)",
               background: "rgba(22,163,74,0.10)",
-              color: "#166534",
+              color: "var(--success-strong)",
               fontSize: 13,
             }}
           >

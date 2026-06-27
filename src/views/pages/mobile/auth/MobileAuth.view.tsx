@@ -175,7 +175,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "10px 12px",
     borderRadius: 12,
     background: "rgba(220,38,38,0.08)",
-    color: "#b91c1c",
+    color: "var(--danger-strong)",
     fontSize: 13,
   },
   notice: {
@@ -183,7 +183,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "10px 12px",
     borderRadius: 12,
     background: "rgba(22,163,74,0.10)",
-    color: "#166534",
+    color: "var(--success-strong)",
     fontSize: 13,
   },
   actions: {

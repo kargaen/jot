@@ -97,7 +97,7 @@ function LocalDbHarness() {
                 padding: "12px 14px",
                 borderRadius: 12,
                 background: "rgba(220,38,38,0.08)",
-                color: "#dc2626",
+                color: "var(--danger)",
               }}
             >
               {error}

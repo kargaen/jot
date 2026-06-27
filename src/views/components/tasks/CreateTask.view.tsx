@@ -11,8 +11,8 @@ const PRIORITY_LABELS: Record<string, string> = {
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
-  high: "#dc2626",
-  medium: "#d97706",
+  high: "var(--danger)",
+  medium: "var(--warning)",
   low: "#6b7280",
   none: "",
 };
@@ -300,7 +300,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(function CreateTas
             )}
             {parsed?.dueDate && (
               <Chip
-                color="#0891b2"
+                color="var(--info)"
                 label={`📅 ${formatCreateTaskDate(parsed.dueDate)}`}
               />
             )}
@@ -318,7 +318,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(function CreateTas
               marginTop: 4,
               paddingLeft: 24,
               fontSize: 12,
-              color: "#dc2626",
+              color: "var(--danger)",
             }}
           >
             {error}
@@ -467,7 +467,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(function CreateTas
           prefix="📅"
           value={metaDateText}
           placeholder="Date"
-          color="#0891b2"
+          color="var(--info)"
           inputRef={dateFieldRef}
           onChange={(v) => {
             setMetaDateText(v);
@@ -568,7 +568,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(function CreateTas
       )}
 
       {error && (
-        <div style={{ padding: "6px 14px 0", fontSize: 12, color: "#dc2626" }}>
+        <div style={{ padding: "6px 14px 0", fontSize: 12, color: "var(--danger)" }}>
           {error}
         </div>
       )}

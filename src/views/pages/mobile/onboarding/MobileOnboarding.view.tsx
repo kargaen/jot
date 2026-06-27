@@ -119,7 +119,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "10px 12px",
     borderRadius: 12,
     background: "rgba(220,38,38,0.08)",
-    color: "#b91c1c",
+    color: "var(--danger-strong)",
     fontSize: 13,
   },
   button: {

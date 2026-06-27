@@ -77,7 +77,7 @@ export default function LogbookRow({
         </div>
 
         {/* Completion message */}
-        <div style={{ marginTop: 1, fontSize: 11, color: "#16a34a", fontStyle: "italic" }}>
+        <div style={{ marginTop: 1, fontSize: 11, color: "var(--success)", fontStyle: "italic" }}>
           {completionMessage(task.id)}
           {task.completed_at ? ` · ${formatCompletedAt(task.completed_at)}` : ""}
         </div>

@@ -219,12 +219,12 @@ function AuthScreen({ launchNotice }: { launchNotice: string | null }) {
         )}
 
         {error && (
-          <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: "var(--radius-sm)", background: "rgba(220,38,38,0.08)", color: "#dc2626", fontSize: 13 }}>
+          <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: "var(--radius-sm)", background: "rgba(220,38,38,0.08)", color: "var(--danger)", fontSize: 13 }}>
             {error}
           </div>
         )}
         {notice && (
-          <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: "var(--radius-sm)", background: "rgba(22,163,74,0.10)", color: "#166534", fontSize: 13 }}>
+          <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: "var(--radius-sm)", background: "rgba(22,163,74,0.10)", color: "var(--success-strong)", fontSize: 13 }}>
             {notice}
           </div>
         )}
@@ -1288,7 +1288,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
             {updateStatus === "failed" && (
               <>
                 <button onClick={handleUpdate} style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--accent)", color: "#fff", cursor: "pointer" }}>Retry</button>
-                <button onClick={() => shellOpen(RELEASES_URL)} style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "#dc2626", color: "#fff", cursor: "pointer" }}>Download manually</button>
+                <button onClick={() => shellOpen(RELEASES_URL)} style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--danger)", color: "#fff", cursor: "pointer" }}>Download manually</button>
                 <button onClick={() => setUpdateStatus("idle")} style={{ padding: "4px 8px", fontSize: 12, color: "var(--text-tertiary)", cursor: "pointer" }}>Dismiss</button>
               </>
             )}
@@ -1302,7 +1302,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
             borderRadius: "var(--radius-md)",
             background: "rgba(22,197,94,0.08)",
             border: "1px solid rgba(22,197,94,0.18)",
-            color: "#166534",
+            color: "var(--success-strong)",
             fontSize: 13,
           }}>
             {launchNotice}
@@ -1378,7 +1378,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
               Projects and inbox tasks live inside spaces. Create your first one to start using Jot.
             </p>
             {onboardingError && (
-              <div style={{ marginBottom: 14, padding: "10px 12px", borderRadius: "var(--radius-md)", background: "rgba(220,38,38,0.08)", color: "#b91c1c", fontSize: 12, lineHeight: 1.5 }}>
+              <div style={{ marginBottom: 14, padding: "10px 12px", borderRadius: "var(--radius-md)", background: "rgba(220,38,38,0.08)", color: "var(--danger-strong)", fontSize: 12, lineHeight: 1.5 }}>
                 {onboardingError}
               </div>
             )}
@@ -1519,7 +1519,7 @@ function ShareSheet({ target, onClose }: { target: ShareTarget; onClose: () => v
                     <div style={{ fontSize: 13, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {member.invited_email}
                     </div>
-                    <div style={{ fontSize: 11, color: member.status === "accepted" ? "#16a34a" : "#d97706", marginTop: 3 }}>
+                    <div style={{ fontSize: 11, color: member.status === "accepted" ? "var(--success)" : "var(--warning)", marginTop: 3 }}>
                       {member.status === "accepted" ? "Active" : "Pending"}
                     </div>
                   </div>

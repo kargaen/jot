@@ -437,7 +437,7 @@ function RemindersTab() {
           <div style={labelStyle}>Start with Windows</div>
           <div style={hintStyle}>Launch Jot automatically when you log in</div>
           {autostartError && (
-            <div style={{ fontSize: 11, color: "#dc2626", marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 4 }}>
               Failed: {autostartError}
             </div>
           )}
@@ -618,7 +618,7 @@ function StatusBadge({ status }: { status: "pending" | "accepted" }) {
     <span style={{
       display: "inline-block", padding: "1px 7px", borderRadius: 10, fontSize: 11, fontWeight: 500,
       background: status === "accepted" ? "rgba(34,197,94,0.12)" : "rgba(217,119,6,0.12)",
-      color: status === "accepted" ? "#16a34a" : "#d97706",
+      color: status === "accepted" ? "var(--success)" : "var(--warning)",
     }}>
       {status === "accepted" ? "Active" : "Pending"}
     </span>

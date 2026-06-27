@@ -173,7 +173,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "#16a34a",
+    background: "var(--success)",
     color: "#fff",
     fontSize: 20,
     fontWeight: 700,
@@ -192,7 +192,7 @@ const styles: Record<string, CSSProperties> = {
     height: 20,
     marginTop: 1,
     borderRadius: "50%",
-    background: "#16a34a",
+    background: "var(--success)",
     color: "#fff",
     fontSize: 12,
     fontWeight: 700,
@@ -218,7 +218,7 @@ const styles: Record<string, CSSProperties> = {
   message: {
     fontSize: 12,
     fontStyle: "italic",
-    color: "#16a34a",
+    color: "var(--success)",
     lineHeight: 1.3,
   },
   heatmapWrap: {

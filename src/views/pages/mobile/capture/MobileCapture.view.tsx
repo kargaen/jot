@@ -133,7 +133,7 @@ export default function MobileCaptureView({ projects, tags, onSave, resetToken }
   }
 
   const showAdjust = text.trim().length > 0;
-  const projectChipColor = eProjectId ? "#16a34a" : suggestedProjectName ? "#d97706" : undefined;
+  const projectChipColor = eProjectId ? "var(--success)" : suggestedProjectName ? "var(--warning)" : undefined;
   const projectChipLabel = eProjectId
     ? (projects.find((p) => p.id === eProjectId)?.name ?? "Project")
     : suggestedProjectName;
@@ -165,7 +165,7 @@ export default function MobileCaptureView({ projects, tags, onSave, resetToken }
             {ePriority !== "none" ? (
               <Chip
                 label={ePriority === "high" ? "!! High" : ePriority === "medium" ? "! Medium" : "~ Low"}
-                color={ePriority === "high" ? "#dc2626" : ePriority === "medium" ? "#d97706" : "#6b7280"}
+                color={ePriority === "high" ? "var(--danger)" : ePriority === "medium" ? "var(--warning)" : "#6b7280"}
               />
             ) : null}
           </div>
@@ -406,7 +406,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "10px 14px",
     borderRadius: 12,
     background: "rgba(22,163,74,0.10)",
-    color: "#16a34a",
+    color: "var(--success)",
     fontSize: 14,
     fontWeight: 600,
     marginBottom: 14,
@@ -439,7 +439,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "10px 12px",
     borderRadius: 12,
     background: "rgba(220,38,38,0.08)",
-    color: "#b91c1c",
+    color: "var(--danger-strong)",
     fontSize: 13,
   },
   button: {

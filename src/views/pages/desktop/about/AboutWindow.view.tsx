@@ -97,7 +97,7 @@ export default function AboutWindow() {
               </span>
             )}
             {updateState === "up-to-date" && (
-              <span style={{ fontSize: 12, color: "#16a34a", fontWeight: 500 }}>Up to date</span>
+              <span style={{ fontSize: 12, color: "var(--success)", fontWeight: 500 }}>Up to date</span>
             )}
             {updateState === "available" && (
               <>
@@ -119,14 +119,14 @@ export default function AboutWindow() {
               </div>
             )}
             {updateState === "ready" && (
-              <span style={{ fontSize: 12, color: "#16a34a", fontWeight: 500 }}>Restarting...</span>
+              <span style={{ fontSize: 12, color: "var(--success)", fontWeight: 500 }}>Restarting...</span>
             )}
             {updateState === "failed" && (
               <>
-                <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 500 }}>Auto update failed</span>
+                <span style={{ fontSize: 12, color: "var(--danger)", fontWeight: 500 }}>Auto update failed</span>
                 <button
                   onClick={() => shellOpen(releasesUrl)}
-                  style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "#dc2626", color: "#fff", cursor: "pointer" }}
+                  style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--danger)", color: "#fff", cursor: "pointer" }}
                 >
                   Download manually
                 </button>

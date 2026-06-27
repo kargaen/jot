@@ -358,7 +358,7 @@ function SpacesSection({
                   type="button"
                   onClick={() => handleRemove(area.id)}
                   disabled={busy}
-                  style={{ ...styles.iconButton, color: "#b91c1c" }}
+                  style={{ ...styles.iconButton, color: "var(--danger-strong)" }}
                 >
                   ✕
                 </button>
@@ -701,7 +701,7 @@ function SharingSection({ areas, onSharedChange }: { areas: Area[]; onSharedChan
                     <span style={styles.memberEmail}>{m.invited_email}</span>
                     <MemberBadge status={m.status} />
                   </div>
-                  <button type="button" onClick={() => handleRemove(m.id)} style={{ ...styles.iconButton, color: "#b91c1c" }}>
+                  <button type="button" onClick={() => handleRemove(m.id)} style={{ ...styles.iconButton, color: "var(--danger-strong)" }}>
                     ✕
                   </button>
                 </div>
@@ -731,7 +731,7 @@ function MemberBadge({ status }: { status: AreaMember["status"] }) {
       style={{
         ...styles.badge,
         background: accepted ? "rgba(22,163,74,0.14)" : "rgba(217,119,6,0.14)",
-        color: accepted ? "#16a34a" : "#d97706",
+        color: accepted ? "var(--success)" : "var(--warning)",
       }}
     >
       {accepted ? "Active" : "Pending"}
@@ -912,7 +912,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "14px 0",
     border: "none",
     background: "transparent",
-    color: "#b91c1c",
+    color: "var(--danger-strong)",
     fontSize: 15,
     fontWeight: 600,
     cursor: "pointer",
@@ -922,12 +922,12 @@ const styles: Record<string, CSSProperties> = {
   notice: {
     padding: "8px 0",
     fontSize: 13,
-    color: "#166534",
+    color: "var(--success-strong)",
   },
   error: {
     padding: "8px 0",
     fontSize: 13,
-    color: "#b91c1c",
+    color: "var(--danger-strong)",
   },
   emptyText: {
     padding: "14px 0",

@@ -128,7 +128,7 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
             <TaskIcon name={task.icon} size={14} />{task.title}
           </div>
           {due ? (
-            <div style={{ ...styles.rowMeta, color: overdue ? "#b91c1c" : "var(--text-tertiary)" }}>
+            <div style={{ ...styles.rowMeta, color: overdue ? "var(--danger-strong)" : "var(--text-tertiary)" }}>
               {due}
             </div>
           ) : null}
@@ -186,7 +186,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "#16a34a",
+    background: "var(--success)",
     color: "#fff",
     fontSize: 20,
     fontWeight: 700,
@@ -200,7 +200,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "#dc2626",
+    background: "var(--danger)",
     color: "#fff",
     fontSize: 18,
     fontWeight: 700,
@@ -317,7 +317,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "7px 14px",
     borderRadius: 10,
     border: "none",
-    background: "#dc2626",
+    background: "var(--danger)",
     color: "#fff",
     fontSize: 13,
     fontWeight: 600,

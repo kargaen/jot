@@ -35,7 +35,7 @@ export default function TaskDetailWindow() {
           alignItems: "center",
           justifyContent: "center",
           background: "var(--bg-secondary)",
-          color: "#dc2626",
+          color: "var(--danger)",
           fontSize: 14,
         }}
       >
