@@ -6,6 +6,13 @@ import MobileCaptureView from "../views/pages/mobile/capture/MobileCapture.view"
 import Button from "../views/components/ui/Button.view";
 import "../styles/global.css";
 
+// Honor ?theme=dark|light so the harness can be reviewed in either theme
+// (mirrors how the app sets data-theme on the document root).
+const themeParam = new URLSearchParams(location.search).get("theme");
+if (themeParam === "dark" || themeParam === "light") {
+  document.documentElement.setAttribute("data-theme", themeParam);
+}
+
 // ── Mock data ───────────────────────────────────────────────────────────────
 const area: Area = {
   id: "a1", user_id: "u1", name: "Work", color: "var(--accent)",
