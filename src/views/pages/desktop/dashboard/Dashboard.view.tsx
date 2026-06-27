@@ -219,12 +219,12 @@ function AuthScreen({ launchNotice }: { launchNotice: string | null }) {
         )}
 
         {error && (
-          <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: "var(--radius-sm)", background: "rgba(220,38,38,0.08)", color: "var(--danger)", fontSize: 13 }}>
+          <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: "var(--radius-sm)", background: "var(--danger-soft)", color: "var(--danger)", fontSize: 13 }}>
             {error}
           </div>
         )}
         {notice && (
-          <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: "var(--radius-sm)", background: "rgba(22,163,74,0.10)", color: "var(--success-strong)", fontSize: 13 }}>
+          <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: "var(--radius-sm)", background: "var(--success-soft)", color: "var(--success-strong)", fontSize: 13 }}>
             {notice}
           </div>
         )}
@@ -1259,7 +1259,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
             margin: "0 32px", padding: "10px 14px", borderRadius: "var(--radius-md)",
             background:
               updateStatus === "downloading" ? "rgba(139,92,246,0.08)"
-              : updateStatus === "failed" ? "rgba(220,38,38,0.08)"
+              : updateStatus === "failed" ? "var(--danger-soft)"
               : "rgba(34,197,94,0.08)",
             border: `1px solid ${
               updateStatus === "downloading" ? "rgba(139,92,246,0.2)"
@@ -1378,7 +1378,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
               Projects and inbox tasks live inside spaces. Create your first one to start using Jot.
             </p>
             {onboardingError && (
-              <div style={{ marginBottom: 14, padding: "10px 12px", borderRadius: "var(--radius-md)", background: "rgba(220,38,38,0.08)", color: "var(--danger-strong)", fontSize: 12, lineHeight: 1.5 }}>
+              <div style={{ marginBottom: 14, padding: "10px 12px", borderRadius: "var(--radius-md)", background: "var(--danger-soft)", color: "var(--danger-strong)", fontSize: 12, lineHeight: 1.5 }}>
                 {onboardingError}
               </div>
             )}
@@ -1525,7 +1525,7 @@ function ShareSheet({ target, onClose }: { target: ShareTarget; onClose: () => v
                   </div>
                   <button
                     onClick={() => { void handleRemove(member.id); }}
-                    style={{ padding: "5px 10px", borderRadius: "var(--radius-sm)", border: "1px solid rgba(220,38,38,0.18)", background: "rgba(220,38,38,0.08)", color: "var(--priority-high)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                    style={{ padding: "5px 10px", borderRadius: "var(--radius-sm)", border: "1px solid rgba(220,38,38,0.18)", background: "var(--danger-soft)", color: "var(--priority-high)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
                   >
                     Remove
                   </button>

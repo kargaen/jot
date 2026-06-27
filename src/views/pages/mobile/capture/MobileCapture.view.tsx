@@ -405,7 +405,7 @@ const styles: Record<string, CSSProperties> = {
   confirmation: {
     padding: "10px 14px",
     borderRadius: 12,
-    background: "rgba(22,163,74,0.10)",
+    background: "var(--success-soft)",
     color: "var(--success)",
     fontSize: 14,
     fontWeight: 600,
@@ -438,7 +438,7 @@ const styles: Record<string, CSSProperties> = {
   error: {
     padding: "10px 12px",
     borderRadius: 12,
-    background: "rgba(220,38,38,0.08)",
+    background: "var(--danger-soft)",
     color: "var(--danger-strong)",
     fontSize: 13,
   },
@@ -446,7 +446,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "13px 14px",
     borderRadius: 16,
     border: "none",
-    background: "linear-gradient(135deg, #5b5bd6, #7a6cff)",
+    background: "linear-gradient(135deg, var(--accent), var(--accent-2))",
     color: "#fff",
     fontSize: 15,
     fontWeight: 650,

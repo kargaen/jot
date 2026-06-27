@@ -455,7 +455,7 @@ const styles: Record<string, CSSProperties> = {
     height: 34,
     borderRadius: "50%",
     border: "none",
-    background: "linear-gradient(135deg, #5b5bd6, #7a6cff)",
+    background: "linear-gradient(135deg, var(--accent), var(--accent-2))",
     color: "#fff",
     fontSize: 22,
     lineHeight: 1,

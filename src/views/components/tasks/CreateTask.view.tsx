@@ -76,7 +76,7 @@ function MetaField({
         padding: "3px 8px",
         borderRadius: 20,
         fontSize: 12,
-        color: filled ? color : "var(--text-quaternary, #9ca3af)",
+        color: filled ? color : "var(--text-quaternary)",
         background: filled ? `${color}15` : "var(--bg-secondary)",
         border: `1px solid ${filled ? `${color}35` : "var(--border-subtle)"}`,
         transition: "color 120ms, background 120ms, border-color 120ms",
@@ -296,7 +296,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(function CreateTas
             }}
           >
             {parsed?.project && (
-              <Chip color="#5b5bd6" label={`# ${parsed.project.name}`} />
+              <Chip color="var(--accent)" label={`# ${parsed.project.name}`} />
             )}
             {parsed?.dueDate && (
               <Chip
@@ -348,7 +348,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(function CreateTas
             height: 18,
             borderRadius: "50%",
             flexShrink: 0,
-            border: `2px solid ${metaProjectName ? "#5b5bd6" : "var(--border-strong)"}`,
+            border: `2px solid ${metaProjectName ? "var(--accent)" : "var(--border-strong)"}`,
             transition: "border-color 200ms",
             display: "block",
           }}
@@ -406,7 +406,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(function CreateTas
         <span
           style={{
             fontSize: 11,
-            color: "var(--text-quaternary, #9ca3af)",
+            color: "var(--text-quaternary)",
             userSelect: "none",
             flexShrink: 0,
             minWidth: 28,
@@ -434,7 +434,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(function CreateTas
             lineHeight: 1.35,
             color: metaTitle
               ? "var(--text-primary)"
-              : "var(--text-quaternary, #9ca3af)",
+              : "var(--text-quaternary)",
             fontFamily: "inherit",
             paddingBottom: 2,
             resize: "none",
@@ -455,7 +455,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(function CreateTas
           prefix="#"
           value={metaProjectName}
           placeholder="Project"
-          color="#5b5bd6"
+          color="var(--accent)"
           inputRef={projectFieldRef}
           onChange={(v) => {
             setMetaProjectName(v);
@@ -480,7 +480,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(function CreateTas
           value={metaPriority !== "none" ? PRIORITY_LABELS[metaPriority] : ""}
           placeholder="Priority"
           color={
-            metaPriority !== "none" ? PRIORITY_COLORS[metaPriority] : "#9ca3af"
+            metaPriority !== "none" ? PRIORITY_COLORS[metaPriority] : "var(--text-quaternary)"
           }
           inputRef={priorityFieldRef}
           readOnly

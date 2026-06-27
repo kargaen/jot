@@ -373,7 +373,7 @@ function AccountTab({ user, signOut }: { user: { email?: string } | null; signOu
       <div style={{ paddingTop: 8, borderTop: "1px solid var(--border-subtle)" }}>
         <SectionLabel>Sessions</SectionLabel>
         <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "6px 0 10px" }}>Signs you out on all devices and browsers.</p>
-        <button onClick={handleSignOutEverywhere} disabled={signOutBusy} style={{ padding: "7px 16px", background: "rgba(220,38,38,0.08)", color: "var(--priority-high)", border: "1px solid rgba(220,38,38,0.2)", borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 500 }}>
+        <button onClick={handleSignOutEverywhere} disabled={signOutBusy} style={{ padding: "7px 16px", background: "var(--danger-soft)", color: "var(--priority-high)", border: "1px solid rgba(220,38,38,0.2)", borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 500 }}>
           {signOutBusy ? "Signing out…" : "Sign out everywhere"}
         </button>
       </div>

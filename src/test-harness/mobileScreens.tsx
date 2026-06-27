@@ -7,7 +7,7 @@ import "../styles/global.css";
 
 // ── Mock data ───────────────────────────────────────────────────────────────
 const area: Area = {
-  id: "a1", user_id: "u1", name: "Work", color: "#5b5bd6",
+  id: "a1", user_id: "u1", name: "Work", color: "var(--accent)",
   email: null, sort_order: 0, created_at: "2026-01-01",
 };
 const project: Project = {

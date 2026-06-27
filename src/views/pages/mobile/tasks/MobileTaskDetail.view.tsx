@@ -462,7 +462,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "9px 14px",
     borderRadius: 10,
     border: "none",
-    background: "linear-gradient(135deg, #5b5bd6, #7a6cff)",
+    background: "linear-gradient(135deg, var(--accent), var(--accent-2))",
     color: "#fff",
     fontSize: 13,
     fontWeight: 600,
