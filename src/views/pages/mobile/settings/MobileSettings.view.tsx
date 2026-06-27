@@ -340,13 +340,9 @@ function SpacesSection({
                 >
                   Save
                 </Button>
-                <button
-                  type="button"
-                  onClick={() => setEditingId(null)}
-                  style={styles.cancelButton}
-                >
+                <Button type="button" variant="ghost" size="sm" onClick={() => setEditingId(null)}>
                   ✕
-                </button>
+                </Button>
               </div>
             ) : (
               <div style={styles.spaceRow}>
@@ -495,9 +491,9 @@ function ProjectsSection({
                         <Button type="button" variant="primary" size="sm" onClick={() => handleRename(project.id)} disabled={busy}>
                           Save
                         </Button>
-                        <button type="button" onClick={() => setEditingId(null)} style={styles.cancelButton}>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setEditingId(null)}>
                           ✕
-                        </button>
+                        </Button>
                       </div>
                     ) : (
                       <div style={styles.spaceRow}>
@@ -721,7 +717,7 @@ function InviteRow({ label, onAccept, onDecline }: { label: string; onAccept: ()
     <div style={styles.inviteRow}>
       <span style={styles.rowLabel}>{label}</span>
       <Button type="button" variant="primary" size="sm" onClick={onAccept}>Accept</Button>
-      <button type="button" onClick={onDecline} style={styles.cancelButton}>Decline</button>
+      <Button type="button" variant="ghost" size="sm" onClick={onDecline}>Decline</Button>
     </div>
   );
 }
@@ -840,17 +836,6 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: "inherit",
     outline: "none",
     minWidth: 0,
-  },
-  cancelButton: {
-    flexShrink: 0,
-    padding: "9px 10px",
-    borderRadius: 10,
-    border: "1px solid var(--border-default)",
-    background: "transparent",
-    color: "var(--text-secondary)",
-    fontSize: 13,
-    cursor: "pointer",
-    fontFamily: "inherit",
   },
   iconButton: {
     flexShrink: 0,
