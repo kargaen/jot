@@ -1,5 +1,6 @@
 import { Navigate, createBrowserRouter } from "react-router-dom";
 import AppShell from "./AppShell.view";
+import TodayRoute from "./Today.route";
 import MobileApp from "../views/pages/mobile/app/MobileApp.view";
 
 // Renders nothing — a protected surface not yet ported into the router.
@@ -22,7 +23,7 @@ export const router = createBrowserRouter([
   {
     element: <AppShell />,
     children: [
-      { path: "today", handle: { title: "Today" }, element: <Pending /> },
+      { path: "today", handle: { title: "Today" }, element: <TodayRoute /> },
       { path: "upcoming", handle: { title: "Upcoming" }, element: <Pending /> },
       { path: "overdue", handle: { title: "Overdue" }, element: <Pending /> },
       { path: "inbox", handle: { title: "Inbox" }, element: <Pending /> },
