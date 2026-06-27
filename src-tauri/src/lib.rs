@@ -255,15 +255,15 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .manage(PendingDeepLink(Mutex::new(None)))
         .plugin(tauri_plugin_deep_link::init())
-        .plugin(tauri_plugin_os::init());
+        .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_shell::init());
 
     #[cfg(desktop)]
     let builder = builder
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .plugin(tauri_plugin_shell::init());
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build());
 
     builder
         .setup(|_app| {
