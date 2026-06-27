@@ -1,20 +1,17 @@
-import { useAuth } from "../hooks/useAuth";
-import { useMobileAppData } from "../hooks/useMobileApp";
+import { useOutletContext } from "react-router-dom";
+import type { AppOutletContext } from "./AppLayout.route";
 import MobileTodayView from "../views/pages/mobile/today/MobileToday.view";
 
-// Route container: owns the data hook and feeds the Today view. Rendered into
-// AppShell's Outlet, so it provides only the screen body — no title or navbar.
-// (Shared app data is fetched per-route for now; when a second screen is
-// ported this moves up to a shared provider on the layout route.)
+// Route container: reads shared app data from the layout's Outlet and feeds the
+// Today view. Rendered into AppShell's Outlet — body only, no title or navbar.
 export default function TodayRoute() {
-  const { user } = useAuth();
-  const appData = useMobileAppData(user?.id ?? null);
+  const { data } = useOutletContext<AppOutletContext>();
 
   return (
     <MobileTodayView
-      tasks={appData.visibleTasks}
-      loading={appData.loadingData}
-      onComplete={appData.completeTask}
+      tasks={data.visibleTasks}
+      loading={data.loadingData}
+      onComplete={data.completeTask}
     />
   );
 }

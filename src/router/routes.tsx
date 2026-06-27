@@ -1,6 +1,7 @@
 import { Navigate, createBrowserRouter } from "react-router-dom";
-import AppShell from "./AppShell.view";
+import AppLayout from "./AppLayout.route";
 import TodayRoute from "./Today.route";
+import UpcomingRoute from "./Upcoming.route";
 import MobileApp from "../views/pages/mobile/app/MobileApp.view";
 
 // Renders nothing — a protected surface not yet ported into the router.
@@ -21,10 +22,10 @@ export const router = createBrowserRouter([
   // Protected app shell: every child renders into AppShell's scrollable Outlet
   // and inherits the persistent title + navbar. Titles come from `handle`.
   {
-    element: <AppShell />,
+    element: <AppLayout />,
     children: [
       { path: "today", handle: { title: "Today" }, element: <TodayRoute /> },
-      { path: "upcoming", handle: { title: "Upcoming" }, element: <Pending /> },
+      { path: "upcoming", handle: { title: "Upcoming" }, element: <UpcomingRoute /> },
       { path: "overdue", handle: { title: "Overdue" }, element: <Pending /> },
       { path: "inbox", handle: { title: "Inbox" }, element: <Pending /> },
       { path: "all", handle: { title: "All" }, element: <Pending /> },

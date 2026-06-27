@@ -19,7 +19,7 @@ const NAV: { to: string; label: string; Icon: typeof Sun }[] = [
   { to: "/settings", label: "Settings", Icon: SettingsIcon },
 ];
 
-export default function AppShell() {
+export default function AppShell({ outletContext }: { outletContext?: unknown }) {
   const matches = useMatches();
   const heading =
     [...matches].reverse().find((m) => (m.handle as RouteHandle | undefined)?.title) as
@@ -33,7 +33,7 @@ export default function AppShell() {
       </header>
 
       <main style={styles.scroll}>
-        <Outlet />
+        <Outlet context={outletContext} />
       </main>
 
       <nav style={styles.nav}>
