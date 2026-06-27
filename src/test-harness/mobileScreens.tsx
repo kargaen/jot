@@ -4,6 +4,8 @@ import type { Area, Project, Tag, TaskWithTags } from "../models/shared";
 import MobileTasksView from "../views/pages/mobile/tasks/MobileTasks.view";
 import MobileCaptureView from "../views/pages/mobile/capture/MobileCapture.view";
 import Button from "../views/components/ui/Button.view";
+import { RouterProvider, createMemoryRouter } from "react-router-dom";
+import AppShell from "../router/AppShell.view";
 import "../styles/global.css";
 
 // Honor ?theme=dark|light so the harness can be reviewed in either theme
@@ -129,10 +131,48 @@ function ButtonsFrame() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <div style={{ display: "flex", gap: 32, padding: 32, flexWrap: "wrap", background: "#e2e8f0", minHeight: "100vh" }}>
-    <TasksFrame />
-    <CaptureFrame />
-    <ButtonsFrame />
-  </div>,
+// AppShell layout route exercised through a real data router so useMatches /
+// handle.title / NavLink behave exactly as in production. The "today" child
+// renders a real screen into the scrollable Outlet to prove the middle scrolls
+// while the title + navbar stay fixed. Mounted full-bleed (?frame=shell) at a
+// phone-sized viewport so the shell's 100dvh resolves to the phone, not a bezel.
+const shellRouter = createMemoryRouter(
+  [
+    {
+      element: <AppShell />,
+      children: [
+        {
+          path: "today",
+          handle: { title: "Today" },
+          element: (
+            <MobileTasksView
+              tasks={SEED}
+              areas={[area]}
+              projects={[project]}
+              loading={false}
+              onComplete={() => {}}
+              onOpenTask={() => {}}
+              onDeleteTask={() => {}}
+            />
+          ),
+        },
+      ],
+    },
+  ],
+  { initialEntries: ["/today"] },
 );
+
+const root = ReactDOM.createRoot(document.getElementById("root")!);
+const frame = new URLSearchParams(location.search).get("frame");
+
+if (frame === "shell") {
+  root.render(<RouterProvider router={shellRouter} />);
+} else {
+  root.render(
+    <div style={{ display: "flex", gap: 32, padding: 32, flexWrap: "wrap", background: "#e2e8f0", minHeight: "100vh" }}>
+      <TasksFrame />
+      <CaptureFrame />
+      <ButtonsFrame />
+    </div>,
+  );
+}
