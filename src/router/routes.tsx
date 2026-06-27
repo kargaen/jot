@@ -8,6 +8,8 @@ import CaptureRoute from "./Capture.route";
 import LogbookRoute from "./Logbook.route";
 import SettingsRoute from "./Settings.route";
 import TaskDetailRoute from "./TaskDetail.route";
+import AuthRoute from "./Auth.route";
+import OnboardingRoute from "./Onboarding.route";
 import MobileApp from "../views/pages/mobile/app/MobileApp.view";
 
 // Renders nothing — a protected surface not yet ported into the router.
@@ -24,6 +26,10 @@ export const router = createBrowserRouter([
 
   // The current app, untouched, kept as a working reference during the port.
   { path: "/_legacy", element: <MobileApp /> },
+
+  // Public / pre-app routes (no navbar frame, outside the protected layout).
+  { path: "/auth", element: <AuthRoute /> },
+  { path: "/onboarding", element: <OnboardingRoute /> },
 
   // Protected app: AppLayout owns the shared data fetch. Nav screens nest under
   // the AppShell sub-layout (persistent title + navbar, titles from `handle`);
