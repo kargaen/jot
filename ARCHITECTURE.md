@@ -324,4 +324,16 @@ Never re-implement a button/input/spinner/toggle/chip inline when a primitive ex
 
 Task icons are Lucide names stored on `task.icon`: auto-derived from the title by `suggestIcon` (`src/utils/presentation/icons.ts`), resolved to a component by `getTaskDetailIconComponent` (`src/hooks/useTaskDetail.ts`), and rendered through `src/views/pages/mobile/components/TaskIcon.view.tsx`. Always render an icon through that path — never print the icon name as text.
 
-Visual review without an Android build: the browser harness `mobile-harness.html` → `src/test-harness/mobileScreens.tsx` mounts the real mobile screens and a `Button` gallery with mock data, and honors `?theme=dark|light` to review both themes (`npm run dev`, then open the page).
+Visual review without an Android build: the browser harness `mobile-harness.html` → `src/test-harness/mobileScreens.tsx` mounts the real mobile screens and a `Button` gallery with mock data, honors `?theme=dark|light` to review both themes, and `?frame=shell` to review the `AppShell` layout full-bleed (`npm run dev`, then open the page). The harness needs the two `VITE_SUPABASE_*` env vars present (even dummy values in `.env.local`) or shared services throw at import.
+
+### Routing & navigation
+
+Client routing lives in `src/router/` and uses React Router (`react-router-dom`); the tree is defined in `src/router/routes.tsx` and mounted for mobile in `src/App.tsx` (desktop stays multi-window via the Tauri `windowLabel` switch — it has no routes). The route tree is the single source of truth for paths and titles.
+
+The protected app uses a **layered layout route** so the persistent frame is built once:
+
+- `AppShell.view.tsx` is the presentational frame — title (top), scrollable `<Outlet/>` (middle), navbar (bottom), always visible. Child surfaces render only into the Outlet and never rebuild the title or navbar. Each route declares its title via `handle: { title }`, which the shell reads with `useMatches`.
+- `AppLayout.route.tsx` is the layout route element: it owns the single `useMobileAppData` fetch and hands it to children through the Outlet context (`AppOutletContext`). Screens read it with `useOutletContext<AppOutletContext>()` — one fetch shared across routes, not one per screen.
+- **Route containers** are named `*.route.tsx` (e.g. `Today.route.tsx`, `Upcoming.route.tsx`): thin composition that reads shared data/params, wires callbacks (navigate, complete), and renders a `views/pages/.../*.view.tsx`. Views stay presentational; containers do the wiring.
+
+The current app is kept verbatim at `/_legacy` as a working reference during the port; `/` redirects there until screens are migrated, then flips to `/today` and `/_legacy` is removed.
