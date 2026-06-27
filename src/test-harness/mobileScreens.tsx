@@ -11,6 +11,8 @@ import Button from "../views/components/ui/Button.view";
 import Toast from "../views/components/ui/Toast.view";
 import { Outlet, RouterProvider, createMemoryRouter, useOutletContext } from "react-router-dom";
 import AppShell from "../router/AppShell.view";
+import ProjectRoute from "../router/Project.route";
+import type { AppOutletContext } from "../router/AppLayout.route";
 import { AuthProvider } from "../hooks/useAuth";
 import {
   useMobileAccountActions,
@@ -235,6 +237,46 @@ const shellDataRouter = createMemoryRouter(
   { initialEntries: ["/"] },
 );
 
+// Drill-down (project) review: provides a full mock outlet context so the
+// ProjectRoute filter + AppShell's dynamic (function) title resolve as in the
+// app. Title should show the project name ("jot").
+const mockDrillContext = {
+  user: null,
+  data: {
+    visibleTasks: SEED,
+    areas: [area],
+    visibleProjects: [project],
+    projects: [project],
+    loadingData: false,
+    deleteTask: () => {},
+  },
+  onComplete: () => {},
+  notify: () => {},
+} as unknown as AppOutletContext;
+const drillRouter = createMemoryRouter(
+  [
+    {
+      element: <Outlet context={mockDrillContext} />,
+      children: [
+        {
+          element: <AppShell />,
+          children: [
+            {
+              path: "projects/:projectId",
+              handle: {
+                title: (ctx: unknown, params: Record<string, string | undefined>) =>
+                  (ctx as AppOutletContext).data.projects.find((p) => p.id === params.projectId)?.name ?? "Project",
+              },
+              element: <ProjectRoute />,
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  { initialEntries: ["/projects/p1"] },
+);
+
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 const frame = new URLSearchParams(location.search).get("frame");
 
@@ -249,6 +291,8 @@ if (frame === "shell") {
   );
 } else if (frame === "shelldata") {
   root.render(<RouterProvider router={shellDataRouter} />);
+} else if (frame === "drill") {
+  root.render(<RouterProvider router={drillRouter} />);
 } else {
   root.render(
     <div style={{ display: "flex", gap: 32, padding: 32, flexWrap: "wrap", background: "#e2e8f0", minHeight: "100vh" }}>

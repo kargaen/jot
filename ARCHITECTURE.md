@@ -332,7 +332,7 @@ Client routing lives in `src/router/` and uses React Router (`react-router-dom`)
 
 The protected app uses a **layered layout route** so the persistent frame is built once:
 
-- `AppShell.view.tsx` is the presentational frame — title (top), scrollable `<Outlet/>` (middle), navbar (bottom), always visible. Child surfaces render only into the Outlet and never rebuild the title or navbar. Each route declares its title via `handle: { title }`, which the shell reads with `useMatches`.
+- `AppShell.view.tsx` is the presentational frame — title (top), scrollable `<Outlet/>` (middle), navbar (bottom), always visible. Child surfaces render only into the Outlet and never rebuild the title or navbar. Each route declares its title via `handle: { title }`, which the shell reads with `useMatches`; `title` may be a string or a `(ctx, params) => string` resolver for dynamic titles (e.g. a project/space name resolved from the shared context).
 - `AppLayout.route.tsx` is the layout route element: it owns the single `useMobileAppData` fetch and hands it to children through the Outlet context (`AppOutletContext`). Screens read it with `useOutletContext<AppOutletContext>()` — one fetch shared across routes, not one per screen.
 - **Route containers** are named `*.route.tsx` (e.g. `Today.route.tsx`, `Upcoming.route.tsx`): thin composition that reads shared data/params, wires callbacks (navigate, complete), and renders a `views/pages/.../*.view.tsx`. Views stay presentational; containers do the wiring.
 

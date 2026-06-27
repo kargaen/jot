@@ -8,8 +8,11 @@ import { CalendarDays, List, Plus, Settings as SettingsIcon, Sun } from "lucide-
 // inherit this frame, so they never rebuild the title or navbar.
 //
 // Each child route declares its own title via `handle: { title }` in routes;
-// the shell reads the deepest one through useMatches.
-type RouteHandle = { title?: string };
+// the shell reads the deepest one through useMatches. The title may be a string
+// or a resolver (ctx, params) => string for dynamic titles (e.g. a project
+// name); the resolver is typed at the route definition (ctx stays unknown here).
+type TitleResolver = (ctx: unknown, params: Record<string, string | undefined>) => string;
+type RouteHandle = { title?: string | TitleResolver };
 
 const NAV: { to: string; label: string; Icon: typeof Sun }[] = [
   { to: "/today", label: "Today", Icon: Sun },
@@ -24,15 +27,15 @@ export default function AppShell() {
   // this frame's Outlet (null when mounted standalone, e.g. in the harness).
   const outletContext = useOutletContext();
   const matches = useMatches();
-  const heading =
-    [...matches].reverse().find((m) => (m.handle as RouteHandle | undefined)?.title) as
-      | { handle: RouteHandle }
-      | undefined;
+  const match = [...matches].reverse().find((m) => (m.handle as RouteHandle | undefined)?.title);
+  const rawTitle = (match?.handle as RouteHandle | undefined)?.title;
+  const title =
+    typeof rawTitle === "function" ? rawTitle(outletContext, match?.params ?? {}) : (rawTitle ?? "");
 
   return (
     <div style={styles.shell}>
       <header style={styles.header}>
-        <span style={styles.title}>{heading?.handle.title ?? ""}</span>
+        <span style={styles.title}>{title}</span>
       </header>
 
       <main style={styles.scroll}>

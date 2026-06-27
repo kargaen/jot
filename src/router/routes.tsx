@@ -8,8 +8,11 @@ import CaptureRoute from "./Capture.route";
 import LogbookRoute from "./Logbook.route";
 import SettingsRoute from "./Settings.route";
 import TaskDetailRoute from "./TaskDetail.route";
+import SpaceRoute from "./Space.route";
+import ProjectRoute from "./Project.route";
 import AuthRoute from "./Auth.route";
 import OnboardingRoute from "./Onboarding.route";
+import type { AppOutletContext } from "./AppLayout.route";
 import MobileApp from "../views/pages/mobile/app/MobileApp.view";
 
 // Renders nothing — a protected surface not yet ported into the router.
@@ -49,8 +52,22 @@ export const router = createBrowserRouter([
           { path: "logbook", handle: { title: "Logbook" }, element: <LogbookRoute /> },
           { path: "capture", handle: { title: "Capture" }, element: <CaptureRoute /> },
           { path: "settings", handle: { title: "Settings" }, element: <SettingsRoute /> },
-          { path: "spaces/:areaId", handle: { title: "Space" }, element: <Pending /> },
-          { path: "projects/:projectId", handle: { title: "Project" }, element: <Pending /> },
+          {
+            path: "spaces/:areaId",
+            handle: {
+              title: (ctx: unknown, params: Record<string, string | undefined>) =>
+                (ctx as AppOutletContext).data.areas.find((a) => a.id === params.areaId)?.name ?? "Space",
+            },
+            element: <SpaceRoute />,
+          },
+          {
+            path: "projects/:projectId",
+            handle: {
+              title: (ctx: unknown, params: Record<string, string | undefined>) =>
+                (ctx as AppOutletContext).data.projects.find((p) => p.id === params.projectId)?.name ?? "Project",
+            },
+            element: <ProjectRoute />,
+          },
         ],
       },
       { path: "tasks/:taskId", element: <TaskDetailRoute /> },
