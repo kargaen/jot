@@ -47,6 +47,7 @@ export function useMobileAppData(userId: string | null) {
   const [tags, setTags] = useState<Tag[]>([]);
   const [tasks, setTasks] = useState<TaskWithTags[]>([]);
   const [loadingData, setLoadingData] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [firstAreaName, setFirstAreaName] = useState("Personal");
   const [firstAreaBusy, setFirstAreaBusy] = useState(false);
@@ -77,6 +78,7 @@ export function useMobileAppData(userId: string | null) {
       setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
       setLoadingData(false);
+      setHasLoaded(true);
     }
   }, [userId]);
 
@@ -203,7 +205,7 @@ export function useMobileAppData(userId: string | null) {
   );
 
   return {
-    areas, projects, tags, tasks, loadingData, error,
+    areas, projects, tags, tasks, loadingData, hasLoaded, error,
     visibleTasks, visibleProjects,
     hiddenAreaIds, handleHiddenChange,
     logbookTasks, completionDates, logbookLoading, loadLogbook,
