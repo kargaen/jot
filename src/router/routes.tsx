@@ -20,9 +20,9 @@ function Pending() {
 }
 
 export const router = createBrowserRouter([
-  // Default landing points at the working reference until the protected
-  // screens are ported; then "/" flips to "/today" and "/_legacy" is deleted.
-  { path: "/", element: <Navigate to="/_legacy" replace /> },
+  // Default landing is now the routed app. "/_legacy" stays reachable as a
+  // safety net until the routed app is confirmed on device, then it's removed.
+  { path: "/", element: <Navigate to="/today" replace /> },
 
   // The current app, untouched, kept as a working reference during the port.
   { path: "/_legacy", element: <MobileApp /> },
@@ -58,6 +58,6 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // Anything unmatched falls back to the working reference for now.
-  { path: "*", element: <Navigate to="/_legacy" replace /> },
+  // Anything unmatched falls back to the routed app.
+  { path: "*", element: <Navigate to="/today" replace /> },
 ]);
