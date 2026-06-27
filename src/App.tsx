@@ -47,6 +47,29 @@ export default function App() {
     const handleUrl = (url: string) => {
       const route = parseDeepLink(url);
       logger.info("deep-link", `received: ${url}`);
+
+      // On mobile the router is live: navigate directly. Detect the platform
+      // freshly (this effect's closure captured os before it resolved).
+      let mobile = false;
+      try {
+        const p = platform();
+        mobile = p === "android" || p === "ios";
+      } catch {
+        // not on tauri — treat as desktop
+      }
+      if (mobile) {
+        if (route.kind === "confirmed") {
+          router.navigate("/auth", {
+            state: { notice: "Your email is confirmed. You're all set to keep using Jot." },
+          });
+        } else if (route.kind === "task" && route.id) {
+          router.navigate(`/tasks/${route.id}`);
+        } else if (route.kind === "project" && route.id) {
+          router.navigate(`/projects/${route.id}`);
+        }
+        return;
+      }
+
       if (route.kind === "confirmed") {
         setLaunchNotice("Your email is confirmed. You're all set to keep using Jot.");
         return;
