@@ -8,6 +8,7 @@ import MobileUpcomingView from "../views/pages/mobile/upcoming/MobileUpcoming.vi
 import MobileLogbookView from "../views/pages/mobile/logbook/MobileLogbook.view";
 import MobileSettingsView from "../views/pages/mobile/settings/MobileSettings.view";
 import Button from "../views/components/ui/Button.view";
+import Toast from "../views/components/ui/Toast.view";
 import { Outlet, RouterProvider, createMemoryRouter, useOutletContext } from "react-router-dom";
 import AppShell from "../router/AppShell.view";
 import { AuthProvider } from "../hooks/useAuth";
@@ -237,10 +238,13 @@ const shellDataRouter = createMemoryRouter(
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 const frame = new URLSearchParams(location.search).get("frame");
 
+const showToast = new URLSearchParams(location.search).get("toast") === "1";
+
 if (frame === "shell") {
   root.render(
     <AuthProvider>
       <RouterProvider router={shellRouter} />
+      {showToast ? <Toast message="Nice — one less thing on your plate" badge="3 done today" /> : null}
     </AuthProvider>,
   );
 } else if (frame === "shelldata") {

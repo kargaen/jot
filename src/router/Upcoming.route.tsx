@@ -5,14 +5,14 @@ import MobileUpcomingView from "../views/pages/mobile/upcoming/MobileUpcoming.vi
 // Route container: reads shared app data from the layout's Outlet and feeds the
 // Upcoming view. Opening a task navigates to its detail route.
 export default function UpcomingRoute() {
-  const { data } = useOutletContext<AppOutletContext>();
+  const { data, onComplete } = useOutletContext<AppOutletContext>();
   const navigate = useNavigate();
 
   return (
     <MobileUpcomingView
       tasks={data.visibleTasks}
       loading={data.loadingData}
-      onComplete={data.completeTask}
+      onComplete={onComplete}
       onOpenTask={(id) => navigate(`/tasks/${id}`)}
     />
   );

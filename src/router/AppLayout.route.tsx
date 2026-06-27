@@ -1,13 +1,19 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useMobileAppData } from "../hooks/useMobileApp";
+import { useCompletionToast } from "../hooks/useCompletionToast";
 import Splash from "./Splash.view";
+import Toast from "../views/components/ui/Toast.view";
 
 // Shared context handed to every protected route via AppShell's Outlet.
 // Child route containers read it with useOutletContext<AppOutletContext>().
 export interface AppOutletContext {
   user: ReturnType<typeof useAuth>["user"];
   data: ReturnType<typeof useMobileAppData>;
+  // Complete a task + show the completion toast (list screens).
+  onComplete: (id: string) => void;
+  // Show the completion toast only (detail screen completes the task itself).
+  notify: () => void;
 }
 
 // Protected layout route: owns the single app-data fetch and exposes it to every
@@ -18,6 +24,7 @@ export interface AppOutletContext {
 export default function AppLayout() {
   const { loading, user } = useAuth();
   const data = useMobileAppData(user?.id ?? null);
+  const { toast, notify } = useCompletionToast();
 
   // Gate, mirroring the legacy MobileApp early returns:
   if (loading) return <Splash />;
@@ -27,6 +34,16 @@ export default function AppLayout() {
   if (!data.hasLoaded) return <Splash />;
   if (data.areas.length === 0) return <Navigate to="/onboarding" replace />;
 
-  const context: AppOutletContext = { user, data };
-  return <Outlet context={context} />;
+  const onComplete = (id: string) => {
+    notify();
+    void data.completeTask(id);
+  };
+  const context: AppOutletContext = { user, data, onComplete, notify };
+
+  return (
+    <>
+      <Outlet context={context} />
+      {toast ? <Toast message={toast.quote} badge={`${toast.count} done today`} /> : null}
+    </>
+  );
 }

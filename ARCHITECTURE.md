@@ -311,7 +311,7 @@ Concrete rule: if the same predicate, filter, or sort function appears in both a
 
 Design tokens are the **single source of truth** for color, radius, and shadow, and live as CSS variables in `src/styles/global.css` (`:root` for light; `:root[data-theme="dark"]` and the `prefers-color-scheme` block for dark). Components reference tokens via `var(--token)` — never hardcode hex/rgba in inline styles. Add or change a color in `global.css` only; because everything references the tokens, light/dark stay in sync automatically. (See `global.css` for the current token names.)
 
-Reusable UI primitives live in `src/views/components/ui/` — e.g. `Button.view.tsx` (variants × sizes, `loading`/`disabled`/`fullWidth`), `Spinner.view.tsx`, `Toggle.view.tsx`. Each component's own file is the source of truth for its props.
+Reusable UI primitives live in `src/views/components/ui/` — e.g. `Button.view.tsx` (variants × sizes, `loading`/`disabled`/`fullWidth`), `Spinner.view.tsx`, `Toggle.view.tsx`, `Toast.view.tsx` (fixed bottom status toast, message + optional badge). Each component's own file is the source of truth for its props.
 
 When you need a control, resolve it in this order (this is the concrete form of CLAUDE.md's "Avoid Custom Markup and Styling" principle):
 

@@ -7,7 +7,7 @@ import MobileTaskDetailView from "../views/pages/mobile/tasks/MobileTaskDetail.v
 // The view brings its own back-button header; back/complete return to the list.
 export default function TaskDetailRoute() {
   const { taskId } = useParams();
-  const { data } = useOutletContext<AppOutletContext>();
+  const { data, notify } = useOutletContext<AppOutletContext>();
   const navigate = useNavigate();
 
   const task = data.tasks.find((t) => t.id === taskId) ?? null;
@@ -24,6 +24,7 @@ export default function TaskDetailRoute() {
       onUpdated={data.refresh}
       onBack={back}
       onCompleted={() => {
+        notify();
         void data.refresh();
         back();
       }}

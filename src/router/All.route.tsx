@@ -5,7 +5,7 @@ import MobileTasksView from "../views/pages/mobile/tasks/MobileTasks.view";
 // Route container: reads shared app data from the layout's Outlet and feeds the
 // All-tasks view. Opening a task navigates to its detail route.
 export default function AllRoute() {
-  const { data } = useOutletContext<AppOutletContext>();
+  const { data, onComplete } = useOutletContext<AppOutletContext>();
   const navigate = useNavigate();
 
   return (
@@ -14,7 +14,7 @@ export default function AllRoute() {
       areas={data.areas}
       projects={data.visibleProjects}
       loading={data.loadingData}
-      onComplete={data.completeTask}
+      onComplete={onComplete}
       onOpenTask={(id) => navigate(`/tasks/${id}`)}
       onDeleteTask={data.deleteTask}
     />
