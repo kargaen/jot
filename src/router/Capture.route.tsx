@@ -1,4 +1,4 @@
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import type { ParsedInput } from "../models/shared";
 import type { AppOutletContext } from "./AppLayout.route";
 import { useCaptureComposer } from "../hooks/useMobileApp";
@@ -13,6 +13,9 @@ export default function CaptureRoute() {
   const { data } = useOutletContext<AppOutletContext>();
   const capture = useCaptureComposer();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Bumped when arriving from the widget so the form clears even if already here.
+  const resetToken = (location.state as { reset?: number } | null)?.reset;
 
   async function handleSave(
     parsed: ParsedInput,
@@ -46,5 +49,5 @@ export default function CaptureRoute() {
     }
   }
 
-  return <MobileCaptureView projects={data.projects} tags={data.tags} onSave={handleSave} />;
+  return <MobileCaptureView projects={data.projects} tags={data.tags} onSave={handleSave} resetToken={resetToken} />;
 }

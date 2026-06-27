@@ -1,4 +1,6 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { useEffect } from "react";
+import { Navigate, Outlet, useNavigate } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
 import { useAuth } from "../hooks/useAuth";
 import { useMobileAppData } from "../hooks/useMobileApp";
 import { useCompletionToast } from "../hooks/useCompletionToast";
@@ -25,6 +27,32 @@ export default function AppLayout() {
   const { loading, user } = useAuth();
   const data = useMobileAppData(user?.id ?? null);
   const { toast, notify } = useCompletionToast();
+  const navigate = useNavigate();
+
+  // Widget launch: when opened from the quick-capture widget (cold or warm
+  // start), jump to a clean Capture (the nav state forces a fresh form even if
+  // already there) or to Today for a pulse. The pending action is consumed once.
+  useEffect(() => {
+    if (!user) return;
+    async function checkLaunchAction() {
+      try {
+        const action = await invoke<string | null>("take_mobile_launch_action");
+        if (action === "capture" || action === "voice") {
+          navigate("/capture", { state: { reset: Date.now() } });
+        } else if (action === "pulse") {
+          navigate("/today");
+        }
+      } catch {
+        // not on mobile / command unavailable — ignore
+      }
+    }
+    void checkLaunchAction();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void checkLaunchAction();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [user, navigate]);
 
   // Gate, mirroring the legacy MobileApp early returns:
   if (loading) return <Splash />;
