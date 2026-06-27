@@ -744,12 +744,14 @@ function FeedbackSection() {
     <section style={styles.section}>
       <div style={styles.sectionHeader}>Feedback</div>
       <div style={styles.card}>
-        <div style={styles.emptyText}>
-          Found a bug or have an idea? Feedback for Jot is tracked on GitHub.
+        <div style={styles.cardBody}>
+          <div style={styles.feedbackText}>
+            Found a bug or have an idea? Feedback for Jot is tracked on GitHub.
+          </div>
+          <Button variant="primary" size="sm" onClick={() => void shellOpen(JOT_ISSUES_URL)}>
+            Open GitHub Issues
+          </Button>
         </div>
-        <Button variant="primary" size="sm" onClick={() => void shellOpen(JOT_ISSUES_URL)}>
-          Open GitHub Issues
-        </Button>
       </div>
     </section>
   );
@@ -786,6 +788,21 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 18,
     overflow: "hidden",
     padding: "0 16px",
+  },
+  // The card supplies horizontal padding only; row children supply the vertical
+  // rhythm. Free-form card content (text + actions) goes in cardBody, which
+  // restores that vertical padding so the card isn't flush top/bottom.
+  cardBody: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 12,
+    padding: "14px 0",
+  },
+  feedbackText: {
+    fontSize: 13,
+    color: "var(--text-tertiary)",
+    lineHeight: 1.4,
   },
   row: {
     display: "flex",
