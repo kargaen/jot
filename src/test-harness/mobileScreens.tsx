@@ -3,9 +3,19 @@ import ReactDOM from "react-dom/client";
 import type { Area, Project, Tag, TaskWithTags } from "../models/shared";
 import MobileTasksView from "../views/pages/mobile/tasks/MobileTasks.view";
 import MobileCaptureView from "../views/pages/mobile/capture/MobileCapture.view";
+import MobileTodayView from "../views/pages/mobile/today/MobileToday.view";
+import MobileUpcomingView from "../views/pages/mobile/upcoming/MobileUpcoming.view";
+import MobileLogbookView from "../views/pages/mobile/logbook/MobileLogbook.view";
+import MobileSettingsView from "../views/pages/mobile/settings/MobileSettings.view";
 import Button from "../views/components/ui/Button.view";
 import { Outlet, RouterProvider, createMemoryRouter, useOutletContext } from "react-router-dom";
 import AppShell from "../router/AppShell.view";
+import { AuthProvider } from "../hooks/useAuth";
+import {
+  useMobileAccountActions,
+  useMobileProjectsActions,
+  useMobileSpacesActions,
+} from "../hooks/useMobileApp";
 import "../styles/global.css";
 
 // Honor ?theme=dark|light so the harness can be reviewed in either theme
@@ -47,6 +57,65 @@ const SEED: TaskWithTags[] = [
   makeTask({ id: "t7", title: "Water the plants", icon: "Shovel" }),
   makeTask({ id: "t8", title: "Write the weekly report", icon: "FileText" }),
 ];
+
+// Future-dated tasks so the Upcoming screen has grouped content (today is ~2026-06-27).
+const UPCOMING_SEED: TaskWithTags[] = [
+  makeTask({ id: "u1", title: "Dentist appointment", icon: "Phone", due_date: "2026-06-28" }),
+  makeTask({ id: "u2", title: "Team sync", icon: "Users", due_date: "2026-06-29", due_time: "10:00" }),
+  makeTask({ id: "u3", title: "Submit tax forms", icon: "FileText", due_date: "2026-07-01", priority: "high" }),
+  makeTask({ id: "u4", title: "Birthday gift", icon: "Gift", due_date: "2026-07-04" }),
+];
+
+// Completed tasks + dates so the Logbook screen has content and a heatmap.
+const DONE_SEED: TaskWithTags[] = [
+  makeTask({ id: "d1", title: "Shipped the release", icon: "Rocket", status: "completed", completed_at: "2026-06-27T09:30:00Z" }),
+  makeTask({ id: "d2", title: "Reviewed designs", icon: "Eye", status: "completed", completed_at: "2026-06-27T14:10:00Z" }),
+  makeTask({ id: "d3", title: "Paid invoices", icon: "CreditCard", status: "completed", completed_at: "2026-06-26T16:00:00Z" }),
+];
+const COMPLETION_DATES = ["2026-06-27", "2026-06-26", "2026-06-24", "2026-06-23", "2026-06-20"];
+
+// Settings needs the real (pure) action hooks; wrapped so they can be called
+// inside a component. Members/invites fetch fails gracefully under dummy env.
+function SettingsHarness() {
+  const accountActions = useMobileAccountActions();
+  const spaceActions = useMobileSpacesActions();
+  const projectActions = useMobileProjectsActions();
+  return (
+    <MobileSettingsView
+      email="karga@karga.dk"
+      areas={[area]}
+      projects={[project]}
+      tasks={SEED}
+      hiddenAreaIds={[]}
+      onHiddenChange={() => {}}
+      accountActions={accountActions}
+      spaceActions={spaceActions}
+      projectActions={projectActions}
+      onSignedOut={() => {}}
+      onAreasChanged={() => {}}
+    />
+  );
+}
+
+// Maps a ?tab= value to the real screen (with mock data) + its title, so each
+// ported tab can be reviewed inside the actual AppShell frame.
+function tabChild(tab: string): { path: string; title: string; element: React.ReactNode } {
+  switch (tab) {
+    case "upcoming":
+      return { path: "upcoming", title: "Upcoming", element: <MobileUpcomingView tasks={UPCOMING_SEED} loading={false} onComplete={() => {}} onOpenTask={() => {}} /> };
+    case "all":
+      return { path: "all", title: "All", element: <MobileTasksView tasks={SEED} areas={[area]} projects={[project]} loading={false} onComplete={() => {}} onOpenTask={() => {}} onDeleteTask={() => {}} /> };
+    case "logbook":
+      return { path: "logbook", title: "Logbook", element: <MobileLogbookView tasks={DONE_SEED} loading={false} completionDates={COMPLETION_DATES} onRestore={() => {}} /> };
+    case "capture":
+      return { path: "capture", title: "Capture", element: <MobileCaptureView projects={[project]} tags={tags} onSave={async () => {}} /> };
+    case "settings":
+      return { path: "settings", title: "Settings", element: <SettingsHarness /> };
+    case "today":
+    default:
+      return { path: "today", title: "Today", element: <MobileTodayView tasks={SEED} loading={false} onComplete={() => {}} /> };
+  }
+}
 
 function Phone({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -132,34 +201,20 @@ function ButtonsFrame() {
 }
 
 // AppShell layout route exercised through a real data router so useMatches /
-// handle.title / NavLink behave exactly as in production. The "today" child
-// renders a real screen into the scrollable Outlet to prove the middle scrolls
-// while the title + navbar stay fixed. Mounted full-bleed (?frame=shell) at a
-// phone-sized viewport so the shell's 100dvh resolves to the phone, not a bezel.
+// handle.title / NavLink behave exactly as in production. The child is the real
+// screen chosen by ?tab= (default today), rendered into the scrollable Outlet so
+// the title + navbar stay fixed while the middle scrolls. Mounted full-bleed
+// (?frame=shell) at a phone-sized viewport so 100dvh resolves to the phone.
+const tabParam = new URLSearchParams(location.search).get("tab") ?? "today";
+const tab = tabChild(tabParam);
 const shellRouter = createMemoryRouter(
   [
     {
       element: <AppShell />,
-      children: [
-        {
-          path: "today",
-          handle: { title: "Today" },
-          element: (
-            <MobileTasksView
-              tasks={SEED}
-              areas={[area]}
-              projects={[project]}
-              loading={false}
-              onComplete={() => {}}
-              onOpenTask={() => {}}
-              onDeleteTask={() => {}}
-            />
-          ),
-        },
-      ],
+      children: [{ path: tab.path, handle: { title: tab.title }, element: tab.element }],
     },
   ],
-  { initialEntries: ["/today"] },
+  { initialEntries: [`/${tab.path}`] },
 );
 
 // Verifies that shared context provided on a layout's Outlet flows through the
@@ -183,7 +238,11 @@ const root = ReactDOM.createRoot(document.getElementById("root")!);
 const frame = new URLSearchParams(location.search).get("frame");
 
 if (frame === "shell") {
-  root.render(<RouterProvider router={shellRouter} />);
+  root.render(
+    <AuthProvider>
+      <RouterProvider router={shellRouter} />
+    </AuthProvider>,
+  );
 } else if (frame === "shelldata") {
   root.render(<RouterProvider router={shellDataRouter} />);
 } else {
