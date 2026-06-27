@@ -331,14 +331,15 @@ function SpacesSection({
                   style={styles.inlineInput}
                   autoFocus
                 />
-                <button
+                <Button
                   type="button"
+                  variant="primary"
+                  size="sm"
                   onClick={() => handleSave(area.id)}
                   disabled={busy}
-                  style={styles.inlineButton}
                 >
                   Save
-                </button>
+                </Button>
                 <button
                   type="button"
                   onClick={() => setEditingId(null)}
@@ -375,9 +376,9 @@ function SpacesSection({
             placeholder="New space name"
             style={styles.inlineInput}
           />
-          <button type="submit" disabled={busy || !newName.trim()} style={styles.inlineButton}>
+          <Button type="submit" variant="primary" size="sm" disabled={busy || !newName.trim()}>
             Add
-          </button>
+          </Button>
         </form>
       </div>
     </section>
@@ -491,9 +492,9 @@ function ProjectsSection({
                           style={styles.inlineInput}
                           autoFocus
                         />
-                        <button type="button" onClick={() => handleRename(project.id)} disabled={busy} style={styles.inlineButton}>
+                        <Button type="button" variant="primary" size="sm" onClick={() => handleRename(project.id)} disabled={busy}>
                           Save
-                        </button>
+                        </Button>
                         <button type="button" onClick={() => setEditingId(null)} style={styles.cancelButton}>
                           ✕
                         </button>
@@ -530,9 +531,9 @@ function ProjectsSection({
                     placeholder="New project"
                     style={styles.inlineInput}
                   />
-                  <button type="submit" disabled={busy || !(drafts[area.id] ?? "").trim()} style={styles.inlineButton}>
+                  <Button type="submit" variant="primary" size="sm" disabled={busy || !(drafts[area.id] ?? "").trim()}>
                     Add
-                  </button>
+                  </Button>
                 </form>
               </div>
             </div>
@@ -682,9 +683,9 @@ function SharingSection({ areas, onSharedChange }: { areas: Area[]; onSharedChan
               autoComplete="off"
               style={styles.inlineInput}
             />
-            <button type="submit" disabled={busy || !inviteEmail.trim()} style={styles.inlineButton}>
+            <Button type="submit" variant="primary" size="sm" disabled={busy || !inviteEmail.trim()}>
               {busy ? "…" : "Invite"}
-            </button>
+            </Button>
           </form>
           {inviteError ? <div style={styles.error}>{inviteError}</div> : null}
 
@@ -719,7 +720,7 @@ function InviteRow({ label, onAccept, onDecline }: { label: string; onAccept: ()
   return (
     <div style={styles.inviteRow}>
       <span style={styles.rowLabel}>{label}</span>
-      <button type="button" onClick={onAccept} style={styles.inlineButton}>Accept</button>
+      <Button type="button" variant="primary" size="sm" onClick={onAccept}>Accept</Button>
       <button type="button" onClick={onDecline} style={styles.cancelButton}>Decline</button>
     </div>
   );
@@ -750,9 +751,9 @@ function FeedbackSection() {
         <div style={styles.emptyText}>
           Found a bug or have an idea? Feedback for Jot is tracked on GitHub.
         </div>
-        <button onClick={() => void shellOpen(JOT_ISSUES_URL)} style={styles.inlineButton}>
+        <Button variant="primary" size="sm" onClick={() => void shellOpen(JOT_ISSUES_URL)}>
           Open GitHub Issues
-        </button>
+        </Button>
       </div>
     </section>
   );
@@ -839,18 +840,6 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: "inherit",
     outline: "none",
     minWidth: 0,
-  },
-  inlineButton: {
-    flexShrink: 0,
-    padding: "9px 14px",
-    borderRadius: 10,
-    border: "none",
-    background: "linear-gradient(135deg, var(--accent), var(--accent-2))",
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: 600,
-    cursor: "pointer",
-    fontFamily: "inherit",
   },
   cancelButton: {
     flexShrink: 0,
