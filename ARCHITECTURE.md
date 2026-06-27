@@ -306,3 +306,13 @@ Views are always platform-specific — rendering differs too much to share. Ever
 | `views/` | **No** — always platform-specific | Rendering and interaction patterns differ |
 
 Concrete rule: if the same predicate, filter, or sort function appears in both a desktop hook and a mobile view, it belongs in `src/models/tasks/` as a pure exported function. Neither the desktop hook nor the mobile view should own the rule — the model does.
+
+### Styling & design system
+
+Design tokens are the **single source of truth** for color, radius, and shadow, and live as CSS variables in `src/styles/global.css` (`:root` for light; `:root[data-theme="dark"]` and the `prefers-color-scheme` block for dark). Components reference tokens via `var(--token)` — never hardcode hex/rgba in inline styles. Add or change a color in `global.css` only; because everything references the tokens, light/dark stay in sync automatically. (See `global.css` for the current token names.)
+
+Reusable UI primitives live in `src/views/components/ui/` — e.g. `Button.view.tsx` (variants × sizes, `loading`/`disabled`/`fullWidth`), `Spinner.view.tsx`, `Toggle.view.tsx`. Compose these instead of re-building inline-styled controls; a new shared primitive goes here and is styled from tokens. Each component's own file is the source of truth for its props.
+
+Task icons are Lucide names stored on `task.icon`: auto-derived from the title by `suggestIcon` (`src/utils/presentation/icons.ts`), resolved to a component by `getTaskDetailIconComponent` (`src/hooks/useTaskDetail.ts`), and rendered through `src/views/pages/mobile/components/TaskIcon.view.tsx`. Always render an icon through that path — never print the icon name as text.
+
+Visual review without an Android build: the browser harness `mobile-harness.html` → `src/test-harness/mobileScreens.tsx` mounts the real mobile screens and a `Button` gallery with mock data, and honors `?theme=dark|light` to review both themes (`npm run dev`, then open the page).

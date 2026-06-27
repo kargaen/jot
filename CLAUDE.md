@@ -68,6 +68,24 @@ Do not invent new structure, naming conventions, state-management patterns, rout
 
 ---
 
+### Documenting New Conventions (in ARCHITECTURE.md, by reference)
+
+`ARCHITECTURE.md` is the source of truth. When a change establishes something **conventional** — something meant to be followed again — record it under **Key Conventions** in `ARCHITECTURE.md` as part of the same work. A convention that lives only in code (or only in a chat) gets reinvented.
+
+Be explicit. The following are conventional and **must** be documented there:
+
+- A new reusable UI primitive/component intended for reuse (e.g. a shared `Button`).
+- A new design token (color, radius, spacing, shadow) or a change to the token set.
+- A new naming pattern, file-layout rule, or dependency-direction rule.
+- A new cross-layer contract, shared helper, or "do it this way" pattern.
+- A new tool or workflow others should use (e.g. the visual harness).
+
+One-off, local, non-repeatable changes do **not** belong in `ARCHITECTURE.md`.
+
+**Reference the source; never copy it (SSOT).** Documentation must point to the file that owns the truth, not duplicate its contents. Reference the stylesheet, component, schema, or helper **by path** and describe how to use it, so the doc cannot drift from the code. Do not paste token values, color hex, component prop lists, or code snippets that then need maintaining in two places. If you find copied truth in any doc, replace it with a reference. This applies to `ARCHITECTURE.md`, this file, and every doc.
+
+---
+
 ### Prefer Narrow Changes
 
 Make the smallest change that satisfies the current request.
