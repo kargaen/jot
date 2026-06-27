@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { NavLink, Outlet, useMatches, useOutletContext } from "react-router-dom";
-import { CalendarDays, List, Plus, Settings as SettingsIcon, Sun } from "lucide-react";
+import { CalendarDays, History, List, Plus, Settings as SettingsIcon, Sun } from "lucide-react";
 
 // Layout route for every surface that shows the persistent app frame.
 // It renders the title (top), a scrollable Outlet (middle), and the navbar
@@ -17,6 +17,7 @@ type RouteHandle = { title?: string | TitleResolver };
 const NAV: { to: string; label: string; Icon: typeof Sun }[] = [
   { to: "/today", label: "Today", Icon: Sun },
   { to: "/upcoming", label: "Upcoming", Icon: CalendarDays },
+  { to: "/logbook", label: "Logbook", Icon: History },
   { to: "/all", label: "All", Icon: List },
   { to: "/capture", label: "Capture", Icon: Plus },
   { to: "/settings", label: "Settings", Icon: SettingsIcon },
