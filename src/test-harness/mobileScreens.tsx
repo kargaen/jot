@@ -4,7 +4,7 @@ import type { Area, Project, Tag, TaskWithTags } from "../models/shared";
 import MobileTasksView from "../views/pages/mobile/tasks/MobileTasks.view";
 import MobileCaptureView from "../views/pages/mobile/capture/MobileCapture.view";
 import Button from "../views/components/ui/Button.view";
-import { RouterProvider, createMemoryRouter } from "react-router-dom";
+import { Outlet, RouterProvider, createMemoryRouter, useOutletContext } from "react-router-dom";
 import AppShell from "../router/AppShell.view";
 import "../styles/global.css";
 
@@ -162,11 +162,30 @@ const shellRouter = createMemoryRouter(
   { initialEntries: ["/today"] },
 );
 
+// Verifies that shared context provided on a layout's Outlet flows through the
+// AppShell sub-layout down to a nested screen (the exact nav-screen data path).
+// A passing probe renders the marker text below.
+function ContextProbe() {
+  const ctx = useOutletContext<{ marker?: string }>();
+  return <div style={{ padding: 20, color: "var(--text-primary)" }}>{ctx?.marker ?? "NO_CONTEXT"}</div>;
+}
+const shellDataRouter = createMemoryRouter(
+  [
+    {
+      element: <Outlet context={{ marker: "CONTEXT_OK" }} />,
+      children: [{ element: <AppShell />, children: [{ index: true, element: <ContextProbe /> }] }],
+    },
+  ],
+  { initialEntries: ["/"] },
+);
+
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 const frame = new URLSearchParams(location.search).get("frame");
 
 if (frame === "shell") {
   root.render(<RouterProvider router={shellRouter} />);
+} else if (frame === "shelldata") {
+  root.render(<RouterProvider router={shellDataRouter} />);
 } else {
   root.render(
     <div style={{ display: "flex", gap: 32, padding: 32, flexWrap: "wrap", background: "#e2e8f0", minHeight: "100vh" }}>

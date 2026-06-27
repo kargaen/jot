@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { NavLink, Outlet, useMatches } from "react-router-dom";
+import { NavLink, Outlet, useMatches, useOutletContext } from "react-router-dom";
 import { CalendarDays, List, Plus, Settings as SettingsIcon, Sun } from "lucide-react";
 
 // Layout route for every surface that shows the persistent app frame.
@@ -19,7 +19,10 @@ const NAV: { to: string; label: string; Icon: typeof Sun }[] = [
   { to: "/settings", label: "Settings", Icon: SettingsIcon },
 ];
 
-export default function AppShell({ outletContext }: { outletContext?: unknown }) {
+export default function AppShell() {
+  // Re-forward the layout's shared context down to the nav screens nested in
+  // this frame's Outlet (null when mounted standalone, e.g. in the harness).
+  const outletContext = useOutletContext();
   const matches = useMatches();
   const heading =
     [...matches].reverse().find((m) => (m.handle as RouteHandle | undefined)?.title) as

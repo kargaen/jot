@@ -1,5 +1,6 @@
 import { Navigate, createBrowserRouter } from "react-router-dom";
 import AppLayout from "./AppLayout.route";
+import AppShell from "./AppShell.view";
 import TodayRoute from "./Today.route";
 import UpcomingRoute from "./Upcoming.route";
 import AllRoute from "./All.route";
@@ -23,27 +24,30 @@ export const router = createBrowserRouter([
   // The current app, untouched, kept as a working reference during the port.
   { path: "/_legacy", element: <MobileApp /> },
 
-  // Protected app shell: every child renders into AppShell's scrollable Outlet
-  // and inherits the persistent title + navbar. Titles come from `handle`.
+  // Protected app: AppLayout owns the shared data fetch. Nav screens nest under
+  // the AppShell sub-layout (persistent title + navbar, titles from `handle`);
+  // full-screen routes (task detail) are direct children — same shared data, no
+  // navbar frame.
   {
     element: <AppLayout />,
     children: [
-      { path: "today", handle: { title: "Today" }, element: <TodayRoute /> },
-      { path: "upcoming", handle: { title: "Upcoming" }, element: <UpcomingRoute /> },
-      { path: "overdue", handle: { title: "Overdue" }, element: <Pending /> },
-      { path: "inbox", handle: { title: "Inbox" }, element: <Pending /> },
-      { path: "all", handle: { title: "All" }, element: <AllRoute /> },
-      { path: "logbook", handle: { title: "Logbook" }, element: <LogbookRoute /> },
-      { path: "capture", handle: { title: "Capture" }, element: <CaptureRoute /> },
-      { path: "settings", handle: { title: "Settings" }, element: <SettingsRoute /> },
-      { path: "spaces/:areaId", handle: { title: "Space" }, element: <Pending /> },
-      { path: "projects/:projectId", handle: { title: "Project" }, element: <Pending /> },
-      { path: "tasks/:taskId", handle: { title: "Task" }, element: <Pending /> },
       {
-        path: "projects/:projectId/tasks/:taskId",
-        handle: { title: "Task" },
-        element: <Pending />,
+        element: <AppShell />,
+        children: [
+          { path: "today", handle: { title: "Today" }, element: <TodayRoute /> },
+          { path: "upcoming", handle: { title: "Upcoming" }, element: <UpcomingRoute /> },
+          { path: "overdue", handle: { title: "Overdue" }, element: <Pending /> },
+          { path: "inbox", handle: { title: "Inbox" }, element: <Pending /> },
+          { path: "all", handle: { title: "All" }, element: <AllRoute /> },
+          { path: "logbook", handle: { title: "Logbook" }, element: <LogbookRoute /> },
+          { path: "capture", handle: { title: "Capture" }, element: <CaptureRoute /> },
+          { path: "settings", handle: { title: "Settings" }, element: <SettingsRoute /> },
+          { path: "spaces/:areaId", handle: { title: "Space" }, element: <Pending /> },
+          { path: "projects/:projectId", handle: { title: "Project" }, element: <Pending /> },
+        ],
       },
+      { path: "tasks/:taskId", element: <Pending /> },
+      { path: "projects/:projectId/tasks/:taskId", element: <Pending /> },
     ],
   },
 
