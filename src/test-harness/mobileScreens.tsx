@@ -107,7 +107,7 @@ function tabChild(tab: string): { path: string; title: string; element: React.Re
     case "upcoming":
       return { path: "upcoming", title: "Upcoming", element: <MobileUpcomingView tasks={UPCOMING_SEED} loading={false} onComplete={() => {}} onOpenTask={() => {}} /> };
     case "all":
-      return { path: "all", title: "All", element: <MobileTasksView tasks={SEED} areas={[area]} projects={[project]} loading={false} onComplete={() => {}} onOpenTask={() => {}} onDeleteTask={() => {}} /> };
+      return { path: "all", title: "All", element: <MobileTasksView tasks={SEED} areas={[area]} projects={[project]} loading={false} onComplete={() => {}} onOpenTask={() => {}} onDeleteTask={() => {}} onOpenArea={() => {}} onOpenProject={() => {}} /> };
     case "logbook":
       return { path: "logbook", title: "Logbook", element: <MobileLogbookView tasks={DONE_SEED} loading={false} completionDates={COMPLETION_DATES} onRestore={() => {}} /> };
     case "capture":

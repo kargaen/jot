@@ -17,6 +17,8 @@ export default function AllRoute() {
       onComplete={onComplete}
       onOpenTask={(id) => navigate(`/tasks/${id}`)}
       onDeleteTask={data.deleteTask}
+      onOpenArea={(id) => navigate(`/spaces/${id}`)}
+      onOpenProject={(id) => navigate(`/projects/${id}`)}
     />
   );
 }

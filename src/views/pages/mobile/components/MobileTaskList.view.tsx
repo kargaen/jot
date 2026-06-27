@@ -7,6 +7,8 @@ export interface TaskListGroup {
   label: string;
   /** Optional leading colour dot (used by the project/space grouping). */
   color?: string;
+  /** When set, the section header is tappable (drills into the group). */
+  onOpen?: () => void;
   tasks: TaskWithTags[];
 }
 
@@ -30,11 +32,20 @@ export default function MobileTaskList({ groups, onComplete, onOpenTask, onDelet
     <div style={styles.list}>
       {groups.map((group) => (
         <div key={group.key} style={styles.section}>
-          <div style={styles.sectionHeader}>
-            {group.color ? <span style={{ ...styles.dot, background: group.color }} /> : null}
-            <span style={styles.sectionLabel}>{group.label}</span>
-            {showCount ? <span style={styles.badge}>{group.tasks.length}</span> : null}
-          </div>
+          {group.onOpen ? (
+            <button type="button" onClick={group.onOpen} style={{ ...styles.sectionHeader, ...styles.sectionHeaderButton }}>
+              {group.color ? <span style={{ ...styles.dot, background: group.color }} /> : null}
+              <span style={styles.sectionLabel}>{group.label}</span>
+              {showCount ? <span style={styles.badge}>{group.tasks.length}</span> : null}
+              <span style={styles.chevron}>›</span>
+            </button>
+          ) : (
+            <div style={styles.sectionHeader}>
+              {group.color ? <span style={{ ...styles.dot, background: group.color }} /> : null}
+              <span style={styles.sectionLabel}>{group.label}</span>
+              {showCount ? <span style={styles.badge}>{group.tasks.length}</span> : null}
+            </div>
+          )}
           {group.tasks.map((task) => (
             <MobileTaskRow
               key={task.id}
@@ -62,6 +73,20 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     gap: 8,
     padding: "10px 20px 6px",
+  },
+  sectionHeaderButton: {
+    width: "100%",
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    fontFamily: "inherit",
+    textAlign: "left",
+  },
+  chevron: {
+    flexShrink: 0,
+    fontSize: 18,
+    lineHeight: 1,
+    color: "var(--text-tertiary)",
   },
   sectionLabel: {
     flex: 1,

@@ -11,12 +11,17 @@ interface Props {
   onComplete: (id: string) => void;
   onOpenTask: (id: string) => void;
   onDeleteTask: (id: string) => void;
+  /** When set, project/space group headers drill into that group. */
+  onOpenArea?: (id: string) => void;
+  onOpenProject?: (id: string) => void;
 }
 
 function buildGroups(
   tasks: TaskWithTags[],
   areas: Area[],
   projects: Project[],
+  onOpenArea?: (id: string) => void,
+  onOpenProject?: (id: string) => void,
 ): TaskListGroup[] {
   const open = tasks.filter((t) => t.status === "todo");
   const groups: TaskListGroup[] = [];
@@ -27,7 +32,13 @@ function buildGroups(
     for (const project of areaProjects) {
       const projectTasks = open.filter((t) => t.project_id === project.id);
       if (projectTasks.length > 0) {
-        groups.push({ key: `project-${project.id}`, label: project.name, color: project.color, tasks: projectTasks });
+        groups.push({
+          key: `project-${project.id}`,
+          label: project.name,
+          color: project.color,
+          onOpen: onOpenProject ? () => onOpenProject(project.id) : undefined,
+          tasks: projectTasks,
+        });
       }
     }
 
@@ -35,7 +46,13 @@ function buildGroups(
       (t) => t.area_id === area.id && isInbox(t),
     );
     if (areaInbox.length > 0) {
-      groups.push({ key: `area-${area.id}`, label: area.name, color: area.color, tasks: areaInbox });
+      groups.push({
+        key: `area-${area.id}`,
+        label: area.name,
+        color: area.color,
+        onOpen: onOpenArea ? () => onOpenArea(area.id) : undefined,
+        tasks: areaInbox,
+      });
     }
   }
 
@@ -47,12 +64,12 @@ function buildGroups(
   return groups;
 }
 
-export default function MobileTasksView({ tasks, areas, projects, loading, onComplete, onOpenTask, onDeleteTask }: Props) {
+export default function MobileTasksView({ tasks, areas, projects, loading, onComplete, onOpenTask, onDeleteTask, onOpenArea, onOpenProject }: Props) {
   if (loading) {
     return <div style={styles.empty}>Loading...</div>;
   }
 
-  const groups = buildGroups(tasks, areas, projects);
+  const groups = buildGroups(tasks, areas, projects, onOpenArea, onOpenProject);
 
   if (groups.length === 0) {
     return (
