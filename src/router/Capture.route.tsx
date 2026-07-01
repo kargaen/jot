@@ -4,6 +4,7 @@ import type { AppOutletContext } from "./AppLayout.route";
 import { useCaptureComposer } from "../hooks/useMobileApp";
 import MobileCaptureView from "../views/pages/mobile/capture/MobileCapture.view";
 import { logger } from "../utils/observability/logger";
+import { time } from "../utils/observability/timing";
 
 // Route container: wires the capture composer + shared app data to the capture
 // view. On save it persists the draft, refreshes shared data, and opens the new
@@ -22,18 +23,20 @@ export default function CaptureRoute() {
     opts?: { description?: Record<string, unknown> | null },
   ) {
     try {
-      const result = await capture.saveDraft({
-        title: parsed.title,
-        projectId: parsed.project?.id ?? null,
-        projectName: parsed.suggestedProjectName ?? undefined,
-        dueDate: parsed.dueDate ?? null,
-        dueTime: parsed.dueTime ?? null,
-        priority: parsed.priority,
-        recurrenceRule: parsed.recurrenceRule ?? null,
-        tagIds: parsed.tags.map((t) => t.id),
-        description: opts?.description ?? null,
-        projects: data.projects,
-      });
+      const result = await time("save", () =>
+        capture.saveDraft({
+          title: parsed.title,
+          projectId: parsed.project?.id ?? null,
+          projectName: parsed.suggestedProjectName ?? undefined,
+          dueDate: parsed.dueDate ?? null,
+          dueTime: parsed.dueTime ?? null,
+          priority: parsed.priority,
+          recurrenceRule: parsed.recurrenceRule ?? null,
+          tagIds: parsed.tags.map((t) => t.id),
+          description: opts?.description ?? null,
+          projects: data.projects,
+        }),
+      );
       await data.refresh();
       navigate(`/tasks/${result.task.id}`);
     } catch (err) {

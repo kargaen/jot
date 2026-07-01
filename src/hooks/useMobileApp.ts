@@ -35,6 +35,7 @@ import {
 } from "../services/backend/supabase.service";
 import { logger } from "../utils/observability/logger";
 import { drainCaptureOutbox, syncWidgets } from "../services/sync/widgetSync.service";
+import { time } from "../utils/observability/timing";
 import { saveCreateTaskDraft } from "../controllers/tasks/saveCreateTask.controller";
 import { sortTasksBySchedule } from "../models/tasks/taskPresentation";
 import { filterVisibleProjects, filterVisibleTasks, loadHiddenAreas, saveHiddenAreas } from "../utils/preferences/hiddenAreas";
@@ -64,12 +65,14 @@ export function useMobileAppData(userId: string | null) {
     setLoadingData(true);
     setError(null);
     try {
-      const [areaRows, projectRows, tagRows, taskRows] = await Promise.all([
-        fetchAreas(),
-        fetchProjects(),
-        fetchTags(),
-        fetchAllTasks(),
-      ]);
+      const [areaRows, projectRows, tagRows, taskRows] = await time("load", () =>
+        Promise.all([
+          fetchAreas(),
+          fetchProjects(),
+          fetchTags(),
+          fetchAllTasks(),
+        ]),
+      );
       setAreas(areaRows);
       setProjects(projectRows);
       setTags(tagRows);
@@ -153,7 +156,7 @@ export function useMobileAppData(userId: string | null) {
       ),
     );
     try {
-      await completeTask(id);
+      await time("complete", () => completeTask(id));
     } catch (err) {
       logger.error("mobile-app", "completeTask failed", err instanceof Error ? err.message : err);
       await refresh();
@@ -163,10 +166,10 @@ export function useMobileAppData(userId: string | null) {
   }
   async function archiveProject(id: string) { await closeProject(id); await refresh(); }
   async function editTask(id: string, fields: Parameters<typeof updateTask>[1]) {
-    await updateTask(id, fields);
+    await time("edit", () => updateTask(id, fields));
     await refresh();
   }
-  async function removeTask(id: string) { await deleteTask(id); await refresh(); }
+  async function removeTask(id: string) { await time("delete", () => deleteTask(id)); await refresh(); }
   async function restoreTask(id: string) {
     await reopenTask(id);
     await Promise.all([refresh(), loadLogbook()]);

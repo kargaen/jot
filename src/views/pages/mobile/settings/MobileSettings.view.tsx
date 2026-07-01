@@ -3,6 +3,7 @@ import type { CSSProperties, FormEvent } from "react";
 import type { Area, AreaMember, NlpLanguageMode, Project, TaskWithTags } from "../../../../models/shared";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { syncWidgetsDebug } from "../../../../services/sync/widgetSync.service";
+import { clearTimings, getTimingStats } from "../../../../utils/observability/timing";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useSharingTab } from "../../../../hooks/usePreferences";
 
@@ -87,7 +88,40 @@ export default function MobileSettingsView({
       <SharingSection areas={areas} onSharedChange={onAreasChanged} />
       <FeedbackSection />
       <WidgetSyncDebugSection />
+      <LatencyDebugSection />
     </div>
+  );
+}
+
+// ── Latency debug (TEMP) ────────────────────────────────────────────────────────
+
+function LatencyDebugSection() {
+  const [stats, setStats] = useState(getTimingStats);
+  return (
+    <section style={styles.section}>
+      <div style={styles.sectionHeader}>Latency (debug)</div>
+      <div style={styles.card}>
+        <div style={styles.cardBody}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Button variant="secondary" size="sm" onClick={() => setStats(getTimingStats())}>
+              Refresh
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => { clearTimings(); setStats([]); }}>
+              Clear
+            </Button>
+          </div>
+          {stats.length === 0 ? (
+            <div style={styles.feedbackText}>No measurements yet — use the app, then Refresh.</div>
+          ) : (
+            stats.map((s) => (
+              <div key={s.label} style={styles.feedbackText}>
+                {s.label}: p50 {s.p50}ms · p95 {s.p95}ms · max {s.max}ms · n={s.count}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 

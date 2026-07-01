@@ -19,6 +19,7 @@ import {
 } from "../services/backend/auth.service";
 import { getMyLogLevel, insertLog } from "../services/backend/supabase.service";
 import { configureRemoteLogging, clearRemoteLogging, logger } from "../utils/observability/logger";
+import { time } from "../utils/observability/timing";
 
 export type { AuthResult };
 
@@ -159,12 +160,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function handleSignIn(email: string, password: string, rememberMe: boolean): Promise<AuthResult> {
-    const result = await signIn(email, password, rememberMe);
+    const result = await time("auth.signIn", () => signIn(email, password, rememberMe));
     // Android WebView does not reliably fire onAuthStateChange during the same
     // session, so the SIGNED_IN event never reaches applySession. Read the
     // session directly and apply it here as a fallback.
     if (result.ok && isAuthHostWindow()) {
-      const s = await getSession();
+      const s = await time("auth.getSession", () => getSession());
       if (s) {
         setSession(s);
         setUser(s.user);
