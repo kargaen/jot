@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Area, AreaMember, Project, ProjectMember, Tag, TaskWithTags } from "../models/shared";
+import type { Area, AreaMember, Project, ProjectMember, Tag, Task, TaskWithTags } from "../models/shared";
 import {
   acceptInvite,
   acceptProjectInvite,
@@ -99,6 +99,31 @@ export function useMobileAppData(userId: string | null) {
     }
   }, [loadData]);
 
+  // Tasks-only reload — the cheap reconcile used after optimistic mutations
+  // (one query instead of the full four).
+  const refreshTasks = useCallback(async () => {
+    try {
+      const rows = await time("load.tasks", () => fetchAllTasks());
+      setTasks(sortTasksBySchedule(rows));
+    } catch (err) {
+      logger.warn("mobile-app", "refreshTasks failed", err instanceof Error ? err.message : err);
+    }
+  }, []);
+
+  // Apply a just-created task (and any project created alongside it) to local
+  // state so capture feels instant without a full refetch.
+  const applyCreated = useCallback(
+    (result: { task: Task; createdProject: Project | null }) => {
+      if (result.createdProject) {
+        const created = result.createdProject;
+        setProjects((prev) => (prev.some((p) => p.id === created.id) ? prev : [...prev, created]));
+      }
+      setTasks((prev) => sortTasksBySchedule([{ ...result.task, tags: [] } as TaskWithTags, ...prev]));
+      void syncWidgets();
+    },
+    [],
+  );
+
   useEffect(() => {
     if (userId) void refresh();
   }, [userId, refresh]);
@@ -146,33 +171,62 @@ export function useMobileAppData(userId: string | null) {
     }
   }
 
+  // Optimistic mutations: update local state immediately + keep the widget
+  // fresh (syncWidgets), skipping the blocking 4-query refresh(). On failure,
+  // reconcile from the server (tasks only). No task write has server
+  // side-effects (only trigger is updated_at), so local state is authoritative.
   async function markComplete(id: string) {
-    // Optimistic: mark complete locally so it leaves the open lists immediately,
-    // then sync + quietly reconcile in the background (revert on failure).
     const nowIso = new Date().toISOString();
     setTasks((prev) =>
-      prev.map((t) =>
-        t.id === id ? { ...t, status: "completed", completed_at: nowIso } : t,
-      ),
+      prev.map((t) => (t.id === id ? { ...t, status: "completed", completed_at: nowIso } : t)),
     );
     try {
       await time("complete", () => completeTask(id));
     } catch (err) {
       logger.error("mobile-app", "completeTask failed", err instanceof Error ? err.message : err);
-      await refresh();
+      await refreshTasks();
       return;
     }
-    void refresh();
+    void syncWidgets();
   }
-  async function archiveProject(id: string) { await closeProject(id); await refresh(); }
+  async function archiveProject(id: string) {
+    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, status: "completed" } : p)));
+    try {
+      await closeProject(id);
+    } catch (err) {
+      logger.error("mobile-app", "closeProject failed", err instanceof Error ? err.message : err);
+      await refresh();
+    }
+  }
   async function editTask(id: string, fields: Parameters<typeof updateTask>[1]) {
-    await time("edit", () => updateTask(id, fields));
-    await refresh();
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, ...(fields as Partial<TaskWithTags>), updated_at: new Date().toISOString() } : t,
+      ),
+    );
+    try {
+      await time("edit", () => updateTask(id, fields));
+    } catch (err) {
+      logger.error("mobile-app", "updateTask failed", err instanceof Error ? err.message : err);
+      await refreshTasks();
+      return;
+    }
+    void syncWidgets();
   }
-  async function removeTask(id: string) { await time("delete", () => deleteTask(id)); await refresh(); }
+  async function removeTask(id: string) {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    try {
+      await time("delete", () => deleteTask(id));
+    } catch (err) {
+      logger.error("mobile-app", "deleteTask failed", err instanceof Error ? err.message : err);
+      await refreshTasks();
+      return;
+    }
+    void syncWidgets();
+  }
   async function restoreTask(id: string) {
     await reopenTask(id);
-    await Promise.all([refresh(), loadLogbook()]);
+    await Promise.all([refreshTasks(), loadLogbook()]);
   }
 
   const handleHiddenChange = useCallback((ids: string[]) => {
@@ -213,7 +267,7 @@ export function useMobileAppData(userId: string | null) {
     hiddenAreaIds, handleHiddenChange,
     logbookTasks, completionDates, logbookLoading, loadLogbook,
     reopenTask: restoreTask,
-    loadData, refresh,
+    loadData, refresh, refreshTasks, applyCreated,
     firstAreaName, setFirstAreaName, firstAreaBusy, firstAreaError,
     createFirstArea,
     completeTask: markComplete,

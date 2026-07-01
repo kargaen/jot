@@ -21,11 +21,11 @@ export default function TaskDetailRoute() {
       projects={data.projects}
       areas={data.areas}
       allTags={data.tags}
-      onUpdated={data.refresh}
+      onUpdated={() => void data.refreshTasks()}
       onBack={back}
       onCompleted={() => {
         notify();
-        void data.refresh();
+        void data.refreshTasks();
         back();
       }}
     />

@@ -37,7 +37,7 @@ export default function CaptureRoute() {
           projects: data.projects,
         }),
       );
-      await data.refresh();
+      data.applyCreated(result);
       navigate(`/tasks/${result.task.id}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
