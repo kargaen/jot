@@ -11,6 +11,7 @@ import Button from "../views/components/ui/Button.view";
 import Toast from "../views/components/ui/Toast.view";
 import { Outlet, RouterProvider, createMemoryRouter, useOutletContext } from "react-router-dom";
 import AppShell from "../router/AppShell.view";
+import Splash from "../router/Splash.view";
 import ProjectRoute from "../router/Project.route";
 import type { AppOutletContext } from "../router/AppLayout.route";
 import { AuthProvider } from "../hooks/useAuth";
@@ -293,6 +294,8 @@ if (frame === "shell") {
   root.render(<RouterProvider router={shellDataRouter} />);
 } else if (frame === "drill") {
   root.render(<RouterProvider router={drillRouter} />);
+} else if (frame === "splash") {
+  root.render(<Splash />);
 } else {
   root.render(
     <div style={{ display: "flex", gap: 32, padding: 32, flexWrap: "wrap", background: "#e2e8f0", minHeight: "100vh" }}>
