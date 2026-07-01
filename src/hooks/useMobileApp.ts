@@ -99,6 +99,14 @@ export function useMobileAppData(userId: string | null) {
     }
   }, [loadData]);
 
+  // Coalesce widget syncs so a burst of mutations (e.g. rapidly completing
+  // tasks) fires one trailing sync instead of one per mutation.
+  const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleSync = useCallback(() => {
+    if (syncTimer.current) clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(() => { void syncWidgets(); }, 400);
+  }, []);
+
   // Tasks-only reload — the cheap reconcile used after optimistic mutations
   // (one query instead of the full four).
   const refreshTasks = useCallback(async () => {
@@ -119,9 +127,9 @@ export function useMobileAppData(userId: string | null) {
         setProjects((prev) => (prev.some((p) => p.id === created.id) ? prev : [...prev, created]));
       }
       setTasks((prev) => sortTasksBySchedule([{ ...result.task, tags: [] } as TaskWithTags, ...prev]));
-      void syncWidgets();
+      scheduleSync();
     },
-    [],
+    [scheduleSync],
   );
 
   useEffect(() => {
@@ -184,10 +192,11 @@ export function useMobileAppData(userId: string | null) {
       await time("complete", () => completeTask(id));
     } catch (err) {
       logger.error("mobile-app", "completeTask failed", err instanceof Error ? err.message : err);
-      await refreshTasks();
+      // Revert only this task so concurrent in-flight completes aren't clobbered.
+      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: "todo", completed_at: null } : t)));
       return;
     }
-    void syncWidgets();
+    scheduleSync();
   }
   async function archiveProject(id: string) {
     setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, status: "completed" } : p)));
@@ -199,6 +208,7 @@ export function useMobileAppData(userId: string | null) {
     }
   }
   async function editTask(id: string, fields: Parameters<typeof updateTask>[1]) {
+    const prior = tasks.find((t) => t.id === id);
     setTasks((prev) =>
       prev.map((t) =>
         t.id === id ? { ...t, ...(fields as Partial<TaskWithTags>), updated_at: new Date().toISOString() } : t,
@@ -208,21 +218,22 @@ export function useMobileAppData(userId: string | null) {
       await time("edit", () => updateTask(id, fields));
     } catch (err) {
       logger.error("mobile-app", "updateTask failed", err instanceof Error ? err.message : err);
-      await refreshTasks();
+      if (prior) setTasks((prev) => prev.map((t) => (t.id === id ? prior : t)));
       return;
     }
-    void syncWidgets();
+    scheduleSync();
   }
   async function removeTask(id: string) {
+    const removed = tasks.find((t) => t.id === id);
     setTasks((prev) => prev.filter((t) => t.id !== id));
     try {
       await time("delete", () => deleteTask(id));
     } catch (err) {
       logger.error("mobile-app", "deleteTask failed", err instanceof Error ? err.message : err);
-      await refreshTasks();
+      if (removed) setTasks((prev) => (prev.some((t) => t.id === id) ? prev : [removed, ...prev]));
       return;
     }
-    void syncWidgets();
+    scheduleSync();
   }
   async function restoreTask(id: string) {
     await reopenTask(id);
