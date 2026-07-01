@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { open as shellOpen } from "@tauri-apps/plugin-shell";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 export default function AboutWindow() {
@@ -125,7 +125,7 @@ export default function AboutWindow() {
               <>
                 <span style={{ fontSize: 12, color: "var(--danger)", fontWeight: 500 }}>Auto update failed</span>
                 <button
-                  onClick={() => shellOpen(releasesUrl)}
+                  onClick={() => openUrl(releasesUrl)}
                   style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--danger)", color: "#fff", cursor: "pointer" }}
                 >
                   Download manually
@@ -155,7 +155,7 @@ export default function AboutWindow() {
           ].map(({ label, url }) => (
             <button
               key={label}
-              onClick={() => shellOpen(url)}
+              onClick={() => openUrl(url)}
               style={{ fontSize: 12, color: "var(--accent)", cursor: "pointer", background: "none", border: "none", padding: 0, textDecoration: "underline", fontFamily: "inherit" }}
             >
               {label}

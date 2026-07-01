@@ -4,7 +4,7 @@ import {
   useSharingTab,
   useAccountTabActions,
 } from "../../../../hooks/usePreferences";
-import { open as shellOpen } from "@tauri-apps/plugin-shell";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAuth } from "../../../../hooks/useAuth";
 import type {
   Area,
@@ -589,7 +589,7 @@ function FeedbackTab() {
         an issue and we'll pick it up there.
       </p>
       <button
-        onClick={() => void shellOpen(JOT_ISSUES_URL)}
+        onClick={() => void openUrl(JOT_ISSUES_URL)}
         style={{
           padding: "8px 16px", background: "var(--accent)", color: "#fff",
           borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 600,

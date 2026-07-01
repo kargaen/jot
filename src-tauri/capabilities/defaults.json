@@ -28,7 +28,7 @@
     "core:webview:allow-create-webview-window",
     "core:webview:allow-internal-toggle-devtools",
     "core:app:default",
-    "shell:allow-open"
+    "opener:allow-open-url"
   ],
   "local-storage": true
 }

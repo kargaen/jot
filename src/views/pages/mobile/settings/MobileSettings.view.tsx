@@ -1,10 +1,9 @@
 import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import type { Area, AreaMember, NlpLanguageMode, Project, TaskWithTags } from "../../../../models/shared";
-import { open as shellOpen } from "@tauri-apps/plugin-shell";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useSharingTab } from "../../../../hooks/usePreferences";
-import { logger } from "../../../../utils/observability/logger";
 
 const JOT_ISSUES_URL = "https://github.com/kargaen/jot/issues";
 import Toggle from "../../../components/ui/Toggle.view";
@@ -741,25 +740,6 @@ function MemberBadge({ status }: { status: AreaMember["status"] }) {
 // ── Feedback ──────────────────────────────────────────────────────────────────
 
 function FeedbackSection() {
-  const [status, setStatus] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function openIssues() {
-    setError(null);
-    setStatus(`Opening ${JOT_ISSUES_URL}…`);
-    logger.info("feedback", `Open GitHub Issues tapped -> ${JOT_ISSUES_URL}`);
-    try {
-      await shellOpen(JOT_ISSUES_URL);
-      setStatus("Opened (shell.open resolved).");
-      logger.info("feedback", "shellOpen resolved");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setStatus(null);
-      setError(`Couldn't open the browser: ${msg}`);
-      logger.error("feedback", `shellOpen failed: ${msg}`);
-    }
-  }
-
   return (
     <section style={styles.section}>
       <div style={styles.sectionHeader}>Feedback</div>
@@ -768,11 +748,9 @@ function FeedbackSection() {
           <div style={styles.feedbackText}>
             Found a bug or have an idea? Feedback for Jot is tracked on GitHub.
           </div>
-          <Button variant="primary" size="sm" onClick={() => void openIssues()}>
+          <Button variant="primary" size="sm" onClick={() => void openUrl(JOT_ISSUES_URL)}>
             Open GitHub Issues
           </Button>
-          {status ? <div style={styles.notice}>{status}</div> : null}
-          {error ? <div style={styles.error}>{error}</div> : null}
         </div>
       </div>
     </section>

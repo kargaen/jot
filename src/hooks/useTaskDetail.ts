@@ -4,7 +4,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { open as shellOpen } from "@tauri-apps/plugin-shell";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { suggestIcon } from "../utils/presentation/icons";
 import { logger } from "../utils/observability/logger";
 import type {
@@ -270,7 +270,7 @@ export function useTaskDetail({
 
   const openTaskLink = useCallback(() => {
     const url = normalizeTaskLink(link);
-    if (url) void shellOpen(url);
+    if (url) void openUrl(url);
   }, [link]);
 
   const addTag = useCallback(

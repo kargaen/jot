@@ -7,7 +7,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { open as shellOpen } from "@tauri-apps/plugin-shell";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import Toggle from "../../../components/ui/Toggle.view";
 import Preferences from "../settings/Preferences.view";
 import { useAuth } from "../../../../hooks/useAuth";
@@ -1288,7 +1288,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
             {updateStatus === "failed" && (
               <>
                 <button onClick={handleUpdate} style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--accent)", color: "#fff", cursor: "pointer" }}>Retry</button>
-                <button onClick={() => shellOpen(RELEASES_URL)} style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--danger)", color: "#fff", cursor: "pointer" }}>Download manually</button>
+                <button onClick={() => openUrl(RELEASES_URL)} style={{ padding: "4px 12px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--danger)", color: "#fff", cursor: "pointer" }}>Download manually</button>
                 <button onClick={() => setUpdateStatus("idle")} style={{ padding: "4px 8px", fontSize: 12, color: "var(--text-tertiary)", cursor: "pointer" }}>Dismiss</button>
               </>
             )}
