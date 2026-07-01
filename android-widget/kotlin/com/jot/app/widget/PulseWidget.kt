@@ -60,12 +60,18 @@ class PulseWidget : AppWidgetProvider() {
             // App-parity empty state: a random calm image + quote (mirrors relax.ts).
             views.setImageViewResource(R.id.pulse_empty_image, RELAX_IMAGES.random())
             views.setTextViewText(R.id.pulse_empty_quote, RELAX_QUOTES.random())
-            views.setTextViewText(R.id.pulse_empty_hint, emptyHint(sizeClass, db.getLastSyncMs()))
+            // TEMP diagnostic: does the widget DB exist at the read path, and how
+            // many rows? Reveals whether the app's sync path matches this one.
+            val dbFile = java.io.File(context.filesDir, "databases/jot_widget.db")
+            views.setTextViewText(
+                R.id.pulse_empty_hint,
+                "sync: ${if (dbFile.exists()) "file OK" else "NO FILE"} · rows=$taskCount · last=${db.getLastSyncMs()}",
+            )
 
             views.setViewVisibility(R.id.pulse_list, if (taskCount == 0) View.GONE else View.VISIBLE)
             views.setViewVisibility(R.id.pulse_empty_state, if (taskCount == 0) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.pulse_empty_quote, if (sizeClass == SizeClass.SMALL) View.GONE else View.VISIBLE)
-            views.setViewVisibility(R.id.pulse_empty_hint, if (sizeClass == SizeClass.LARGE) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.pulse_empty_hint, if (sizeClass == SizeClass.SMALL) View.GONE else View.VISIBLE)
             views.setViewVisibility(R.id.pulse_empty_image, if (sizeClass == SizeClass.SMALL) View.GONE else View.VISIBLE)
             views.setViewVisibility(R.id.pulse_empty_icon, View.GONE)
 
@@ -140,12 +146,6 @@ class PulseWidget : AppWidgetProvider() {
                 },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-
-        private fun emptyHint(sizeClass: SizeClass, lastSyncMs: Long): String {
-            if (sizeClass != SizeClass.LARGE) return ""
-            return if (lastSyncMs > 0L) "Freshly synced and ready for the next thought."
-                   else "Open Jot once to prime today's snapshot."
-        }
 
         private fun sizeClass(appWidgetManager: AppWidgetManager, widgetId: Int): SizeClass {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
