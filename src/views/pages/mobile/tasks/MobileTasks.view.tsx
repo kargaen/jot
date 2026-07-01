@@ -65,7 +65,8 @@ function buildGroups(
 }
 
 export default function MobileTasksView({ tasks, areas, projects, loading, onComplete, onOpenTask, onDeleteTask, onOpenArea, onOpenProject }: Props) {
-  if (loading) {
+  // Placeholder only on first load; reloads reconcile in place (no flash).
+  if (loading && tasks.length === 0) {
     return <div style={styles.empty}>Loading...</div>;
   }
 

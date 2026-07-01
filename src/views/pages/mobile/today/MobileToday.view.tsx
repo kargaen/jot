@@ -22,7 +22,9 @@ export default function MobileTodayView({ tasks, loading, onComplete }: Props) {
   const upcoming = tasks.filter((t) => isUpcoming(t, today));
   const nextUpcoming = upcoming[0] ?? null;
 
-  if (loading) {
+  // Only show the placeholder on the first load (nothing yet). Reloads with
+  // tasks already on screen reconcile in place (React key diff) — no flash.
+  if (loading && tasks.length === 0) {
     return <div style={styles.empty}>Loading...</div>;
   }
 

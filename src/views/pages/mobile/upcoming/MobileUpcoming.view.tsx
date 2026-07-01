@@ -34,7 +34,8 @@ function buildGroups(tasks: TaskWithTags[], today: string): TaskListGroup[] {
 export default function MobileUpcomingView({ tasks, loading, onComplete, onOpenTask }: Props) {
   const today = new Date().toISOString().split("T")[0];
 
-  if (loading) {
+  // Placeholder only on first load; reloads reconcile in place (no flash).
+  if (loading && tasks.length === 0) {
     return <div style={styles.empty}>Loading...</div>;
   }
 
