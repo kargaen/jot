@@ -41,6 +41,8 @@ export default function AppLayout() {
           navigate("/capture", { state: { reset: Date.now() } });
         } else if (action === "pulse") {
           navigate("/today");
+        } else if (action === "all") {
+          navigate("/all");
         }
       } catch {
         // not on mobile / command unavailable — ignore

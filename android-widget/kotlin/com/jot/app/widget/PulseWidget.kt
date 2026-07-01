@@ -22,9 +22,16 @@ class PulseWidget : AppWidgetProvider() {
         appWidgetIds.forEach { id -> updateWidget(context, appWidgetManager, id) }
     }
 
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        if (intent.action == ACTION_REFRESH) refreshAll(context)
+    }
+
     companion object {
         const val ACTION_OPEN_PULSE = "com.jot.app.OPEN_PULSE"
         const val ACTION_OPEN_TASK  = "com.jot.app.OPEN_TASK"
+        const val ACTION_OPEN_ALL   = "com.jot.app.OPEN_ALL"
+        const val ACTION_REFRESH    = "com.jot.app.PULSE_REFRESH"
 
         // Calm empty-state assets, mirroring the app's relax.ts.
         private val RELAX_QUOTES = listOf(
@@ -49,7 +56,6 @@ class PulseWidget : AppWidgetProvider() {
 
             val views = RemoteViews(context.packageName, R.layout.widget_pulse)
             views.setTextViewText(R.id.pulse_summary, buildSummary(todayCount, overdueCount))
-            views.setTextViewText(R.id.pulse_count_badge, buildCountBadge(todayCount, overdueCount))
             views.setTextViewText(R.id.pulse_empty_title, "All clear")
             // App-parity empty state: a random calm image + quote (mirrors relax.ts).
             views.setImageViewResource(R.id.pulse_empty_image, RELAX_IMAGES.random())
@@ -92,6 +98,21 @@ class PulseWidget : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.pulse_header, openPulsePending)
             views.setOnClickPendingIntent(R.id.pulse_empty_state, openPulsePending)
 
+            // Deeplink buttons open the app at the matching route; refresh re-reads
+            // the local snapshot and redraws.
+            views.setOnClickPendingIntent(R.id.pulse_btn_capture, launchPending(context, 2, QuickCaptureWidget.ACTION_OPEN_CAPTURE))
+            views.setOnClickPendingIntent(R.id.pulse_btn_today, launchPending(context, 3, ACTION_OPEN_PULSE))
+            views.setOnClickPendingIntent(R.id.pulse_btn_all, launchPending(context, 4, ACTION_OPEN_ALL))
+            views.setOnClickPendingIntent(
+                R.id.pulse_btn_refresh,
+                PendingIntent.getBroadcast(
+                    context,
+                    10,
+                    Intent(context, PulseWidget::class.java).apply { action = ACTION_REFRESH },
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
+
             appWidgetManager.updateAppWidget(widgetId, views)
             appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, R.id.pulse_list)
         }
@@ -109,12 +130,16 @@ class PulseWidget : AppWidgetProvider() {
             else -> "$today today · $overdue overdue"
         }
 
-        private fun buildCountBadge(today: Int, overdue: Int): String = when {
-            today == 0 && overdue == 0 -> "Done"
-            overdue == 0 -> "$today today"
-            today == 0 -> "$overdue late"
-            else -> "${today + overdue} focus"
-        }
+        private fun launchPending(context: Context, requestCode: Int, action: String): PendingIntent =
+            PendingIntent.getActivity(
+                context,
+                requestCode,
+                Intent(context, mainActivity()).apply {
+                    this.action = action
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         private fun emptyHint(sizeClass: SizeClass, lastSyncMs: Long): String {
             if (sizeClass != SizeClass.LARGE) return ""

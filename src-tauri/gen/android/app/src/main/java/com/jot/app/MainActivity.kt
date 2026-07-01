@@ -75,7 +75,8 @@ class MainActivity : TauriActivity() {
     if (
       action != QuickCaptureWidget.ACTION_OPEN_CAPTURE &&
       action != QuickCaptureWidget.ACTION_OPEN_VOICE &&
-      action != PulseWidget.ACTION_OPEN_PULSE
+      action != PulseWidget.ACTION_OPEN_PULSE &&
+      action != PulseWidget.ACTION_OPEN_ALL
     ) {
       return
     }

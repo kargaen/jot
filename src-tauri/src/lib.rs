@@ -210,6 +210,7 @@ fn take_mobile_launch_action(app: tauri::AppHandle) -> Result<Option<String>, St
                                 "com.jot.app.OPEN_CAPTURE" => Some("capture".to_string()),
                                 "com.jot.app.OPEN_VOICE_CAPTURE" => Some("voice".to_string()),
                                 "com.jot.app.OPEN_PULSE" => Some("pulse".to_string()),
+                                "com.jot.app.OPEN_ALL" => Some("all".to_string()),
                                 _ => None,
                             }
                         };

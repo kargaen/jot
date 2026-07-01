@@ -37,17 +37,17 @@
         </LinearLayout>
 
         <TextView
-            android:id="@+id/pulse_count_badge"
+            android:id="@+id/pulse_btn_refresh"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="@drawable/capture_field_bg"
-            android:paddingStart="10dp"
+            android:paddingStart="12dp"
             android:paddingTop="6dp"
-            android:paddingEnd="10dp"
+            android:paddingEnd="12dp"
             android:paddingBottom="6dp"
-            android:text="Done"
+            android:text="↻"
             android:textColor="#FF655BE8"
-            android:textSize="11sp"
+            android:textSize="14sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -57,6 +57,58 @@
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
         android:background="#14000000" />
+
+    <LinearLayout
+        android:id="@+id/pulse_actions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:id="@+id/pulse_btn_capture"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/capture_field_bg"
+            android:gravity="center"
+            android:paddingTop="7dp"
+            android:paddingBottom="7dp"
+            android:text="+ Capture"
+            android:textColor="#FF655BE8"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/pulse_btn_today"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/capture_field_bg"
+            android:gravity="center"
+            android:paddingTop="7dp"
+            android:paddingBottom="7dp"
+            android:text="Today"
+            android:textColor="#FF171717"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/pulse_btn_all"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/capture_field_bg"
+            android:gravity="center"
+            android:paddingTop="7dp"
+            android:paddingBottom="7dp"
+            android:text="All"
+            android:textColor="#FF171717"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
     <ListView
         android:id="@+id/pulse_list"
