@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import type { Area, AreaMember, NlpLanguageMode, Project, TaskWithTags } from "../../../../models/shared";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { syncWidgetsDebug } from "../../../../services/sync/widgetSync.service";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useSharingTab } from "../../../../hooks/usePreferences";
 
@@ -85,7 +86,38 @@ export default function MobileSettingsView({
       />
       <SharingSection areas={areas} onSharedChange={onAreasChanged} />
       <FeedbackSection />
+      <WidgetSyncDebugSection />
     </div>
+  );
+}
+
+// ── Widget sync debug (TEMP) ────────────────────────────────────────────────────
+
+function WidgetSyncDebugSection() {
+  const [result, setResult] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <section style={styles.section}>
+      <div style={styles.sectionHeader}>Widget sync (debug)</div>
+      <div style={styles.card}>
+        <div style={styles.cardBody}>
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={busy}
+            onClick={() => {
+              setBusy(true);
+              void syncWidgetsDebug()
+                .then(setResult)
+                .finally(() => setBusy(false));
+            }}
+          >
+            Run widget sync
+          </Button>
+          {result ? <div style={styles.feedbackText}>{result}</div> : null}
+        </div>
+      </div>
+    </section>
   );
 }
 

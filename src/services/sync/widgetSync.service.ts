@@ -61,6 +61,22 @@ export async function syncWidgets(): Promise<void> {
   }
 }
 
+// TEMP diagnostic: runs the sync and returns a human-readable result (task
+// counts + the DB path the Rust side wrote to, or the error) so the widget's
+// empty-list cause can be seen on-device. Remove once diagnosed.
+export async function syncWidgetsDebug(): Promise<string> {
+  try {
+    const os = await platform();
+    if (os !== "android") return `not android (os=${os})`;
+    const today = todayISO();
+    const payload = await buildPayload(today);
+    const path = await invoke<string>("sync_widget_db", { payload });
+    return `ok: ${payload.tasks.length} tasks (today ${payload.today_count}, overdue ${payload.overdue_count}) → ${path}`;
+  } catch (err) {
+    return `error: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function buildPayload(today: string): Promise<SyncPayload> {

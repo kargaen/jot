@@ -40,7 +40,7 @@ pub struct SyncPayload {
 // ── Command ───────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub fn sync_widget_db(app: AppHandle, payload: SyncPayload) -> Result<(), String> {
+pub fn sync_widget_db(app: AppHandle, payload: SyncPayload) -> Result<String, String> {
     let db_path = widget_db_path(&app)?;
 
     if let Some(parent) = db_path.parent() {
@@ -118,7 +118,7 @@ pub fn sync_widget_db(app: AppHandle, payload: SyncPayload) -> Result<(), String
     #[cfg(target_os = "android")]
     trigger_widget_refresh(&app)?;
 
-    Ok(())
+    Ok(db_path.to_string_lossy().to_string())
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
