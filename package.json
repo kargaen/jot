@@ -15,6 +15,7 @@
     "db:prepare:e2e": "npm run db:start && npm run db:reset && npm run db:env:e2e && npm run db:seed:e2e",
     "preview": "vite preview",
     "release:prepare": "node scripts/sync-version.mjs",
+    "measure:db": "tsx scripts/measure-db-latency.ts",
     "tauri": "tauri",
     "test": "npm run test:code",
     "test:all": "npm run test:rust && npm run test:code && npm run test:ui",
