@@ -5,12 +5,16 @@ import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import com.jot.app.widget.PulseWidget
 import com.jot.app.widget.QuickCaptureWidget
 
 class MainActivity : TauriActivity() {
+  // Timestamp of the last back press while at the router root, for the
+  // press-back-again-to-exit convention.
+  private var lastRootBackAt = 0L
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     stashLaunchAction(intent)
@@ -23,14 +27,14 @@ class MainActivity : TauriActivity() {
       override fun handleOnBackPressed() {
         val webView = findWebView(window.decorView)
         if (webView == null) {
-          moveTaskToBack(true)
+          handleRootBack()
           return
         }
         webView.evaluateJavascript(
           "(function(){ if (window.history.length > 1) { window.history.back(); return 'back'; } return 'exit'; })();"
         ) { result ->
           if (result == null || result.contains("exit")) {
-            moveTaskToBack(true)
+            handleRootBack()
           }
         }
       }
@@ -41,6 +45,18 @@ class MainActivity : TauriActivity() {
     super.onNewIntent(intent)
     setIntent(intent)
     stashLaunchAction(intent)
+  }
+
+  // At the router root, first back warns; a second back within 2s backgrounds
+  // the app (like the old behaviour + a standard "press again to exit" hint).
+  private fun handleRootBack() {
+    val now = System.currentTimeMillis()
+    if (now - lastRootBackAt < 2000L) {
+      moveTaskToBack(true)
+    } else {
+      lastRootBackAt = now
+      Toast.makeText(this, "Press back again to exit", Toast.LENGTH_SHORT).show()
+    }
   }
 
   private fun findWebView(view: View): WebView? {
