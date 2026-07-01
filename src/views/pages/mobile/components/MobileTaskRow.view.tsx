@@ -27,6 +27,7 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
   const startX = useRef<number | null>(null);
   const startY = useRef<number | null>(null);
   const isScroll = useRef(false);
+  const tapTarget = useRef<EventTarget | null>(null);
   const [dragX, setDragX] = useState(0);
   const [completing, setCompleting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -38,6 +39,7 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
     startX.current = e.touches[0].clientX;
     startY.current = e.touches[0].clientY;
     isScroll.current = false;
+    tapTarget.current = e.target;
   }
 
   function onTouchMove(e: TouchEvent) {
@@ -70,11 +72,16 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
       setConfirmingDelete(true);
     } else {
       setDragX(0);
-      if (!wasDrag && !wasScroll) {
+      // Only the title is a tap target — the checkmark completes, and empty
+      // row space is inert. Keeps "finish" and "edit" from overlapping.
+      const el = tapTarget.current as HTMLElement | null;
+      const onTitle = !!el?.closest?.("[data-role='task-title']");
+      if (!wasDrag && !wasScroll && onTitle) {
         if (onOpen) onOpen(task.id);
         else setExpanded((v) => !v);
       }
     }
+    tapTarget.current = null;
   }
 
   function cancelDelete() {
@@ -124,7 +131,7 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
           <span style={styles.checkCircle} />
         </button>
         <div style={styles.rowBody}>
-          <div style={styles.rowTitle}>
+          <div style={styles.rowTitle} data-role="task-title">
             <TaskIcon name={task.icon} size={14} />{task.title}
           </div>
           {due ? (
