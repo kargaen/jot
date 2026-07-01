@@ -4,6 +4,7 @@ import type { Area, AreaMember, NlpLanguageMode, Project, TaskWithTags } from ".
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useSharingTab } from "../../../../hooks/usePreferences";
+import { logger } from "../../../../utils/observability/logger";
 
 const JOT_ISSUES_URL = "https://github.com/kargaen/jot/issues";
 import Toggle from "../../../components/ui/Toggle.view";
@@ -739,6 +740,16 @@ function MemberBadge({ status }: { status: AreaMember["status"] }) {
 
 // ── Feedback ──────────────────────────────────────────────────────────────────
 
+async function openIssues() {
+  logger.info("feedback", `Open GitHub Issues tapped -> ${JOT_ISSUES_URL}`);
+  try {
+    await shellOpen(JOT_ISSUES_URL);
+    logger.info("feedback", "shellOpen resolved");
+  } catch (err) {
+    logger.error("feedback", `shellOpen failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 function FeedbackSection() {
   return (
     <section style={styles.section}>
@@ -748,7 +759,7 @@ function FeedbackSection() {
           <div style={styles.feedbackText}>
             Found a bug or have an idea? Feedback for Jot is tracked on GitHub.
           </div>
-          <Button variant="primary" size="sm" onClick={() => void shellOpen(JOT_ISSUES_URL)}>
+          <Button variant="primary" size="sm" onClick={() => void openIssues()}>
             Open GitHub Issues
           </Button>
         </div>
