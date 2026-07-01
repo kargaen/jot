@@ -1,6 +1,7 @@
 import { Navigate, createBrowserRouter } from "react-router-dom";
 import AppLayout from "./AppLayout.route";
 import AppShell from "./AppShell.view";
+import IndexRoute from "./Index.route";
 import TodayRoute from "./Today.route";
 import UpcomingRoute from "./Upcoming.route";
 import AllRoute from "./All.route";
@@ -23,9 +24,9 @@ function Pending() {
 }
 
 export const router = createBrowserRouter([
-  // Default landing is now the routed app. "/_legacy" stays reachable as a
-  // safety net until the routed app is confirmed on device, then it's removed.
-  { path: "/", element: <Navigate to="/today" replace /> },
+  // Default landing is now the routed app. The index resolver honors a pending
+  // widget launch action (deterministically, no redirect race) before landing.
+  { path: "/", element: <IndexRoute /> },
 
   // The current app, untouched, kept as a working reference during the port.
   { path: "/_legacy", element: <MobileApp /> },
