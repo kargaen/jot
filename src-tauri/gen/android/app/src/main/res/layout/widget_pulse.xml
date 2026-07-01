@@ -77,6 +77,16 @@
         android:padding="8dp"
         android:visibility="gone">
 
+        <ImageView
+            android:id="@+id/pulse_empty_image"
+            android:layout_width="match_parent"
+            android:layout_height="110dp"
+            android:layout_marginBottom="4dp"
+            android:scaleType="centerCrop"
+            android:adjustViewBounds="true"
+            android:contentDescription="@null"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/pulse_empty_icon"
             android:layout_width="wrap_content"

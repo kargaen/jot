@@ -25,6 +25,20 @@ class PulseWidget : AppWidgetProvider() {
         const val ACTION_OPEN_PULSE = "com.jot.app.OPEN_PULSE"
         const val ACTION_OPEN_TASK  = "com.jot.app.OPEN_TASK"
 
+        // Calm empty-state assets, mirroring the app's relax.ts.
+        private val RELAX_QUOTES = listOf(
+            "Enjoy the quiet. It counts too.",
+            "No rush. The day has room.",
+            "Clear skies, clear list.",
+            "A quiet Pulse is still progress.",
+            "Nothing due right now. Breathe.",
+        )
+        private val RELAX_IMAGES = listOf(
+            R.drawable.zen_beach1, R.drawable.zen_beach2, R.drawable.zen_beach3,
+            R.drawable.zen_beach4, R.drawable.zen_beach5, R.drawable.zen_beach6,
+            R.drawable.zen_beach7,
+        )
+
         fun updateWidget(context: Context, appWidgetManager: AppWidgetManager, widgetId: Int) {
             val db = TaskDatabase(context)
             val todayCount = db.getTodayCount()
@@ -36,14 +50,17 @@ class PulseWidget : AppWidgetProvider() {
             views.setTextViewText(R.id.pulse_summary, buildSummary(todayCount, overdueCount))
             views.setTextViewText(R.id.pulse_count_badge, buildCountBadge(todayCount, overdueCount))
             views.setTextViewText(R.id.pulse_empty_title, "All clear")
-            views.setTextViewText(R.id.pulse_empty_quote, emptyQuote(sizeClass))
+            // App-parity empty state: a random calm image + quote (mirrors relax.ts).
+            views.setImageViewResource(R.id.pulse_empty_image, RELAX_IMAGES.random())
+            views.setTextViewText(R.id.pulse_empty_quote, RELAX_QUOTES.random())
             views.setTextViewText(R.id.pulse_empty_hint, emptyHint(sizeClass, db.getLastSyncMs()))
 
             views.setViewVisibility(R.id.pulse_list, if (taskCount == 0) View.GONE else View.VISIBLE)
             views.setViewVisibility(R.id.pulse_empty_state, if (taskCount == 0) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.pulse_empty_quote, if (sizeClass == SizeClass.SMALL) View.GONE else View.VISIBLE)
             views.setViewVisibility(R.id.pulse_empty_hint, if (sizeClass == SizeClass.LARGE) View.VISIBLE else View.GONE)
-            views.setViewVisibility(R.id.pulse_empty_icon, if (sizeClass == SizeClass.LARGE) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.pulse_empty_image, if (sizeClass == SizeClass.SMALL) View.GONE else View.VISIBLE)
+            views.setViewVisibility(R.id.pulse_empty_icon, View.GONE)
 
             val serviceIntent = Intent(context, PulseWidgetService::class.java).apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
@@ -96,12 +113,6 @@ class PulseWidget : AppWidgetProvider() {
             overdue == 0 -> "$today today"
             today == 0 -> "$overdue late"
             else -> "${today + overdue} focus"
-        }
-
-        private fun emptyQuote(sizeClass: SizeClass): String = when (sizeClass) {
-            SizeClass.SMALL  -> "Nothing due right now."
-            SizeClass.MEDIUM -> "\"Here's looking at you, empty inbox.\""
-            SizeClass.LARGE  -> "\"All quiet on the western front.\""
         }
 
         private fun emptyHint(sizeClass: SizeClass, lastSyncMs: Long): String {

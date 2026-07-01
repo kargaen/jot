@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Destination: src-tauri/gen/android/app/src/main/res/layout/widget_pulse.xml -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -52,7 +51,7 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <View
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginTop="8dp"
@@ -77,6 +76,16 @@
         android:orientation="vertical"
         android:padding="8dp"
         android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/pulse_empty_image"
+            android:layout_width="match_parent"
+            android:layout_height="110dp"
+            android:layout_marginBottom="4dp"
+            android:scaleType="centerCrop"
+            android:adjustViewBounds="true"
+            android:contentDescription="@null"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/pulse_empty_icon"
