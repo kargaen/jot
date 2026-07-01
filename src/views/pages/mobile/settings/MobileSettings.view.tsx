@@ -740,17 +740,26 @@ function MemberBadge({ status }: { status: AreaMember["status"] }) {
 
 // ── Feedback ──────────────────────────────────────────────────────────────────
 
-async function openIssues() {
-  logger.info("feedback", `Open GitHub Issues tapped -> ${JOT_ISSUES_URL}`);
-  try {
-    await shellOpen(JOT_ISSUES_URL);
-    logger.info("feedback", "shellOpen resolved");
-  } catch (err) {
-    logger.error("feedback", `shellOpen failed: ${err instanceof Error ? err.message : String(err)}`);
-  }
-}
-
 function FeedbackSection() {
+  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function openIssues() {
+    setError(null);
+    setStatus(`Opening ${JOT_ISSUES_URL}…`);
+    logger.info("feedback", `Open GitHub Issues tapped -> ${JOT_ISSUES_URL}`);
+    try {
+      await shellOpen(JOT_ISSUES_URL);
+      setStatus("Opened (shell.open resolved).");
+      logger.info("feedback", "shellOpen resolved");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setStatus(null);
+      setError(`Couldn't open the browser: ${msg}`);
+      logger.error("feedback", `shellOpen failed: ${msg}`);
+    }
+  }
+
   return (
     <section style={styles.section}>
       <div style={styles.sectionHeader}>Feedback</div>
@@ -762,6 +771,8 @@ function FeedbackSection() {
           <Button variant="primary" size="sm" onClick={() => void openIssues()}>
             Open GitHub Issues
           </Button>
+          {status ? <div style={styles.notice}>{status}</div> : null}
+          {error ? <div style={styles.error}>{error}</div> : null}
         </div>
       </div>
     </section>
