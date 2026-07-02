@@ -1,6 +1,11 @@
 import type { CSSProperties } from "react";
 import { NavLink, Outlet, useMatches, useOutletContext } from "react-router-dom";
-import { CalendarDays, History, List, Plus, Settings as SettingsIcon, Sun } from "lucide-react";
+import { CalendarDays, Clipboard, History, List, Plus, Settings as SettingsIcon, Sun } from "lucide-react";
+import type { TaskWithTags } from "../models/shared";
+import { exportTasksToClipboard } from "../controllers/tasks/exportTasks.controller";
+import { copyTextToClipboard } from "../services/tauri/clipboard.service";
+import { useMessageToast } from "../hooks/useMessageToast";
+import Toast from "../views/components/ui/Toast.view";
 
 // Layout route for every surface that shows the persistent app frame.
 // It renders the title (top), a scrollable Outlet (middle), and the navbar
@@ -11,8 +16,15 @@ import { CalendarDays, History, List, Plus, Settings as SettingsIcon, Sun } from
 // the shell reads the deepest one through useMatches. The title may be a string
 // or a resolver (ctx, params) => string for dynamic titles (e.g. a project
 // name); the resolver is typed at the route definition (ctx stays unknown here).
+// Routes may also declare `handle: { exportTasks }` — a resolver returning the
+// screen's task list — to opt into a header "copy as JSON" action. Same export
+// controller/serializer TaskDetail uses, so every surface stays byte-identical.
 type TitleResolver = (ctx: unknown, params: Record<string, string | undefined>) => string;
-type RouteHandle = { title?: string | TitleResolver };
+type ExportTasksResolver = (
+  ctx: unknown,
+  params: Record<string, string | undefined>,
+) => TaskWithTags[];
+type RouteHandle = { title?: string | TitleResolver; exportTasks?: ExportTasksResolver };
 
 const NAV: { to: string; label: string; Icon: typeof Sun }[] = [
   { to: "/today", label: "Today", Icon: Sun },
@@ -33,11 +45,33 @@ export default function AppShell() {
   const title =
     typeof rawTitle === "function" ? rawTitle(outletContext, match?.params ?? {}) : (rawTitle ?? "");
 
+  const exportMatch = [...matches].reverse().find((m) => (m.handle as RouteHandle | undefined)?.exportTasks);
+  const exportTasks = (exportMatch?.handle as RouteHandle | undefined)?.exportTasks;
+  const { message, showMessage } = useMessageToast();
+
+  async function handleExport() {
+    if (!exportTasks) return;
+    const tasks = exportTasks(outletContext, exportMatch?.params ?? {});
+    const { count } = await exportTasksToClipboard({ copyToClipboard: copyTextToClipboard }, tasks);
+    showMessage(count === 1 ? "1 task copied as JSON" : `${count} tasks copied as JSON`);
+  }
+
   return (
     <div style={styles.shell}>
       <header style={styles.header}>
         <span style={styles.title}>{title}</span>
+        {exportTasks ? (
+          <button
+            type="button"
+            onClick={() => void handleExport()}
+            style={styles.exportButton}
+            aria-label="Copy tasks as JSON"
+          >
+            <Clipboard size={18} color="var(--text-secondary)" />
+          </button>
+        ) : null}
       </header>
+      {message ? <Toast message={message} /> : null}
 
       <main style={styles.scroll}>
         <Outlet context={outletContext} />
@@ -72,10 +106,25 @@ const styles: Record<string, CSSProperties> = {
   },
   header: {
     flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: "16px 20px 12px",
     paddingTop: "calc(16px + env(safe-area-inset-top))",
     borderBottom: "1px solid var(--border-subtle)",
     background: "var(--bg-primary)",
+  },
+  exportButton: {
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 32,
+    height: 32,
+    padding: 0,
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
   },
   title: {
     fontSize: 22,

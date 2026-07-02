@@ -15,6 +15,29 @@ import AuthRoute from "./Auth.route";
 import OnboardingRoute from "./Onboarding.route";
 import type { AppOutletContext } from "./AppLayout.route";
 import MobileApp from "../views/pages/mobile/app/MobileApp.view";
+import { isDueToday, isOverdue, isUpcoming } from "../models/tasks/taskVisibility";
+
+// Export resolvers mirror each screen's own visibility grouping (same pure
+// model predicates the views use) so "copy as JSON" matches what's on screen.
+function todayExport(ctx: unknown) {
+  const { data } = ctx as AppOutletContext;
+  const today = new Date().toISOString().split("T")[0];
+  return data.visibleTasks.filter((t) => isOverdue(t, today) || isDueToday(t, today));
+}
+
+function upcomingExport(ctx: unknown) {
+  const { data } = ctx as AppOutletContext;
+  const today = new Date().toISOString().split("T")[0];
+  return data.visibleTasks.filter((t) => isUpcoming(t, today));
+}
+
+function allExport(ctx: unknown) {
+  return (ctx as AppOutletContext).data.visibleTasks;
+}
+
+function logbookExport(ctx: unknown) {
+  return (ctx as AppOutletContext).data.logbookTasks;
+}
 
 // Renders nothing — a protected surface not yet ported into the router.
 // AppShell still draws the title + navbar around it, so the layered layout is
@@ -45,12 +68,12 @@ export const router = createBrowserRouter([
       {
         element: <AppShell />,
         children: [
-          { path: "today", handle: { title: "Today" }, element: <TodayRoute /> },
-          { path: "upcoming", handle: { title: "Upcoming" }, element: <UpcomingRoute /> },
+          { path: "today", handle: { title: "Today", exportTasks: todayExport }, element: <TodayRoute /> },
+          { path: "upcoming", handle: { title: "Upcoming", exportTasks: upcomingExport }, element: <UpcomingRoute /> },
           { path: "overdue", handle: { title: "Overdue" }, element: <Pending /> },
           { path: "inbox", handle: { title: "Inbox" }, element: <Pending /> },
-          { path: "all", handle: { title: "All" }, element: <AllRoute /> },
-          { path: "logbook", handle: { title: "Logbook" }, element: <LogbookRoute /> },
+          { path: "all", handle: { title: "All", exportTasks: allExport }, element: <AllRoute /> },
+          { path: "logbook", handle: { title: "Logbook", exportTasks: logbookExport }, element: <LogbookRoute /> },
           { path: "capture", handle: { title: "Capture" }, element: <CaptureRoute /> },
           { path: "settings", handle: { title: "Settings" }, element: <SettingsRoute /> },
           {

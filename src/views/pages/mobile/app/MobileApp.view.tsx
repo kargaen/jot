@@ -16,6 +16,8 @@ import MobileCaptureView from "../capture/MobileCapture.view";
 import MobileSettingsView from "../settings/MobileSettings.view";
 import MobileOnboardingView from "../onboarding/MobileOnboarding.view";
 import { logger } from "../../../../utils/observability/logger";
+import { exportTasksToClipboard } from "../../../../controllers/tasks/exportTasks.controller";
+import { copyTextToClipboard } from "../../../../services/tauri/clipboard.service";
 
 type Tab = "today" | "upcoming" | "tasks" | "logbook" | "capture" | "settings";
 
@@ -185,6 +187,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
           allTags={appData.tags}
           onUpdated={appData.refresh}
           onBack={() => { setSelectedTaskId(null); setActiveTab("tasks"); }}
+          onExport={() => exportTasksToClipboard({ copyToClipboard: copyTextToClipboard }, [selectedTask])}
           onCompleted={() => { showCompletionToast(); setSelectedTaskId(null); setActiveTab("tasks"); }}
         />
       </div>

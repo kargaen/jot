@@ -1,6 +1,8 @@
 import { Navigate, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import type { AppOutletContext } from "./AppLayout.route";
 import MobileTaskDetailView from "../views/pages/mobile/tasks/MobileTaskDetail.view";
+import { exportTasksToClipboard } from "../controllers/tasks/exportTasks.controller";
+import { copyTextToClipboard } from "../services/tauri/clipboard.service";
 
 // Full-screen route (no navbar frame): looks up the task by id in the shared
 // data and renders its detail. Redirects to the list if the id isn't found.
@@ -23,6 +25,7 @@ export default function TaskDetailRoute() {
       allTags={data.tags}
       onUpdated={() => void data.refreshTasks()}
       onBack={back}
+      onExport={() => exportTasksToClipboard({ copyToClipboard: copyTextToClipboard }, [task])}
       onCompleted={() => {
         notify();
         void data.refreshTasks();

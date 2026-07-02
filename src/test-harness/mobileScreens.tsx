@@ -103,21 +103,21 @@ function SettingsHarness() {
 
 // Maps a ?tab= value to the real screen (with mock data) + its title, so each
 // ported tab can be reviewed inside the actual AppShell frame.
-function tabChild(tab: string): { path: string; title: string; element: React.ReactNode } {
+function tabChild(tab: string): { path: string; title: string; element: React.ReactNode; exportTasks?: () => TaskWithTags[] } {
   switch (tab) {
     case "upcoming":
-      return { path: "upcoming", title: "Upcoming", element: <MobileUpcomingView tasks={UPCOMING_SEED} loading={false} onComplete={() => {}} onOpenTask={() => {}} /> };
+      return { path: "upcoming", title: "Upcoming", exportTasks: () => UPCOMING_SEED, element: <MobileUpcomingView tasks={UPCOMING_SEED} loading={false} onComplete={() => {}} onOpenTask={() => {}} /> };
     case "all":
-      return { path: "all", title: "All", element: <MobileTasksView tasks={SEED} areas={[area]} projects={[project]} loading={false} onComplete={() => {}} onOpenTask={() => {}} onDeleteTask={() => {}} onOpenArea={() => {}} onOpenProject={() => {}} /> };
+      return { path: "all", title: "All", exportTasks: () => SEED, element: <MobileTasksView tasks={SEED} areas={[area]} projects={[project]} loading={false} onComplete={() => {}} onOpenTask={() => {}} onDeleteTask={() => {}} onOpenArea={() => {}} onOpenProject={() => {}} /> };
     case "logbook":
-      return { path: "logbook", title: "Logbook", element: <MobileLogbookView tasks={DONE_SEED} loading={false} completionDates={COMPLETION_DATES} onRestore={() => {}} /> };
+      return { path: "logbook", title: "Logbook", exportTasks: () => DONE_SEED, element: <MobileLogbookView tasks={DONE_SEED} loading={false} completionDates={COMPLETION_DATES} onRestore={() => {}} /> };
     case "capture":
       return { path: "capture", title: "Capture", element: <MobileCaptureView projects={[project]} tags={tags} onSave={async () => {}} /> };
     case "settings":
       return { path: "settings", title: "Settings", element: <SettingsHarness /> };
     case "today":
     default:
-      return { path: "today", title: "Today", element: <MobileTodayView tasks={SEED} loading={false} onComplete={() => {}} /> };
+      return { path: "today", title: "Today", exportTasks: () => SEED, element: <MobileTodayView tasks={SEED} loading={false} onComplete={() => {}} /> };
   }
 }
 
@@ -215,7 +215,7 @@ const shellRouter = createMemoryRouter(
   [
     {
       element: <AppShell />,
-      children: [{ path: tab.path, handle: { title: tab.title }, element: tab.element }],
+      children: [{ path: tab.path, handle: { title: tab.title, exportTasks: tab.exportTasks }, element: tab.element }],
     },
   ],
   { initialEntries: [`/${tab.path}`] },

@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { EditorContent } from "@tiptap/react";
+import { Clipboard } from "lucide-react";
 import type { Area, Project, Tag, TaskWithTags } from "../../../../models/shared";
 import { useTaskDetail } from "../../../../hooks/useTaskDetail";
+import { useMessageToast } from "../../../../hooks/useMessageToast";
 import Spinner from "../../../components/ui/Spinner.view";
+import Toast from "../../../components/ui/Toast.view";
 
 interface Props {
   task: TaskWithTags;
@@ -12,6 +15,7 @@ interface Props {
   allTags: Tag[];
   onUpdated: () => void;
   onBack: () => void;
+  onExport: () => Promise<{ count: number }>;
   onCompleted: () => void;
 }
 
@@ -29,9 +33,16 @@ export default function MobileTaskDetailView({
   allTags,
   onUpdated,
   onBack,
+  onExport,
   onCompleted,
 }: Props) {
   const [newTag, setNewTag] = useState("");
+  const { message, showMessage } = useMessageToast();
+
+  async function handleExport() {
+    await onExport();
+    showMessage("Task copied as JSON");
+  }
   const {
     title,
     projectId,
@@ -94,16 +105,27 @@ export default function MobileTaskDetailView({
         <button type="button" onClick={onBack} style={styles.backButton} aria-label="Back to tasks">
           ‹ Tasks
         </button>
-        <span style={styles.saveStatus}>
-          {saveStatus === "saving"
-            ? "Saving…"
-            : saveStatus === "error"
-              ? "Save failed"
-              : saveStatus === "saved"
-                ? "Saved"
-                : ""}
-        </span>
+        <div style={styles.headerRight}>
+          <span style={styles.saveStatus}>
+            {saveStatus === "saving"
+              ? "Saving…"
+              : saveStatus === "error"
+                ? "Save failed"
+                : saveStatus === "saved"
+                  ? "Saved"
+                  : ""}
+          </span>
+          <button
+            type="button"
+            onClick={() => void handleExport()}
+            style={styles.exportButton}
+            aria-label="Copy task as JSON"
+          >
+            <Clipboard size={18} color="var(--text-secondary)" />
+          </button>
+        </div>
       </header>
+      {message ? <Toast message={message} /> : null}
 
       <div style={styles.scroll}>
         <span style={styles.typeLabel}>{typeLabel}</span>
@@ -332,9 +354,26 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: "inherit",
     padding: 0,
   },
+  headerRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  },
   saveStatus: {
     fontSize: 12,
     color: "var(--text-tertiary)",
+  },
+  exportButton: {
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 28,
+    height: 28,
+    padding: 0,
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
   },
   scroll: {
     flex: 1,
