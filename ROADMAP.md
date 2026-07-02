@@ -41,6 +41,8 @@ This roadmap reflects the current product direction: fast short-horizon task cap
   This should feel excellent and safe, not merely powerful.
 - [ ] Add space-level policies.
   Examples: default project, widget eligibility, reminder behavior, archive defaults.
+- [ ] Android share-sheet export.
+  "Copy as JSON" (clipboard) shipped as v1 for getting tasks out of Jot. A native Android share-sheet (save to Files, share to any app) needs a custom Tauri Kotlin plugin + FileProvider and is the natural next step.
 
 ## Bigger Bets
 

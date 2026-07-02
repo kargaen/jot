@@ -337,3 +337,11 @@ The protected app uses a **layered layout route** so the persistent frame is bui
 - **Route containers** are named `*.route.tsx` (e.g. `Today.route.tsx`, `Upcoming.route.tsx`): thin composition that reads shared data/params, wires callbacks (navigate, complete), and renders a `views/pages/.../*.view.tsx`. Views stay presentational; containers do the wiring.
 
 The current app is kept verbatim at `/_legacy` as a working reference during the port; `/` redirects there until screens are migrated, then flips to `/today` and `/_legacy` is removed.
+
+Nav routes may opt into a header action by declaring `handle: { exportTasks: (ctx, params) => TaskWithTags[] }` alongside `title`; `AppShell.view.tsx` renders a clipboard icon that serializes and copies the resolver's result when present. This is the general pattern for any future per-screen header action, not just export — add a new `handle` key + a matching render branch in `AppShell`, don't build a one-off header per screen.
+
+### Data export & the Conduit API
+
+`src/models/export/jotExport.ts` is the **single source of truth** for how tasks leave Jot — the JotExport v1 JSON schema and the `serializeTasks` function. It is deliberately dependency-free so it runs unchanged in the app (Vite/browser) and in a Deno edge function (imported by relative path with a `.ts` extension). Every surface that exports or extracts tasks — the in-app "copy as JSON" action and the `conduit` edge function — must go through this module. Never hand-roll a second serialization format.
+
+The Conduit API (`supabase/functions/conduit/index.ts`) is the external HTTP surface for tasks (e.g. a Home Assistant integration): `GET /conduit/tasks` extracts via `serializeTasks`, `POST /conduit/tasks` inserts with full task fields, mirroring the app's create-task semantics (project name/UUID resolution, area fallback, tag auto-create). It authenticates with personal API tokens (`api_tokens` table, `src/models/tokens/apiToken.ts`, managed from Settings) — **only a sha-256 hash is ever stored**; the plaintext is shown once at creation and never persisted. The function runs with the service-role key (bypasses RLS), so every query explicitly scopes `user_id` to the authenticated token's owner — that scoping is the security boundary, not RLS, for this one function.
