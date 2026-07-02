@@ -126,3 +126,15 @@ export interface QuickAction {
   label: string;
   shortcut?: string;
 }
+
+// A personal API token for the Conduit API. The plaintext token is shown once
+// at creation and never stored — only token_hash lives in the database.
+export interface ApiToken {
+  id: string;
+  user_id: string;
+  name: string;
+  token_hash: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}

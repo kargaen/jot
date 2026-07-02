@@ -1,6 +1,7 @@
 import { useOutletContext } from "react-router-dom";
 import type { AppOutletContext } from "./AppLayout.route";
 import {
+  useApiTokensActions,
   useMobileAccountActions,
   useMobileProjectsActions,
   useMobileSpacesActions,
@@ -8,13 +9,14 @@ import {
 import MobileSettingsView from "../views/pages/mobile/settings/MobileSettings.view";
 
 // Route container: feeds the Settings view from shared app data + the account,
-// spaces, and projects action hooks. Sign-out and space changes refresh the
-// shared data.
+// spaces, projects, and API token action hooks. Sign-out and space changes
+// refresh the shared data.
 export default function SettingsRoute() {
   const { user, data } = useOutletContext<AppOutletContext>();
   const accountActions = useMobileAccountActions();
   const spaceActions = useMobileSpacesActions();
   const projectActions = useMobileProjectsActions();
+  const apiTokens = useApiTokensActions();
 
   return (
     <MobileSettingsView
@@ -27,6 +29,7 @@ export default function SettingsRoute() {
       accountActions={accountActions}
       spaceActions={spaceActions}
       projectActions={projectActions}
+      apiTokens={apiTokens}
       onSignedOut={() => data.refresh()}
       onAreasChanged={() => data.refresh()}
     />

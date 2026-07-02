@@ -1,6 +1,6 @@
 import { useState } from "react";
 import ReactDOM from "react-dom/client";
-import type { Area, Project, Tag, TaskWithTags } from "../models/shared";
+import type { ApiToken, Area, Project, Tag, TaskWithTags } from "../models/shared";
 import MobileTasksView from "../views/pages/mobile/tasks/MobileTasks.view";
 import MobileCaptureView from "../views/pages/mobile/capture/MobileCapture.view";
 import MobileTodayView from "../views/pages/mobile/today/MobileToday.view";
@@ -84,6 +84,22 @@ function SettingsHarness() {
   const accountActions = useMobileAccountActions();
   const spaceActions = useMobileSpacesActions();
   const projectActions = useMobileProjectsActions();
+  const [tokens, setTokens] = useState<ApiToken[]>([
+    { id: "tok1", user_id: "u1", name: "Conduit (Home Assistant)", token_hash: "x", created_at: "2026-06-01T00:00:00Z", last_used_at: "2026-07-01T09:00:00Z", revoked_at: null },
+  ]);
+  const apiTokens = {
+    tokens,
+    loading: false,
+    refresh: async () => {},
+    generate: async (name: string) => {
+      const token: ApiToken = { id: `tok${tokens.length + 1}`, user_id: "u1", name, token_hash: "x", created_at: new Date().toISOString(), last_used_at: null, revoked_at: null };
+      setTokens((prev) => [token, ...prev]);
+      return { token, plaintext: "jot_harness-preview-token-not-real" };
+    },
+    revoke: async (id: string) => {
+      setTokens((prev) => prev.filter((t) => t.id !== id));
+    },
+  };
   return (
     <MobileSettingsView
       email="karga@karga.dk"
@@ -95,6 +111,7 @@ function SettingsHarness() {
       accountActions={accountActions}
       spaceActions={spaceActions}
       projectActions={projectActions}
+      apiTokens={apiTokens}
       onSignedOut={() => {}}
       onAreasChanged={() => {}}
     />

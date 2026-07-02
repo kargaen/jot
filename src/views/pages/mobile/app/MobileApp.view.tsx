@@ -5,7 +5,7 @@ import type { ParsedInput } from "../../../../models/shared";
 import { randomCompletionMessage } from "../../../../utils/presentation/completionMessage";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useMobileAuth } from "../../../../hooks/useMobileAuth";
-import { useMobileAppData, useCaptureComposer, useMobileAccountActions, useMobileSpacesActions, useMobileProjectsActions } from "../../../../hooks/useMobileApp";
+import { useMobileAppData, useCaptureComposer, useMobileAccountActions, useMobileSpacesActions, useMobileProjectsActions, useApiTokensActions } from "../../../../hooks/useMobileApp";
 import MobileAuthView from "../auth/MobileAuth.view";
 import MobileTodayView from "../today/MobileToday.view";
 import MobileUpcomingView from "../upcoming/MobileUpcoming.view";
@@ -29,6 +29,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const accountActions = useMobileAccountActions();
   const spaceActions = useMobileSpacesActions();
   const projectActions = useMobileProjectsActions();
+  const apiTokens = useApiTokensActions();
   const [activeTab, setActiveTab] = useState<Tab>("today");
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -279,6 +280,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
             accountActions={accountActions}
             spaceActions={spaceActions}
             projectActions={projectActions}
+            apiTokens={apiTokens}
             onSignedOut={() => appData.refresh()}
             onAreasChanged={() => appData.refresh()}
           />

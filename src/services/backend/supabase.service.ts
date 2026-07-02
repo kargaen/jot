@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import type {
   Area,
   AreaMember,
+  ApiToken,
   AssignablePerson,
   Project,
   ProjectMember,
@@ -10,6 +11,7 @@ import type {
   TaskWithTags,
 } from "../../models/shared";
 import { logger } from "../../utils/observability/logger";
+import { generateApiToken } from "../../models/tokens/apiToken";
 
 type ErrorLike = {
   message?: unknown;
@@ -726,5 +728,37 @@ export async function removeTaskTag(taskId: string, tagId: string): Promise<void
     .eq("task_id", taskId)
     .eq("tag_id", tagId);
   if (error) logErr("removeTaskTag", error);
+}
+
+export async function fetchApiTokens(): Promise<ApiToken[]> {
+  const { data, error } = await supabase
+    .from("api_tokens")
+    .select("*")
+    .is("revoked_at", null)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+// Returns the created row AND the one-time plaintext token — the plaintext is
+// never persisted, so this is the only moment the caller can show it.
+export async function createApiToken(name: string): Promise<{ token: ApiToken; plaintext: string }> {
+  const user_id = await getCurrentUserId();
+  const { plaintext, hash } = await generateApiToken();
+  const { data, error } = await supabase
+    .from("api_tokens")
+    .insert({ name, user_id, token_hash: hash })
+    .select()
+    .single();
+  if (error) throw error;
+  return { token: data, plaintext };
+}
+
+export async function revokeApiToken(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("api_tokens")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
 }
 

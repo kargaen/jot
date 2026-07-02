@@ -1,9 +1,10 @@
 import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
-import type { Area, AreaMember, NlpLanguageMode, Project, TaskWithTags } from "../../../../models/shared";
+import type { ApiToken, Area, AreaMember, NlpLanguageMode, Project, TaskWithTags } from "../../../../models/shared";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { syncWidgetsDebug } from "../../../../services/sync/widgetSync.service";
 import { clearTimings, getTimingStats } from "../../../../utils/observability/timing";
+import { copyTextToClipboard } from "../../../../services/tauri/clipboard.service";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useSharingTab } from "../../../../hooks/usePreferences";
 
@@ -39,6 +40,14 @@ interface ProjectActions {
   closeProjectWithTasks: (id: string, action: "complete" | "release") => Promise<unknown>;
 }
 
+interface ApiTokensActions {
+  tokens: ApiToken[];
+  loading: boolean;
+  refresh: () => Promise<void>;
+  generate: (name: string) => Promise<{ token: ApiToken; plaintext: string }>;
+  revoke: (id: string) => Promise<unknown>;
+}
+
 interface Props {
   email: string;
   areas: Area[];
@@ -49,6 +58,7 @@ interface Props {
   accountActions: AccountActions;
   spaceActions: SpaceActions;
   projectActions: ProjectActions;
+  apiTokens: ApiTokensActions;
   onSignedOut: () => void;
   onAreasChanged: () => void;
 }
@@ -63,6 +73,7 @@ export default function MobileSettingsView({
   accountActions,
   spaceActions,
   projectActions,
+  apiTokens,
   onSignedOut,
   onAreasChanged,
 }: Props) {
@@ -86,6 +97,7 @@ export default function MobileSettingsView({
         onChanged={onAreasChanged}
       />
       <SharingSection areas={areas} onSharedChange={onAreasChanged} />
+      <ApiTokensSection actions={apiTokens} />
       <FeedbackSection />
       <WidgetSyncDebugSection />
       <LatencyDebugSection />
@@ -805,6 +817,106 @@ function MemberBadge({ status }: { status: AreaMember["status"] }) {
 
 // ── Feedback ──────────────────────────────────────────────────────────────────
 
+// ── API access (Conduit) ────────────────────────────────────────────────────────
+
+function ApiTokensSection({ actions }: { actions: ApiTokensActions }) {
+  const [newName, setNewName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [revealed, setRevealed] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function handleGenerate(e: FormEvent) {
+    e.preventDefault();
+    if (!newName.trim() || busy) return;
+    setBusy(true);
+    try {
+      const { plaintext } = await actions.generate(newName.trim());
+      setNewName("");
+      setRevealed(plaintext);
+      setCopied(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRevoke(id: string) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await actions.revoke(id);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCopy() {
+    if (!revealed) return;
+    await copyTextToClipboard(revealed);
+    setCopied(true);
+  }
+
+  return (
+    <section style={styles.section}>
+      <div style={styles.sectionHeader}>API Access</div>
+      <div style={styles.sectionHint}>
+        Personal tokens for external tools (e.g. a Home Assistant integration) to read and add tasks.
+      </div>
+      <div style={styles.card}>
+        {revealed ? (
+          <div style={styles.cardBody}>
+            <div style={styles.feedbackText}>
+              Copy this token now — it won't be shown again.
+            </div>
+            <div style={styles.tokenReveal}>{revealed}</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button variant="primary" size="sm" onClick={() => void handleCopy()}>
+                {copied ? "Copied" : "Copy"}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setRevealed(null)}>
+                Done
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {actions.tokens.map((token, i) => (
+          <div key={token.id}>
+            {i > 0 || revealed ? <div style={styles.divider} /> : null}
+            <div style={styles.spaceRow}>
+              <span style={styles.rowLabel}>{token.name}</span>
+              <span style={styles.rowValue}>
+                {token.last_used_at
+                  ? `Used ${new Date(token.last_used_at).toLocaleDateString()}`
+                  : "Never used"}
+              </span>
+              <button
+                type="button"
+                onClick={() => void handleRevoke(token.id)}
+                disabled={busy}
+                style={{ ...styles.iconButton, color: "var(--danger-strong)" }}
+                aria-label={`Revoke ${token.name}`}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        ))}
+        {actions.tokens.length > 0 || revealed ? <div style={styles.divider} /> : null}
+        <form onSubmit={(e) => void handleGenerate(e)} style={styles.passwordRow}>
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Token name (e.g. Conduit)"
+            style={styles.inlineInput}
+          />
+          <Button type="submit" variant="primary" size="sm" disabled={busy || !newName.trim()}>
+            Generate
+          </Button>
+        </form>
+      </div>
+    </section>
+  );
+}
+
 function FeedbackSection() {
   return (
     <section style={styles.section}>
@@ -869,6 +981,17 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 13,
     color: "var(--text-tertiary)",
     lineHeight: 1.4,
+  },
+  tokenReveal: {
+    width: "100%",
+    padding: "9px 12px",
+    borderRadius: 10,
+    border: "1px solid var(--border-default)",
+    background: "var(--bg-primary)",
+    color: "var(--text-primary)",
+    fontSize: 13,
+    fontFamily: "monospace",
+    wordBreak: "break-all",
   },
   row: {
     display: "flex",

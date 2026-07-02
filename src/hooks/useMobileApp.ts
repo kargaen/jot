@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Area, AreaMember, Project, ProjectMember, Tag, Task, TaskWithTags } from "../models/shared";
+import type { ApiToken, Area, AreaMember, Project, ProjectMember, Tag, Task, TaskWithTags } from "../models/shared";
 import {
   acceptInvite,
   acceptProjectInvite,
@@ -7,6 +7,7 @@ import {
   closeProjectAndCompleteTasks,
   closeProjectAndReleaseTasks,
   completeTask,
+  createApiToken,
   createArea,
   createProject,
   createTask,
@@ -14,6 +15,8 @@ import {
   declineProjectInvite,
   deleteArea,
   deleteTask,
+  fetchApiTokens,
+  revokeApiToken,
   fetchAllTasks,
   fetchAreaMembers,
   fetchAreas,
@@ -403,6 +406,36 @@ export function useMobileAccountActions() {
   return {
     changePassword: (password: string) => updatePassword(password),
     signOutAll: () => signOutEverywhere(),
+  };
+}
+
+// ── API tokens (Conduit) ────────────────────────────────────────────────────────
+
+export function useApiTokensActions() {
+  const [tokens, setTokens] = useState<ApiToken[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      setTokens(await fetchApiTokens());
+    } catch (err) {
+      logger.warn("mobile-app", "fetchApiTokens failed", err instanceof Error ? err.message : err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return {
+    tokens,
+    loading,
+    refresh,
+    generate: (name: string) => createApiToken(name),
+    revoke: (id: string) => revokeApiToken(id),
   };
 }
 
