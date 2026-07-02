@@ -412,3 +412,11 @@ entrypoint = "./functions/send-space-invite/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/send-space-invite/*.html" ]
+
+[functions.conduit]
+enabled = true
+# No Supabase JWT — Conduit authenticates with a personal API token
+# (Authorization: Bearer jot_...) verified inside the function itself.
+verify_jwt = false
+import_map = "./functions/conduit/deno.json"
+entrypoint = "./functions/conduit/index.ts"

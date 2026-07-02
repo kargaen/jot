@@ -23,6 +23,11 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
+      - name: Deploy conduit edge function
+        run: npx supabase@latest functions deploy conduit --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
   integration-test:
     name: CRUD Integration Tests
     # Run AFTER migrations are applied: the tests exercise RLS on the live DB,
