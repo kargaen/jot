@@ -13,6 +13,17 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Persistent release signing. CI writes key.properties + the keystore before
+// building (see .github/workflows/release-candidate.yml). Local builds without
+// key.properties fall back to the debug key.
+val keyProperties = Properties().apply {
+    val propFile = rootProject.file("key.properties")
+    if (propFile.exists()) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+val hasReleaseKey = keyProperties.getProperty("storeFile") != null
+
 android {
     compileSdk = 36
     namespace = "com.jot.app"
@@ -27,6 +38,16 @@ android {
             abiFilters += listOf("arm64-v8a")
         }
     }
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = rootProject.file(keyProperties.getProperty("storeFile"))
+                storePassword = keyProperties.getProperty("storePassword")
+                keyAlias = keyProperties.getProperty("keyAlias")
+                keyPassword = keyProperties.getProperty("keyPassword")
+            }
+        }
+    }
     buildTypes {
         getByName("debug") {
             manifestPlaceholders["usesCleartextTraffic"] = "true"
@@ -36,7 +57,7 @@ android {
         }
         getByName("release") {
             isMinifyEnabled = true
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (hasReleaseKey) "release" else "debug")
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }
                     .plus(getDefaultProguardFile("proguard-android-optimize.txt"))

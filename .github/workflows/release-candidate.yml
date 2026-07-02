@@ -161,7 +161,29 @@ jobs:
           echo "NDK_HOME=/usr/local/lib/android/sdk/ndk/27.2.12479018" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/27.2.12479018" >> "$GITHUB_ENV"
 
-      - name: Build debug APK
+      # Persistent signing key: every RC must be signed with the SAME key or
+      # Android refuses to update over the installed app. The keystore lives in
+      # repo secrets; build.gradle.kts picks it up via key.properties.
+      - name: Write release keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 -d > src-tauri/gen/android/keystore.jks
+          cat > src-tauri/gen/android/key.properties <<EOF
+          storeFile=keystore.jks
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          EOF
+
+      # Strictly increasing versionCode per RC build so updates always install.
+      # Base 1000002 = Tauri's derivation of version 1.0.2 (the last unbumped RC).
+      - name: Bump Android versionCode
+        run: |
+          CODE=$((1000002 + ${{ github.run_number }}))
+          echo "versionCode=$CODE"
+          jq ".bundle.android.versionCode = $CODE" src-tauri/tauri.conf.json > tauri.conf.tmp
+          mv tauri.conf.tmp src-tauri/tauri.conf.json
+
+      - name: Build signed APK
         run: npm run tauri -- android build --apk
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}

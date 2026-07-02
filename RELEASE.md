@@ -16,11 +16,20 @@
 
 ## Release Candidates (dev → RC)
 
-Every push to `dev` automatically builds and publishes a pre-release tagged `vX.Y.Z-rc.N`.
-
-The RC number auto-increments from the highest existing `vX.Y.Z-rc.*` tag for the current base version in `package.json`. No manual version bump is needed for RC builds.
+Every push to `dev` automatically builds and publishes a pre-release on the single reusable `rc` tag (deleted and recreated per run). No manual version bump is needed for RC builds.
 
 RC releases are marked as **pre-release** on GitHub and are not served as the latest stable version.
+
+---
+
+## Android Signing
+
+Android enforces that an update is signed with the **same key** as the installed app and carries a versionCode ≥ the installed one. No CA-issued certificate is involved — the key is self-signed and just has to stay stable.
+
+- The release keystore lives only in GitHub repo secrets: `ANDROID_KEYSTORE_B64` (base64 of the `.jks`), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`. The RC workflow writes it to `src-tauri/gen/android/keystore.jks` + `key.properties` before building; `src-tauri/gen/android/app/build.gradle.kts` signs release builds with it (falls back to the debug key locally when `key.properties` is absent).
+- versionCode is set per RC build to `1000002 + run_number` (strictly increasing; base = Tauri's derivation of version 1.0.2).
+- **If the keystore secret is ever lost or replaced**, existing installs cannot update — every device must uninstall and reinstall once. Keep the keystore backup safe.
+- When `master` starts building Android, it must reuse the same keystore and a versionCode scheme above the RC one.
 
 ---
 
