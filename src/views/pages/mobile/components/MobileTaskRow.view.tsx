@@ -27,7 +27,6 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
   const startX = useRef<number | null>(null);
   const startY = useRef<number | null>(null);
   const isScroll = useRef(false);
-  const tapTarget = useRef<EventTarget | null>(null);
   const [dragX, setDragX] = useState(0);
   const [completing, setCompleting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -39,7 +38,6 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
     startX.current = e.touches[0].clientX;
     startY.current = e.touches[0].clientY;
     isScroll.current = false;
-    tapTarget.current = e.target;
   }
 
   function onTouchMove(e: TouchEvent) {
@@ -57,10 +55,11 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
     setDragX(Math.max(Math.min(dx, DRAG_MAX), -DRAG_MAX));
   }
 
-  function onTouchEnd() {
+  function onTouchEnd(e: TouchEvent) {
     if (startX.current === null) return;
     const wasDrag = Math.abs(dragX) > 4;
     const wasScroll = isScroll.current;
+    const releaseTouch = e.changedTouches[0];
     startX.current = null;
     startY.current = null;
     isScroll.current = false;
@@ -74,14 +73,17 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
       setDragX(0);
       // Only the title is a tap target — the checkmark completes, and empty
       // row space is inert. Keeps "finish" and "edit" from overlapping.
-      const el = tapTarget.current as HTMLElement | null;
+      // Re-resolve the element at the release point (rather than trusting
+      // touchstart's captured target) so this is robust across WebViews.
+      const el = releaseTouch
+        ? (document.elementFromPoint(releaseTouch.clientX, releaseTouch.clientY) as HTMLElement | null)
+        : null;
       const onTitle = !!el?.closest?.("[data-role='task-title']");
       if (!wasDrag && !wasScroll && onTitle) {
         if (onOpen) onOpen(task.id);
         else setExpanded((v) => !v);
       }
     }
-    tapTarget.current = null;
   }
 
   function cancelDelete() {
