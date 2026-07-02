@@ -475,7 +475,7 @@ export async function createProject(
 export async function fetchAllTasks(): Promise<TaskWithTags[]> {
   const { data, error } = await supabase
     .from("tasks")
-    .select("*, task_tags(tag_id, tags(*))")
+    .select("*, task_tags(tag_id, tags(*)), project:projects(id, name)")
     .eq("status", "todo")
     .is("parent_task_id", null)
     .order("sort_order");
@@ -501,7 +501,7 @@ export async function fetchCompletionDates(since: string): Promise<string[]> {
 export async function fetchLogbookTasks(): Promise<TaskWithTags[]> {
   const { data, error } = await supabase
     .from("tasks")
-    .select("*, task_tags(tag_id, tags(*))")
+    .select("*, task_tags(tag_id, tags(*)), project:projects(id, name)")
     .eq("status", "completed")
     .is("parent_task_id", null)
     .order("completed_at", { ascending: false })
@@ -517,7 +517,7 @@ export async function fetchLogbookTasks(): Promise<TaskWithTags[]> {
 export async function fetchSubtasks(parentId: string): Promise<TaskWithTags[]> {
   const { data, error } = await supabase
     .from("tasks")
-    .select("*, task_tags(tag_id, tags(*))")
+    .select("*, task_tags(tag_id, tags(*)), project:projects(id, name)")
     .eq("parent_task_id", parentId)
     .eq("status", "todo")
     .order("sort_order");
@@ -687,7 +687,7 @@ export async function fetchTask(id: string): Promise<TaskWithTags> {
   logger.debug("supabase", `fetchTask: ${id}`);
   const { data, error } = await supabase
     .from("tasks")
-    .select("*, task_tags(tag_id, tags(*))")
+    .select("*, task_tags(tag_id, tags(*)), project:projects(id, name)")
     .eq("id", id)
     .single();
   if (error) logErr("fetchTask", error);
