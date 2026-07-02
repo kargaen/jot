@@ -11,9 +11,10 @@ interface Props {
   tasks: TaskWithTags[];
   loading: boolean;
   onComplete: (id: string) => void;
+  onOpenTask: (id: string) => void;
 }
 
-export default function MobileTodayView({ tasks, loading, onComplete }: Props) {
+export default function MobileTodayView({ tasks, loading, onComplete, onOpenTask }: Props) {
   const today = new Date().toISOString().split("T")[0];
   const [relax] = useState(randomRelax);
 
@@ -56,7 +57,7 @@ export default function MobileTodayView({ tasks, loading, onComplete }: Props) {
 
   return (
     <>
-      <MobileTaskList groups={groups} onComplete={onComplete} />
+      <MobileTaskList groups={groups} onComplete={onComplete} onOpenTask={onOpenTask} />
       {nextUpcoming ? <UpcomingPeek task={nextUpcoming} more={upcoming.length - 1} /> : null}
     </>
   );

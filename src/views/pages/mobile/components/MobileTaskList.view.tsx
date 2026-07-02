@@ -15,7 +15,7 @@ export interface TaskListGroup {
 interface Props {
   groups: TaskListGroup[];
   onComplete: (id: string) => void;
-  onOpenTask?: (id: string) => void;
+  onOpenTask: (id: string) => void;
   onDeleteTask?: (id: string) => void;
   /** Show a per-group count badge in the section header. */
   showCount?: boolean;

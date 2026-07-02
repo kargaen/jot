@@ -8,9 +8,8 @@ import TaskIcon from "./TaskIcon.view";
 interface Props {
   task: TaskWithTags;
   onComplete: (id: string) => void;
-  // When provided, a tap opens the task detail. Without it the row falls back
-  // to the inline expand of notes/tags (used by the Today view).
-  onOpen?: (id: string) => void;
+  // Tapping the title always opens the task detail screen.
+  onOpen: (id: string) => void;
   // When provided, a right-swipe reveals a delete action (with confirmation).
   // Without it, right-swipes are ignored.
   onDelete?: (id: string) => void;
@@ -31,7 +30,6 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
   const [completing, setCompleting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [expanded, setExpanded] = useState(false);
 
   function onTouchStart(e: TouchEvent) {
     if (confirmingDelete) return;
@@ -80,8 +78,7 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
         : null;
       const onTitle = !!el?.closest?.("[data-role='task-title']");
       if (!wasDrag && !wasScroll && onTitle) {
-        if (onOpen) onOpen(task.id);
-        else setExpanded((v) => !v);
+        onOpen(task.id);
       }
     }
   }
@@ -144,21 +141,6 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
           {task.project ? (
             <div style={styles.rowMeta}>{task.project.name}</div>
           ) : null}
-          {expanded && (
-            <div style={styles.detail}>
-              {task.notes ? <div style={styles.detailNotes}>{task.notes}</div> : null}
-              {task.tags && task.tags.length > 0 ? (
-                <div style={styles.detailTags}>
-                  {task.tags.map((tag) => (
-                    <span key={tag.id} style={styles.tag}>{tag.name}</span>
-                  ))}
-                </div>
-              ) : null}
-              {!task.notes && (!task.tags || task.tags.length === 0) ? (
-                <div style={styles.detailEmpty}>No notes or tags</div>
-              ) : null}
-            </div>
-          )}
         </div>
       </div>
 
@@ -256,39 +238,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     color: "var(--text-tertiary)",
     marginTop: 3,
-  },
-  detail: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTop: "1px solid var(--border-subtle)",
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: 6,
-  },
-  detailNotes: {
-    fontSize: 13,
-    color: "var(--text-secondary)",
-    lineHeight: 1.5,
-    whiteSpace: "pre-wrap" as const,
-  },
-  detailTags: {
-    display: "flex",
-    flexWrap: "wrap" as const,
-    gap: 4,
-  },
-  tag: {
-    fontSize: 11,
-    fontWeight: 600,
-    color: "var(--text-tertiary)",
-    background: "var(--surface-glass)",
-    border: "1px solid var(--border-subtle)",
-    borderRadius: 8,
-    padding: "2px 7px",
-  },
-  detailEmpty: {
-    fontSize: 12,
-    color: "var(--text-tertiary)",
-    fontStyle: "italic" as const,
   },
   confirm: {
     position: "absolute",

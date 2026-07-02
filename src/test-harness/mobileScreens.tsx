@@ -134,7 +134,7 @@ function tabChild(tab: string): { path: string; title: string; element: React.Re
       return { path: "settings", title: "Settings", element: <SettingsHarness /> };
     case "today":
     default:
-      return { path: "today", title: "Today", exportTasks: () => SEED, element: <MobileTodayView tasks={SEED} loading={false} onComplete={() => {}} /> };
+      return { path: "today", title: "Today", exportTasks: () => SEED, element: <MobileTodayView tasks={SEED} loading={false} onComplete={() => {}} onOpenTask={() => {}} /> };
   }
 }
 

@@ -232,6 +232,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
             tasks={appData.visibleTasks}
             loading={appData.loadingData}
             onComplete={handleComplete}
+            onOpenTask={(id) => setSelectedTaskId(id)}
           />
         )}
         {activeTab === "upcoming" && (
