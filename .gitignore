@@ -3,7 +3,8 @@ dist/
 src-tauri/target/
 .env
 *.local
-.claude/
+.claude/*
+!.claude/skills/
 .cargo/
 src-tauri/keys/update.key
 supabase/.temp/

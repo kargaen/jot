@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - dev
+    paths-ignore:
+      # Skill-library docs (.claude/skills/**) ship in the repo, not in the app.
+      # A push that touches only skills should not spend a full RC build
+      # (DB migrate + integration test + Windows installer + Android APK).
+      # A mixed push (skills + real code) still triggers normally.
+      - '.claude/skills/**'
 
 permissions:
   contents: write

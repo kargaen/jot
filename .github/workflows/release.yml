@@ -86,8 +86,12 @@ jobs:
             SHOULD_RELEASE="true"
           elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             SHOULD_RELEASE="${{ inputs.publish_release }}"
-          #elif [[ "${GITHUB_REF_NAME}" == "master" && "${TAG_EXISTS}" == "false" ]]; then
-            #SHOULD_RELEASE="true"
+          elif [[ "${GITHUB_REF_NAME}" == "master" && "${TAG_EXISTS}" == "false" ]]; then
+            # Auto-release on push to master when the v<version> tag doesn't yet
+            # exist: bump the version, push master, and the release is cut.
+            # If the tag already exists (version not bumped), release is skipped
+            # so the same version is never re-released.
+            SHOULD_RELEASE="true"
           fi
 
           SHOULD_DEPLOY_PAGES="false"
