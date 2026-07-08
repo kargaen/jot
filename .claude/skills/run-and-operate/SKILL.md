@@ -72,7 +72,7 @@ What each job does:
 - **build-rc** — on `windows-latest`: builds the frontend, deletes the old `rc` release+tag, then uses `tauri-action` to build the Windows installer and publish it to tag `rc` as a pre-release.
 - **build-rc-android** — on `ubuntu-latest`: installs the Android toolchain, writes the release keystore from secrets, verifies it fail-fast, bumps `versionCode`, builds the signed APK, and uploads it to the same `rc` release.
 
-**Why `migrate-db` runs BEFORE `integration-test` (do not "fix" this):** the integration tests exercise RLS against the live DB, so the schema must be current first. Earlier the dependency was inverted (`migrate-db` needed `integration-test`), which created a deadlock: an RLS migration that fixed a failing test could never deploy, because the very test it fixed was red and blocked the migration. This is the same 42501-on-`INSERT...RETURNING` pipeline-ordering fix documented in the RLS history — see the **diagnostics-and-tooling** sibling for the full failure archaeology.
+**Why `migrate-db` runs BEFORE `integration-test` (do not "fix" this):** the integration tests exercise RLS against the live DB, so the schema must be current first. Earlier the dependency was inverted (`migrate-db` needed `integration-test`), which created a deadlock: an RLS migration that fixed a failing test could never deploy, because the very test it fixed was red and blocked the migration. This is the same 42501-on-`INSERT...RETURNING` pipeline-ordering fix documented in the RLS history — see the **failure-archaeology** sibling for the full history.
 
 ---
 
@@ -121,7 +121,7 @@ From RELEASE.md, verified against `release-candidate.yml`:
 - First-time environment setup (Node/Rust/Supabase CLI, `.env.local` creation) → **build-and-env**.
 - What a specific env var *means* or which flags gate behavior → **config-and-flags**.
 - Writing or debugging the CI test suites (`ci-integration-test.ts`, `rls-ladder.ts`, Playwright, unit tests) → **validation-and-qa**.
-- Diagnosing an RLS failure, JWT/`auth.uid()` propagation, or reading the failure archaeology → **diagnostics-and-tooling**.
+- Diagnosing an RLS failure or JWT/`auth.uid()` propagation → **debugging-playbook**; reading the failure archaeology (is this a settled battle?) → **failure-archaeology**.
 - Making a code change → obey `CLAUDE.md` (one file, one MVC layer) and `ARCHITECTURE.md`. This skill operates the machine; it does not authorize edits.
 
 Also: **never run the release git commands or `version:sync` yourself.** Those are the human's release actions. You may explain and verify them.

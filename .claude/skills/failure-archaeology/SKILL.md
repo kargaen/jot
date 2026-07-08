@@ -260,7 +260,9 @@ at `scripts/ci-integration-test.ts` (earlier `.mjs`).
 - **Evidence:** Commit **b3d7bd3** (Fix #9) — adds `\s*[.,;:!?]` as a valid terminator to the `parseProject`
   regex and strips spaces before punctuation in the cleaned title (`.replace(/\s+([.,;:!?])/g, "$1")`) in
   `src/services/capture/nlp.service.ts`. Regression tests added to `tests/unit/services/nlp.test.ts`
-  (`fix bug #Jot.`, `#Jot fix the bug.`, `Call John. #Jot`).
+  (`fix bug #Jot.`, `#Jot fix the bug.`, `Call John. #Jot`). Note: `nlp.test.ts` is a *report*, not a
+  gate (it never exits non-zero) — a NEW gating regression case belongs in `nlp-natural.test.ts`; see
+  `validation-and-qa`'s gating-asymmetry note.
   - **Note:** **a3fbdc5** is the *identical* commit on the feature branch (`claude/jot-task-fixes-03xpbx`);
     **b3d7bd3** is the copy that landed on `dev`. Same content — not two separate fixes.
 - **Fix/Status:** SETTLED.

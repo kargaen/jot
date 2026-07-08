@@ -105,7 +105,7 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) throw new Error("Missing VITE_SUPABASE_
 ```
 
 So `.env.local` **must** hold at least these two — dummy values are fine for a build or for
-the visual mobile harness (which only needs the vars to *exist*). The committed `.env.local`
+the visual mobile harness (which only needs the vars to *exist*). The (git-ignored) `.env.local` in the working tree
 already contains dummy values (verified):
 
 ```
@@ -129,12 +129,15 @@ app code.
 
 **Scripts / CI / edge-function vars** (verified in `scripts/` and `supabase/functions/`):
 
-- `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` — `scripts/ci-integration-test.ts`.
-- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — `scripts/measure-db-latency.ts`,
-  `scripts/rls-ladder.ts`, `scripts/local-supabase-env.mjs`, edge functions (`conduit`,
-  `send-space-invite`; these are injected by the Supabase runtime for deployed functions).
-- `SUPABASE_TEST_USER_NAME`, `SUPABASE_TEST_USER_PASSWORD` — the signed-in test user for CI
-  integration / RLS scripts.
+- `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` — all three TS scripts:
+  `scripts/ci-integration-test.ts`, `scripts/measure-db-latency.ts`, `scripts/rls-ladder.ts`
+  (verified: they read only these plus the test-user vars).
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — the edge functions (`conduit`,
+  `send-space-invite`; injected by the Supabase runtime for deployed functions) and the local
+  admin scripts `scripts/local-supabase-env.mjs` / `scripts/seed-local-test-data.mjs`. NOT read
+  by the three TS scripts above.
+- `SUPABASE_TEST_USER_NAME`, `SUPABASE_TEST_USER_PASSWORD` — the signed-in test user for the CI
+  integration / RLS / latency scripts.
 
 **About `.env.e2e.example`:** it is *not* a filled-in template — it is a comment file
 explaining that the real working file is `.env.e2e.local` (git-ignored), populated

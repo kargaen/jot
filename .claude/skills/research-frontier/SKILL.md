@@ -282,6 +282,7 @@ is validated. **This is the least certain frontier — say so when you cite it.*
   - `grep -n 'parseInput\|consumed\|languageMode' src/services/capture/nlp.service.ts`
   - `grep -rln 'can_access_area\|area_members' supabase/migrations/`
   - `npm run measure:db` (needs the Supabase env vars) · `npm run test:nlp` · `npm run test:rust`
-- **Known doc drift to respect:** a sibling named `performance-and-proof-toolkit` does **not**
-  exist in `.claude/skills/`. The measurement/proof siblings that *do* exist are
-  `diagnostics-and-tooling` (measure) and `research-methodology` (prove). Cross-reference those.
+- **Proof siblings:** turn each milestone into evidence with `performance-and-proof-toolkit`
+  (latency p50/p95 + EXPLAIN proof recipes), `diagnostics-and-tooling` (obtain the raw numbers),
+  and `research-methodology` (the evidence bar). A frontier claim is not a result until its
+  falsifiable milestone is met and independently reproduced.

@@ -1,6 +1,6 @@
 ---
 name: diagnostics-and-tooling
-description: MEASURE, don't eyeball. Load when you need a real number or a real pass/fail instead of a guess — "how slow is the DB", "p50/p95 latency", capture feels slow, "how do I see logs", app_logs, log levels, "check RLS access" / "why is INSERT failing", 42501, RLS ladder, "is my signed-in user actually allowed", widget looks stale / widget sync diagnostic, "review a mobile screen without building Android", Button gallery, instrumentation, the timing ring buffer, or before optimizing/claiming anything is fixed.
+description: MEASURE, don't eyeball. Load when you need a real number or a real pass/fail instead of a guess — "how slow is the DB", "p50/p95 latency", capture feels slow, "how do I see logs", app_logs, log levels, "check RLS access" / "why is INSERT failing", 42501, RLS ladder, "is my signed-in user actually allowed", widget looks stale / widget sync diagnostic, "review a mobile screen without building Android", Button gallery, instrumentation, the timing ring buffer, or before optimizing/claiming anything is fixed. This skill *obtains* the number/result; to *defend* a performance or correctness claim (prove it is real, derive a bound), use `performance-and-proof-toolkit`.
 ---
 
 # Diagnostics & tooling — measure, don't eyeball
@@ -243,7 +243,7 @@ as in production.
 **How to run (exact):** start Vite, then open the harness page:
 ```
 npm run dev
-# then browse to:  http://localhost:5173/mobile-harness.html
+# then browse to:  http://localhost:1420/mobile-harness.html
 ```
 **Requires `VITE_SUPABASE_*` present** (at least dummy values in `.env.local`) —
 services throw at import if `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`

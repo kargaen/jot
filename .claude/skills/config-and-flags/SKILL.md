@@ -57,11 +57,9 @@ mobile/visual harness — needs at least dummy `VITE_SUPABASE_*` values present 
 
 | Var | Required? | Consumers | Where set |
 | --- | --- | --- | --- |
-| `SUPABASE_URL` | Yes | `scripts/{ci-integration-test,measure-db-latency,rls-ladder}.ts`, both edge functions | GitHub secrets (CI); auto-injected in the Supabase edge runtime; `.env.e2e.local` for local |
-| `SUPABASE_ANON_KEY` | Yes (scripts) | `scripts/*` CRUD-as-user paths | GitHub secrets / `.env.e2e.local` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes (privileged) | `scripts/*` user-lifecycle; both edge functions (`conduit`, `send-space-invite`) | GitHub secrets; auto-injected in edge runtime. **Bypasses RLS — never ship to the browser bundle** |
-| `SUPABASE_TEST_USER_NAME` | Yes (CI tests) | `scripts/ci-integration-test.ts`, `rls-ladder.ts` | GitHub secrets |
-| `SUPABASE_TEST_USER_PASSWORD` | Yes (CI tests) | same as above | GitHub secrets |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes | The three TS scripts `scripts/{ci-integration-test,measure-db-latency,rls-ladder}.ts` sign in and run as the test user using these — verified: they read only `VITE_*` + the test-user vars, nothing else | `.env.local` locally; GitHub secrets in CI |
+| `SUPABASE_TEST_USER_NAME`, `SUPABASE_TEST_USER_PASSWORD` | Yes (those scripts) | Same three scripts authenticate as this pre-created user | GitHub secrets; local env |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Yes (edge / admin only) | Edge functions `conduit` + `send-space-invite` (`Deno.env`, auto-injected by the edge runtime) and the local admin scripts `local-supabase-env.mjs` / `seed-local-test-data.mjs`. **`SERVICE_ROLE` bypasses RLS — never ship to the browser bundle.** NOT read by the three TS scripts above | GitHub secrets; edge runtime; `.env.e2e.local` |
 
 `.env` file map:
 - `.env.local` — real (or dummy) frontend `VITE_*` values; git-ignored.
@@ -177,7 +175,9 @@ table) and then uses the service-role key. Because service-role bypasses RLS,
 **every query in conduit must explicitly scope `user_id` to the token owner** —
 that scoping *is* the security boundary. Never set `verify_jwt = false` on a
 function without an equivalent in-function auth check. See
-`architecture-contract` for the Conduit / token model in full.
+`architecture-contract` for the Conduit / token model in full. Adding or flipping
+a `verify_jwt` surface is a behavior change — land it through `change-control` and
+exercise the new surface with `ci-integration-test` / a Conduit curl (`validation-and-qa`).
 
 ---
 
