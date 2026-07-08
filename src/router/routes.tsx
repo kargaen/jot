@@ -39,6 +39,21 @@ function logbookExport(ctx: unknown) {
   return (ctx as AppOutletContext).data.logbookTasks;
 }
 
+function spaceExport(ctx: unknown, params: Record<string, string | undefined>) {
+  const { data } = ctx as AppOutletContext;
+  return data.visibleTasks.filter(
+    (t) =>
+      t.area_id === params.areaId ||
+      (t.project_id != null &&
+        data.projects.find((p) => p.id === t.project_id)?.area_id === params.areaId),
+  );
+}
+
+function projectExport(ctx: unknown, params: Record<string, string | undefined>) {
+  const { data } = ctx as AppOutletContext;
+  return data.visibleTasks.filter((t) => t.project_id === params.projectId);
+}
+
 // Renders nothing — a protected surface not yet ported into the router.
 // AppShell still draws the title + navbar around it, so the layered layout is
 // verifiable before any screen is migrated. Replaced screen-by-screen.
@@ -81,6 +96,7 @@ export const router = createBrowserRouter([
             handle: {
               title: (ctx: unknown, params: Record<string, string | undefined>) =>
                 (ctx as AppOutletContext).data.areas.find((a) => a.id === params.areaId)?.name ?? "Space",
+              exportTasks: spaceExport,
             },
             element: <SpaceRoute />,
           },
@@ -89,6 +105,7 @@ export const router = createBrowserRouter([
             handle: {
               title: (ctx: unknown, params: Record<string, string | undefined>) =>
                 (ctx as AppOutletContext).data.projects.find((p) => p.id === params.projectId)?.name ?? "Project",
+              exportTasks: projectExport,
             },
             element: <ProjectRoute />,
           },
