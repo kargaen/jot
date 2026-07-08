@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
 import type { CSSProperties, TouchEvent } from "react";
-import type { TaskWithTags } from "../../../../models/shared";
+import type { Area, TaskWithTags } from "../../../../models/shared";
 import CompletionHeatmap from "../../../components/pulse/CompletionHeatmap.view";
 import { completionMessage } from "../../../../utils/presentation/completionMessage";
 import TaskIcon from "../components/TaskIcon.view";
+import Pill from "../../../components/ui/Pill.view";
 
 function completedTime(iso: string | null): string {
   if (!iso) return "";
@@ -15,6 +16,7 @@ interface Props {
   loading: boolean;
   completionDates: string[];
   onRestore: (id: string) => void;
+  areas: Area[];
 }
 
 const DRAG_MAX = 72;
@@ -59,7 +61,7 @@ function buildGroups(tasks: TaskWithTags[]): DateGroup[] {
   }));
 }
 
-export default function MobileLogbookView({ tasks, loading, completionDates, onRestore }: Props) {
+export default function MobileLogbookView({ tasks, loading, completionDates, onRestore, areas }: Props) {
   const groups = buildGroups(tasks);
 
   return (
@@ -78,7 +80,7 @@ export default function MobileLogbookView({ tasks, loading, completionDates, onR
             <div key={group.key} style={styles.section}>
               <div style={styles.sectionHeader}>{group.label}</div>
               {group.tasks.map((task) => (
-                <LogbookRow key={task.id} task={task} onRestore={onRestore} />
+                <LogbookRow key={task.id} task={task} onRestore={onRestore} areas={areas} />
               ))}
             </div>
           ))}
@@ -88,10 +90,19 @@ export default function MobileLogbookView({ tasks, loading, completionDates, onR
   );
 }
 
-function LogbookRow({ task, onRestore }: { task: TaskWithTags; onRestore: (id: string) => void }) {
+function LogbookRow({
+  task,
+  onRestore,
+  areas,
+}: {
+  task: TaskWithTags;
+  onRestore: (id: string) => void;
+  areas: Area[];
+}) {
   const startX = useRef<number | null>(null);
   const [dragX, setDragX] = useState(0);
   const [restoring, setRestoring] = useState(false);
+  const areaPill = !task.project && task.area_id ? areas.find((a) => a.id === task.area_id) : undefined;
 
   function onTouchStart(e: TouchEvent) {
     startX.current = e.touches[0].clientX;
@@ -138,6 +149,15 @@ function LogbookRow({ task, onRestore }: { task: TaskWithTags; onRestore: (id: s
             {completionMessage(task.id)}
             {task.completed_at ? ` · ${completedTime(task.completed_at)}` : ""}
           </span>
+          {task.project || areaPill ? (
+            <div style={styles.rowPillWrap}>
+              {task.project ? (
+                <Pill label={task.project.name} color={task.project.color} />
+              ) : areaPill ? (
+                <Pill label={areaPill.name} color={areaPill.color} />
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -220,6 +240,9 @@ const styles: Record<string, CSSProperties> = {
     fontStyle: "italic",
     color: "var(--success)",
     lineHeight: 1.3,
+  },
+  rowPillWrap: {
+    marginTop: 2,
   },
   heatmapWrap: {
     padding: "0 16px",

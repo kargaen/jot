@@ -19,6 +19,7 @@ export default function LogbookRoute() {
       loading={data.logbookLoading}
       completionDates={data.completionDates}
       onRestore={data.reopenTask}
+      areas={data.areas}
     />
   );
 }

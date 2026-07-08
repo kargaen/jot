@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { TaskWithTags } from "../../../../models/shared";
+import type { Area, TaskWithTags } from "../../../../models/shared";
 import MobileTaskRow from "./MobileTaskRow.view";
 
 export interface TaskListGroup {
@@ -19,6 +19,8 @@ interface Props {
   onDeleteTask?: (id: string) => void;
   /** Show a per-group count badge in the section header. */
   showCount?: boolean;
+  /** Forwarded to each row so it can resolve an area pill when unprojected. */
+  areas?: Area[];
 }
 
 /**
@@ -27,7 +29,7 @@ interface Props {
  * of headers and rows lives in one place. The Logbook is intentionally not
  * built on this: it is a retrospective, read-only view.
  */
-export default function MobileTaskList({ groups, onComplete, onOpenTask, onDeleteTask, showCount }: Props) {
+export default function MobileTaskList({ groups, onComplete, onOpenTask, onDeleteTask, showCount, areas }: Props) {
   return (
     <div style={styles.list}>
       {groups.map((group) => (
@@ -53,6 +55,7 @@ export default function MobileTaskList({ groups, onComplete, onOpenTask, onDelet
               onComplete={onComplete}
               onOpen={onOpenTask}
               onDelete={onDeleteTask}
+              areas={areas}
             />
           ))}
         </div>

@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { TaskWithTags } from "../../../../models/shared";
+import type { Area, TaskWithTags } from "../../../../models/shared";
 import { isUpcoming } from "../../../../models/tasks/taskVisibility";
 import { friendlyDue } from "../../../../models/tasks/taskPresentation";
 import MobileTaskList, { type TaskListGroup } from "../components/MobileTaskList.view";
@@ -9,6 +9,7 @@ interface Props {
   loading: boolean;
   onComplete: (id: string) => void;
   onOpenTask: (id: string) => void;
+  areas: Area[];
 }
 
 function buildGroups(tasks: TaskWithTags[], today: string): TaskListGroup[] {
@@ -31,7 +32,7 @@ function buildGroups(tasks: TaskWithTags[], today: string): TaskListGroup[] {
   }));
 }
 
-export default function MobileUpcomingView({ tasks, loading, onComplete, onOpenTask }: Props) {
+export default function MobileUpcomingView({ tasks, loading, onComplete, onOpenTask, areas }: Props) {
   const today = new Date().toISOString().split("T")[0];
 
   // Placeholder only on first load; reloads reconcile in place (no flash).
@@ -50,7 +51,7 @@ export default function MobileUpcomingView({ tasks, loading, onComplete, onOpenT
     );
   }
 
-  return <MobileTaskList groups={groups} onComplete={onComplete} onOpenTask={onOpenTask} />;
+  return <MobileTaskList groups={groups} onComplete={onComplete} onOpenTask={onOpenTask} areas={areas} />;
 }
 
 const styles: Record<string, CSSProperties> = {

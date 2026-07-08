@@ -10,7 +10,8 @@ import {
   filterVisibleProjects,
   filterVisibleTasks,
 } from "../../../src/models/tasks/taskVisibility";
-import type { Project, TaskWithTags } from "../../../src/models/shared";
+import { groupTasksByAreaAndProject } from "../../../src/models/tasks/taskGrouping";
+import type { Area, Project, TaskWithTags } from "../../../src/models/shared";
 
 const RealDate = Date;
 const MOCK_NOW = new RealDate("2026-04-30T12:00:00Z");
@@ -119,4 +120,85 @@ assertEqual(
   ["overdue", "today-early", "today-late"],
 );
 
-console.log("Task model tests passed: 10/10");
+// ── groupTasksByAreaAndProject ──────────────────────────────────────────────
+// area-1 has two active projects + a direct (no-project) task + an archived
+// project's task (must vanish); area-2 has one project with zero open tasks
+// (must not produce an empty group) plus a direct task; area-3 has neither
+// tasks nor projects (must not appear at all); an unassigned project and a
+// fully bare task both land under the synthetic "No Area" bucket.
+const groupingAreas: Area[] = [
+  { id: "area-1", name: "Work", color: "#111111" } as Area,
+  { id: "area-2", name: "Home", color: "#222222" } as Area,
+  { id: "area-3", name: "Unused", color: "#333333" } as Area,
+];
+
+const groupingProjects: Project[] = [
+  { id: "proj-work-a", area_id: "area-1", name: "Launch", color: "#444444", status: "active" } as Project,
+  { id: "proj-work-b", area_id: "area-1", name: "Ops", color: "#555555", status: "active" } as Project,
+  { id: "proj-archived", area_id: "area-1", name: "Retired", color: "#666666", status: "archived" } as Project,
+  { id: "proj-empty", area_id: "area-2", name: "Empty", color: "#777777", status: "active" } as Project,
+  { id: "proj-orphan", area_id: null, name: "Freelance", color: "#888888", status: "active" } as Project,
+];
+
+const groupingTasks: TaskWithTags[] = [
+  { id: "t1", status: "todo", project_id: "proj-work-a", area_id: null } as TaskWithTags,
+  // area_id disagrees with the project's own area — must be ignored once a project is set.
+  { id: "t2", status: "todo", project_id: "proj-work-b", area_id: "area-2" } as TaskWithTags,
+  { id: "t3", status: "todo", project_id: null, area_id: "area-1" } as TaskWithTags,
+  { id: "t4", status: "todo", project_id: "proj-orphan", area_id: null } as TaskWithTags,
+  { id: "t5", status: "todo", project_id: null, area_id: null } as TaskWithTags,
+  // archived project's task and a completed task: both excluded from every group.
+  { id: "t6", status: "todo", project_id: "proj-archived", area_id: null } as TaskWithTags,
+  { id: "t7", status: "completed", project_id: "proj-work-a", area_id: null } as TaskWithTags,
+  { id: "t8", status: "todo", project_id: null, area_id: "area-2" } as TaskWithTags,
+].map((t) => ({ ...t, tags: [] }));
+
+const groups = groupTasksByAreaAndProject(groupingTasks, groupingAreas, groupingProjects);
+
+assertEqual(
+  "groupTasksByAreaAndProject: area keys, in input order, no-task area-3 and synthetic No Area last",
+  groups.map((g) => g.key),
+  ["area-area-1", "area-area-2", "area-none"],
+);
+assertEqual(
+  "groupTasksByAreaAndProject: area-1 project subgroups (archived project excluded, No Project last)",
+  groups[0].projectGroups.map((pg) => pg.key),
+  ["project-proj-work-a", "project-proj-work-b", "noproject-area-1"],
+);
+assertEqual("groupTasksByAreaAndProject: Launch tasks", groups[0].projectGroups[0].tasks.map((t) => t.id), ["t1"]);
+assertEqual(
+  "groupTasksByAreaAndProject: Ops tasks (task.area_id ignored once project is set)",
+  groups[0].projectGroups[1].tasks.map((t) => t.id),
+  ["t2"],
+);
+assertEqual(
+  "groupTasksByAreaAndProject: area-1 No Project (direct area task)",
+  groups[0].projectGroups[2].tasks.map((t) => t.id),
+  ["t3"],
+);
+assertEqual(
+  "groupTasksByAreaAndProject: area-2 has only No Project (empty project produces no subgroup)",
+  groups[1].projectGroups.map((pg) => pg.key),
+  ["noproject-area-2"],
+);
+assertEqual("groupTasksByAreaAndProject: area-2 No Project tasks", groups[1].projectGroups[0].tasks.map((t) => t.id), ["t8"]);
+assertEqual(
+  "groupTasksByAreaAndProject: synthetic No Area subgroups (orphan project, then No Project)",
+  groups[2].areaId,
+  null,
+);
+assertEqual(
+  "groupTasksByAreaAndProject: No Area subgroup keys",
+  groups[2].projectGroups.map((pg) => pg.key),
+  ["project-proj-orphan", "noproject-none"],
+);
+assertEqual("groupTasksByAreaAndProject: Freelance (orphan project) tasks", groups[2].projectGroups[0].tasks.map((t) => t.id), ["t4"]);
+assertEqual("groupTasksByAreaAndProject: bare task", groups[2].projectGroups[1].tasks.map((t) => t.id), ["t5"]);
+assertEqual(
+  "groupTasksByAreaAndProject: archived-project and completed tasks never appear anywhere",
+  groups.flatMap((g) => g.projectGroups).flatMap((pg) => pg.tasks.map((t) => t.id)).sort(),
+  ["t1", "t2", "t3", "t4", "t5", "t8"],
+);
+assertEqual("groupTasksByAreaAndProject: empty input", groupTasksByAreaAndProject([], [], []), []);
+
+console.log("Task model tests passed: 23/23");

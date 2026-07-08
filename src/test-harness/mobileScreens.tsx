@@ -123,18 +123,18 @@ function SettingsHarness() {
 function tabChild(tab: string): { path: string; title: string; element: React.ReactNode; exportTasks?: () => TaskWithTags[] } {
   switch (tab) {
     case "upcoming":
-      return { path: "upcoming", title: "Upcoming", exportTasks: () => UPCOMING_SEED, element: <MobileUpcomingView tasks={UPCOMING_SEED} loading={false} onComplete={() => {}} onOpenTask={() => {}} /> };
+      return { path: "upcoming", title: "Upcoming", exportTasks: () => UPCOMING_SEED, element: <MobileUpcomingView tasks={UPCOMING_SEED} loading={false} onComplete={() => {}} onOpenTask={() => {}} areas={[area]} /> };
     case "all":
       return { path: "all", title: "All", exportTasks: () => SEED, element: <MobileTasksView tasks={SEED} areas={[area]} projects={[project]} loading={false} onComplete={() => {}} onOpenTask={() => {}} onDeleteTask={() => {}} onOpenArea={() => {}} onOpenProject={() => {}} /> };
     case "logbook":
-      return { path: "logbook", title: "Logbook", exportTasks: () => DONE_SEED, element: <MobileLogbookView tasks={DONE_SEED} loading={false} completionDates={COMPLETION_DATES} onRestore={() => {}} /> };
+      return { path: "logbook", title: "Logbook", exportTasks: () => DONE_SEED, element: <MobileLogbookView tasks={DONE_SEED} loading={false} completionDates={COMPLETION_DATES} onRestore={() => {}} areas={[area]} /> };
     case "capture":
       return { path: "capture", title: "Capture", element: <MobileCaptureView projects={[project]} tags={tags} onSave={async () => {}} /> };
     case "settings":
       return { path: "settings", title: "Settings", element: <SettingsHarness /> };
     case "today":
     default:
-      return { path: "today", title: "Today", exportTasks: () => SEED, element: <MobileTodayView tasks={SEED} loading={false} onComplete={() => {}} onOpenTask={() => {}} /> };
+      return { path: "today", title: "Today", exportTasks: () => SEED, element: <MobileTodayView tasks={SEED} loading={false} onComplete={() => {}} onOpenTask={() => {}} areas={[area]} /> };
   }
 }
 

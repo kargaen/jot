@@ -22,6 +22,7 @@ import CompletionHeatmap from "../../../components/pulse/CompletionHeatmap.view"
 import LogbookRow from "../../../components/tasks/LogbookRow.view";
 import CreateTask from "../../../components/tasks/CreateTask.view";
 import TaskRow from "../../../components/tasks/TaskRow.view";
+import DesktopGroupedTaskList from "./DesktopGroupedTaskList.view";
 import { useDashboard, type DashboardView } from "../../../../hooks/useDashboard";
 
 const RELEASES_URL = "https://github.com/kargaen/jot/releases";
@@ -524,6 +525,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
     todayTasks,
     upcomingTasks,
     displayTasks,
+    areaGroups,
     areaUrgentCounts,
     projectUrgentCounts,
     viewTitle,
@@ -986,6 +988,8 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
               <LogbookRow key={task.id} task={task} projects={projects} areas={areas} onRestore={handleReopen} />
             ))}
           </div>
+        ) : view === "all" ? (
+          <DesktopGroupedTaskList areaGroups={areaGroups} onComplete={handleComplete} onOpen={openTaskWindow} />
         ) : (
           <TaskList
             tasks={displayTasks}
@@ -1016,6 +1020,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
           { id: "today"  as const,   label: "Today",    icon: "◉",  urgent: todayTasks.length },
           { id: "spaces" as const,   label: "Spaces",   icon: "⬡",  urgent: 0 },
           { id: "upcoming" as const, label: "Upcoming", icon: "→",  urgent: 0 },
+          { id: "all" as const,      label: "All",      icon: "☰",  urgent: 0 },
           { id: "logbook" as const,  label: "Logbook",  icon: "◎",  urgent: 0 },
         ]).map((tab) => {
           const isActive = tab.id === "spaces"
@@ -1105,6 +1110,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
             { id: "overdue",  label: "Overdue",  count: overdueTask.length },
             { id: "today",    label: "Today",    count: todayTasks.length },
             { id: "upcoming", label: "Upcoming", count: upcomingTasks.length },
+            { id: "all",      label: "All",      count: 0 },
             { id: "logbook",  label: "Logbook",  count: 0 },
           ] as const).map(({ id, label, count }) => (
             <NavItem
@@ -1337,6 +1343,8 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
                 <LogbookRow key={task.id} task={task} projects={projects} areas={areas} onRestore={handleReopen} />
               ))}
             </div>
+          ) : view === "all" ? (
+            <DesktopGroupedTaskList areaGroups={areaGroups} onComplete={handleComplete} onOpen={openTaskWindow} />
           ) : (
             <TaskList
               tasks={displayTasks}
@@ -1750,6 +1758,7 @@ function EmptyState({ view, onCloseProject }: { view: View; onCloseProject?: () 
     today:    { title: "Nothing due today",      hint: "Press Ctrl+Space to add a task" },
     inbox:    { title: "",                       hint: "" },
     upcoming: { title: "Nothing upcoming",       hint: "Tasks with future dates will appear here" },
+    all:      { title: "No open tasks",          hint: "Press Ctrl+Space to add a task" },
     logbook:  { title: "No completed tasks yet", hint: "Completed tasks are stored here" },
     project:  { title: "No tasks",              hint: "Add a task to this project" },
   };

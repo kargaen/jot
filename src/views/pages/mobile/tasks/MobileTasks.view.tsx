@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react";
 import type { Area, Project, TaskWithTags } from "../../../../models/shared";
-import { isInbox } from "../../../../models/tasks/taskVisibility";
-import MobileTaskList, { type TaskListGroup } from "../components/MobileTaskList.view";
+import { groupTasksByAreaAndProject } from "../../../../models/tasks/taskGrouping";
+import Collapsible from "../../../components/ui/Collapsible.view";
+import MobileTaskRow from "../components/MobileTaskRow.view";
 
 interface Props {
   tasks: TaskWithTags[];
@@ -11,57 +12,9 @@ interface Props {
   onComplete: (id: string) => void;
   onOpenTask: (id: string) => void;
   onDeleteTask: (id: string) => void;
-  /** When set, project/space group headers drill into that group. */
+  /** When set, area/project header labels navigate into that dedicated screen (collapse is a separate control). */
   onOpenArea?: (id: string) => void;
   onOpenProject?: (id: string) => void;
-}
-
-function buildGroups(
-  tasks: TaskWithTags[],
-  areas: Area[],
-  projects: Project[],
-  onOpenArea?: (id: string) => void,
-  onOpenProject?: (id: string) => void,
-): TaskListGroup[] {
-  const open = tasks.filter((t) => t.status === "todo");
-  const groups: TaskListGroup[] = [];
-
-  for (const area of areas) {
-    const areaProjects = projects.filter((p) => p.area_id === area.id && p.status === "active");
-
-    for (const project of areaProjects) {
-      const projectTasks = open.filter((t) => t.project_id === project.id);
-      if (projectTasks.length > 0) {
-        groups.push({
-          key: `project-${project.id}`,
-          label: project.name,
-          color: project.color,
-          onOpen: onOpenProject ? () => onOpenProject(project.id) : undefined,
-          tasks: projectTasks,
-        });
-      }
-    }
-
-    const areaInbox = open.filter(
-      (t) => t.area_id === area.id && isInbox(t),
-    );
-    if (areaInbox.length > 0) {
-      groups.push({
-        key: `area-${area.id}`,
-        label: area.name,
-        color: area.color,
-        onOpen: onOpenArea ? () => onOpenArea(area.id) : undefined,
-        tasks: areaInbox,
-      });
-    }
-  }
-
-  const noArea = open.filter((t) => !t.area_id && isInbox(t));
-  if (noArea.length > 0) {
-    groups.push({ key: "inbox", label: "Inbox", color: "#888", tasks: noArea });
-  }
-
-  return groups;
 }
 
 export default function MobileTasksView({ tasks, areas, projects, loading, onComplete, onOpenTask, onDeleteTask, onOpenArea, onOpenProject }: Props) {
@@ -70,9 +23,9 @@ export default function MobileTasksView({ tasks, areas, projects, loading, onCom
     return <div style={styles.empty}>Loading...</div>;
   }
 
-  const groups = buildGroups(tasks, areas, projects, onOpenArea, onOpenProject);
+  const areaGroups = groupTasksByAreaAndProject(tasks, areas, projects);
 
-  if (groups.length === 0) {
+  if (areaGroups.length === 0) {
     return (
       <div style={styles.empty}>
         <span style={styles.emptyIcon}>✓</span>
@@ -82,17 +35,48 @@ export default function MobileTasksView({ tasks, areas, projects, loading, onCom
   }
 
   return (
-    <MobileTaskList
-      groups={groups}
-      onComplete={onComplete}
-      onOpenTask={onOpenTask}
-      onDeleteTask={onDeleteTask}
-      showCount
-    />
+    <div style={styles.list}>
+      {areaGroups.map((areaGroup) => (
+        <Collapsible
+          key={areaGroup.key}
+          label={areaGroup.label}
+          color={areaGroup.color}
+          onNavigate={areaGroup.areaId && onOpenArea ? () => onOpenArea(areaGroup.areaId!) : undefined}
+        >
+          {areaGroup.projectGroups.map((projectGroup) => (
+            <div key={projectGroup.key} style={styles.projectLevel}>
+              <Collapsible
+                label={projectGroup.label}
+                color={projectGroup.color}
+                count={projectGroup.tasks.length}
+                onNavigate={projectGroup.projectId && onOpenProject ? () => onOpenProject(projectGroup.projectId!) : undefined}
+              >
+                {projectGroup.tasks.map((task) => (
+                  <MobileTaskRow
+                    key={task.id}
+                    task={task}
+                    onComplete={onComplete}
+                    onOpen={onOpenTask}
+                    onDelete={onDeleteTask}
+                    showGroupPill={false}
+                  />
+                ))}
+              </Collapsible>
+            </div>
+          ))}
+        </Collapsible>
+      ))}
+    </div>
   );
 }
 
 const styles: Record<string, CSSProperties> = {
+  list: {
+    padding: "16px 0 32px",
+  },
+  projectLevel: {
+    paddingLeft: 16,
+  },
   empty: {
     minHeight: "60dvh",
     display: "flex",
