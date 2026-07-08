@@ -233,6 +233,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
             loading={appData.loadingData}
             onComplete={handleComplete}
             onOpenTask={(id) => setSelectedTaskId(id)}
+            areas={appData.areas}
           />
         )}
         {activeTab === "upcoming" && (
@@ -241,6 +242,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
             loading={appData.loadingData}
             onComplete={handleComplete}
             onOpenTask={(id) => setSelectedTaskId(id)}
+            areas={appData.areas}
           />
         )}
         {activeTab === "tasks" && (
@@ -260,6 +262,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
             loading={appData.logbookLoading}
             completionDates={appData.completionDates}
             onRestore={appData.reopenTask}
+            areas={appData.areas}
           />
         )}
         {activeTab === "capture" && (

@@ -14,6 +14,7 @@ export default function UpcomingRoute() {
       loading={data.loadingData}
       onComplete={onComplete}
       onOpenTask={(id) => navigate(`/tasks/${id}`)}
+      areas={data.areas}
     />
   );
 }

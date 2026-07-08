@@ -15,6 +15,7 @@ export default function TodayRoute() {
       loading={data.loadingData}
       onComplete={onComplete}
       onOpenTask={(id) => navigate(`/tasks/${id}`)}
+      areas={data.areas}
     />
   );
 }

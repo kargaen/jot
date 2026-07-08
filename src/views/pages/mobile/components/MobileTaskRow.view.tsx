@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
 import type { CSSProperties, TouchEvent } from "react";
-import type { TaskWithTags } from "../../../../models/shared";
+import type { Area, TaskWithTags } from "../../../../models/shared";
 import { isOverdue } from "../../../../models/tasks/taskVisibility";
 import { friendlyDue } from "../../../../models/tasks/taskPresentation";
 import TaskIcon from "./TaskIcon.view";
+import Pill from "../../../components/ui/Pill.view";
 
 interface Props {
   task: TaskWithTags;
@@ -13,15 +14,23 @@ interface Props {
   // When provided, a right-swipe reveals a delete action (with confirmation).
   // Without it, right-swipes are ignored.
   onDelete?: (id: string) => void;
+  // Resolves the area pill when a task has an area but no project. Omit (and
+  // set showGroupPill=false) in screens that already group by area/project,
+  // where a per-row pill would repeat the enclosing section header.
+  areas?: Area[];
+  // Set false when the row is already nested under an area/project section
+  // header (the pill would be redundant there). Defaults to true.
+  showGroupPill?: boolean;
 }
 
 const DRAG_MAX = 72;
 const DRAG_THRESHOLD = 52;
 
-export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Props) {
+export default function MobileTaskRow({ task, onComplete, onOpen, onDelete, areas, showGroupPill = true }: Props) {
   const today = new Date().toISOString().split("T")[0];
   const due = friendlyDue(task.due_date, task.due_time);
   const overdue = isOverdue(task, today);
+  const areaPill = !task.project && task.area_id ? areas?.find((a) => a.id === task.area_id) : undefined;
 
   const startX = useRef<number | null>(null);
   const startY = useRef<number | null>(null);
@@ -138,8 +147,14 @@ export default function MobileTaskRow({ task, onComplete, onOpen, onDelete }: Pr
               {due}
             </div>
           ) : null}
-          {task.project ? (
-            <div style={styles.rowMeta}>{task.project.name}</div>
+          {showGroupPill && (task.project || areaPill) ? (
+            <div style={styles.rowPillWrap}>
+              {task.project ? (
+                <Pill label={task.project.name} color={task.project.color} />
+              ) : areaPill ? (
+                <Pill label={areaPill.name} color={areaPill.color} />
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>
@@ -238,6 +253,9 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     color: "var(--text-tertiary)",
     marginTop: 3,
+  },
+  rowPillWrap: {
+    marginTop: 4,
   },
   confirm: {
     position: "absolute",

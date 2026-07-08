@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
-import type { TaskWithTags } from "../../../../models/shared";
+import type { Area, TaskWithTags } from "../../../../models/shared";
 import { isDueToday, isOverdue, isUpcoming } from "../../../../models/tasks/taskVisibility";
 import { friendlyDue } from "../../../../models/tasks/taskPresentation";
 import { randomRelax } from "../../../../utils/presentation/relax";
@@ -12,9 +12,10 @@ interface Props {
   loading: boolean;
   onComplete: (id: string) => void;
   onOpenTask: (id: string) => void;
+  areas: Area[];
 }
 
-export default function MobileTodayView({ tasks, loading, onComplete, onOpenTask }: Props) {
+export default function MobileTodayView({ tasks, loading, onComplete, onOpenTask, areas }: Props) {
   const today = new Date().toISOString().split("T")[0];
   const [relax] = useState(randomRelax);
 
@@ -57,7 +58,7 @@ export default function MobileTodayView({ tasks, loading, onComplete, onOpenTask
 
   return (
     <>
-      <MobileTaskList groups={groups} onComplete={onComplete} onOpenTask={onOpenTask} />
+      <MobileTaskList groups={groups} onComplete={onComplete} onOpenTask={onOpenTask} areas={areas} />
       {nextUpcoming ? <UpcomingPeek task={nextUpcoming} more={upcoming.length - 1} /> : null}
     </>
   );
