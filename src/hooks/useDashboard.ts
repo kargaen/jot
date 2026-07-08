@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Area, Project, Tag, TaskWithTags } from "../models/shared";
 import { filterVisibleProjects, filterVisibleTasks } from "../models/tasks/taskVisibility";
+import { groupTasksByAreaAndProject } from "../models/tasks/taskGrouping";
 import { loadHiddenAreas, saveHiddenAreas } from "../utils/preferences/hiddenAreas";
 import { logger } from "../utils/observability/logger";
 import {
@@ -52,6 +53,7 @@ export type DashboardView =
   | "today"
   | "inbox"
   | "upcoming"
+  | "all"
   | "project"
   | "logbook";
 
@@ -222,6 +224,15 @@ export function useDashboard({ userId }: UseDashboardOptions) {
     [visibleTasks, selectedProject],
   );
 
+  // Same Area -> Project -> Task hierarchy as mobile's All/Space/Project
+  // screens (groupTasksByAreaAndProject), so the "All" view matches exactly.
+  // visibleProjects (not the raw list) so a hidden area's projects don't
+  // reappear here, matching mobile's AllRoute which passes visibleProjects.
+  const areaGroups = useMemo(
+    () => groupTasksByAreaAndProject(visibleTasks, areas, visibleProjects),
+    [visibleTasks, areas, visibleProjects],
+  );
+
   useEffect(() => {
     for (const task of allTasks) {
       if (task.project_id) projectsSeenWithTasks.current.add(task.project_id);
@@ -269,6 +280,8 @@ export function useDashboard({ userId }: UseDashboardOptions) {
             : inboxTasks;
         case "upcoming":
           return upcomingTasks;
+        case "all":
+          return visibleTasks;
         case "project":
           return projectTasks;
         case "logbook":
@@ -299,11 +312,13 @@ export function useDashboard({ userId }: UseDashboardOptions) {
           ? (areas.find((area) => area.id === selectedInboxAreaId)?.name ?? "Inbox")
           : view === "upcoming"
             ? "Upcoming"
-            : view === "logbook"
-              ? "Logbook"
-              : view === "project" && selectedProject
-                ? selectedProject.name
-                : "";
+            : view === "all"
+              ? "All"
+              : view === "logbook"
+                ? "Logbook"
+                : view === "project" && selectedProject
+                  ? selectedProject.name
+                  : "";
 
   const handleHiddenChange = useCallback(
     (ids: string[]) => {
@@ -638,6 +653,7 @@ export function useDashboard({ userId }: UseDashboardOptions) {
     todayTasks,
     upcomingTasks,
     displayTasks,
+    areaGroups,
     areaUrgentCounts,
     projectUrgentCounts,
     viewTitle,
