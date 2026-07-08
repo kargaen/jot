@@ -10,7 +10,7 @@
 // role key, which bypasses RLS — every query below explicitly scopes
 // `user_id` to the token's owner. That scoping IS the security boundary here.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 import { serializeTasks, type ExportableTask } from "../../../src/models/export/jotExport.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
