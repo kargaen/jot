@@ -112,6 +112,28 @@ fn apply_vibrancy(window: tauri::WebviewWindow) -> bool {
     window_vibrancy::apply_mica(&window, None).is_ok()
 }
 
+// Answer to the first-run "autostart-prompt" event (see setup() below): applies
+// the user's choice via the autostart plugin, then drops the marker file so the
+// prompt never fires again. Debug builds never emit the prompt, so this is a
+// no-op there — the inner cfg keeps `enabled`/`app` from being unused-var warnings.
+#[cfg(desktop)]
+#[tauri::command]
+fn respond_autostart_prompt(app: tauri::AppHandle, enabled: bool) {
+    #[cfg(not(debug_assertions))]
+    {
+        let mgr = app.autolaunch();
+        let _ = if enabled { mgr.enable() } else { mgr.disable() };
+        if let Ok(data_dir) = app.path().app_data_dir() {
+            let _ = std::fs::create_dir_all(&data_dir);
+            let _ = std::fs::write(data_dir.join(".autostart_initialized"), "");
+        }
+    }
+    #[cfg(debug_assertions)]
+    {
+        let _ = (app, enabled);
+    }
+}
+
 // ─── Shared commands ──────────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -356,15 +378,15 @@ pub fn run() {
                     },
                 )?;
 
+                // First run only (marker file, same as before): ask instead of
+                // silently enabling. respond_autostart_prompt applies the answer
+                // and writes the marker once the user actually responds.
                 #[cfg(not(debug_assertions))]
                 {
                     if let Ok(data_dir) = app.path().app_data_dir() {
                         let flag = data_dir.join(".autostart_initialized");
                         if !flag.exists() {
-                            let mgr = app.autolaunch();
-                            let _ = mgr.enable();
-                            let _ = std::fs::create_dir_all(&data_dir);
-                            let _ = std::fs::write(&flag, "");
+                            let _ = app.emit("autostart-prompt", ());
                         }
                     }
                 }
@@ -390,6 +412,7 @@ pub fn run() {
                 show_quick_capture,
                 open_dashboard,
                 apply_vibrancy,
+                respond_autostart_prompt,
                 log_to_terminal,
                 get_idle_ms,
                 take_pending_deep_link,
