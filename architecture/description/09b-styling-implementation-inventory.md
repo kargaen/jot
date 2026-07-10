@@ -1,0 +1,7 @@
+# 9b. Styling & design system — current primitives and tooling
+
+Reusable UI primitives live in `src/views/components/ui/` — e.g. `Button.view.tsx` (variants × sizes, `loading`/`disabled`/`fullWidth`), `Spinner.view.tsx`, `Toggle.view.tsx`, `Toast.view.tsx` (fixed bottom status toast, message + optional badge), `Collapsible.view.tsx` (tappable section header — dot/label/count/chevron — with local, non-persisted expand state; always mounts expanded), `Pill.view.tsx` (colour-tinted label, e.g. an area/project indicator on a task row — the `${color}18`/`${color}35` tint recipe, extracted so it's defined once). Each component's own file is the source of truth for its props.
+
+Task icons are Lucide names stored on `task.icon`: auto-derived from the title by `suggestIcon` (`src/utils/presentation/icons.ts`), resolved to a component by `getTaskDetailIconComponent` (`src/hooks/useTaskDetail.ts`), and rendered through `src/views/pages/mobile/components/TaskIcon.view.tsx`. Always render an icon through that path — never print the icon name as text.
+
+Visual review without an Android build: the browser harness `mobile-harness.html` → `src/test-harness/mobileScreens.tsx` mounts the real mobile screens and a `Button` gallery with mock data, honors `?theme=dark|light` to review both themes, and `?frame=shell` to review the `AppShell` layout full-bleed (`npm run dev`, then open the page). The harness needs the two `VITE_SUPABASE_*` env vars present (even dummy values in `.env.local`) or shared services throw at import.
