@@ -548,6 +548,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
     canManageProject,
   } = useDashboard({ userId });
   const [showPrefs, setShowPrefs] = useState(false);
+  const [showAutostartPrompt, setShowAutostartPrompt] = useState(false);
   const [compact, setCompact] = useState(() => localStorage.getItem("jot_compact") === "1");
   const [showSpacePicker, setShowSpacePicker] = useState(false);
   const [alwaysOnTop, setAlwaysOnTop] = useState(() => localStorage.getItem("jot_pin") === "1");
@@ -746,6 +747,17 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
     const unlisten = listen("show-reminder", () => openReminderWindow(true));
     return () => { unlisten.then((f) => f()); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // First run only (see lib.rs setup()): asks instead of silently enabling.
+  useEffect(() => {
+    const unlisten = listen("autostart-prompt", () => setShowAutostartPrompt(true));
+    return () => { unlisten.then((f) => f()); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function respondToAutostartPrompt(enabled: boolean) {
+    setShowAutostartPrompt(false);
+    invoke("respond_autostart_prompt", { enabled }).catch(() => {});
+  }
 
 
   // QuickCapture navigation actions → switch view
@@ -1075,6 +1087,31 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
             style={{ padding: "5px 10px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border-default)", background: "transparent", color: "var(--text-secondary)", cursor: "pointer" }}
           >
             Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* First-run prompt: ask instead of silently enabling autostart (see lib.rs) */}
+      {showAutostartPrompt && (
+        <div style={{
+          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+          background: "var(--bg-primary)", border: "1px solid var(--border-default)",
+          borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-lg)",
+          padding: "12px 16px", display: "flex", alignItems: "center", gap: 12,
+          zIndex: 200, fontSize: 13, color: "var(--text-primary)", whiteSpace: "nowrap",
+        }}>
+          <span>Start Jot when Windows starts?</span>
+          <button
+            onClick={() => respondToAutostartPrompt(true)}
+            style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--accent)", color: "#fff", cursor: "pointer" }}
+          >
+            Yes
+          </button>
+          <button
+            onClick={() => respondToAutostartPrompt(false)}
+            style={{ padding: "5px 10px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border-default)", background: "transparent", color: "var(--text-secondary)", cursor: "pointer" }}
+          >
+            No
           </button>
         </div>
       )}
@@ -1447,6 +1484,31 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
             style={{ padding: "5px 10px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border-default)", background: "transparent", color: "var(--text-secondary)", cursor: "pointer" }}
           >
             Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* First-run prompt: ask instead of silently enabling autostart (see lib.rs) */}
+      {showAutostartPrompt && (
+        <div style={{
+          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+          background: "var(--bg-primary)", border: "1px solid var(--border-default)",
+          borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-lg)",
+          padding: "12px 16px", display: "flex", alignItems: "center", gap: 12,
+          zIndex: 200, fontSize: 13, color: "var(--text-primary)", whiteSpace: "nowrap",
+        }}>
+          <span>Start Jot when Windows starts?</span>
+          <button
+            onClick={() => respondToAutostartPrompt(true)}
+            style={{ padding: "5px 14px", fontSize: 12, fontWeight: 600, borderRadius: "var(--radius-sm)", background: "var(--accent)", color: "#fff", cursor: "pointer" }}
+          >
+            Yes
+          </button>
+          <button
+            onClick={() => respondToAutostartPrompt(false)}
+            style={{ padding: "5px 10px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border-default)", background: "transparent", color: "var(--text-secondary)", cursor: "pointer" }}
+          >
+            No
           </button>
         </div>
       )}
