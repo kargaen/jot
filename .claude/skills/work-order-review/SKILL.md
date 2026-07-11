@@ -34,15 +34,23 @@ order. Say that explicitly. Do not reject the executor for obeying.
 
 ## Checks
 
-Run all five against the diff.
+Run all six. Check 0 is against the pipeline; 1–5 are against the diff.
+
+### 0. The order's provenance is genuine
+
+The order cites `EPIC-<NNN> item <n>` (or a `dependency-change` run). Verify against the
+epic file, not the order: the epic exists, its Status is `active`, the item exists and is
+unticked, and the order's `File` matches the item. Any miss → rejected, and the finding is
+about whoever wrote the order — a forged or stale order is not an executor failure.
 
 ### 1. Only the named file changed
 
-```bash
-git diff --name-only
-```
+Examine the diff attributed to this order. Any other path in it → rejected — including
+tests, formatting, and imports elsewhere.
 
-Any other path → rejected. Including tests, formatting, and imports elsewhere.
+With parallel executors, a shared working tree makes this check meaningless: isolation
+(a branch or worktree per executor) is the orchestrator's responsibility, and this check
+assumes it.
 
 ### 2. Nothing in `Do not` was done
 
@@ -69,34 +77,42 @@ new class, a new field, a new config key, a stub returning `None`.
 
 This is the most common quiet failure. An executor that cannot stop will improvise.
 
+## On acceptance
+
+Run the project's check commands declared in `ARCHITECTURE.md`, then tick the epic item
+`[x]`. In orchestrated runs the executor cannot tick — the epic is not its file — so the
+tick lands here, and `epic-closeout` will verify it.
+
 ## Compact return
 
 The main agent's context is the resource being protected. Return the finding, not the
 transcript.
 
 ```md
-Order: EPIC-014 item 4 — ACCEPTED
+Order: EPIC-<NNN> item <n> — ACCEPTED
 
-Diff: cowi_eva/fitting/distributions/weibull.py, +18 −0
-Done when: pytest ...::test_quantile — passed (verified, not reported)
-Module suite: 14 passed
+Provenance: verified against the epic (active, item unticked, file matches)
+Diff: <file>, +<a> −<b>
+Done when: <command> — passed (verified, not reported)
+Module suite: <n> passed
 Do not: respected
+Item ticked.
 
 Findings:
 - none
 ```
 
 ```md
-Order: EPIC-014 item 4 — REJECTED
+Order: EPIC-<NNN> item <n> — REJECTED
 
 Violated: check 5.
-The order said stop if DistributionSpec lacks a field. It lacks `support`. The executor added
-`support: tuple = (0, inf)` to the spec instead of stopping.
+The order said stop if <contract> lacks a field. It lacks `<field>`. The executor added
+`<field>` to the contract instead of stopping.
 
-Diff touched: distributions/weibull.py, fitting/spec.py  (check 1 also failed)
+Diff touched: <named file>, <second file>  (check 1 also failed)
 
-This is an order problem, not only an executor problem: item 4 was unimplementable as written.
-Route to epic-formulation before re-issuing.
+This is an order problem, not only an executor problem: item <n> was unimplementable as
+written. Route to epic-formulation before re-issuing.
 
 Not merged. Nothing from the executor's context was carried forward.
 ```

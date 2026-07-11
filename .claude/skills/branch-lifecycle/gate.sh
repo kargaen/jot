@@ -12,7 +12,7 @@
 #   git config branch.release     master
 #
 # Override the test command the same way, or via env:
-#   git config gate.testcmd "pytest -q"
+#   git config gate.testcmd "<your test command>"   (required)
 #
 # Exit: 0 = gate passes, 1 = gate refuses, 2 = misconfigured
 
@@ -25,11 +25,12 @@ bad()  { printf '  FAIL %s\n' "$*"; FAILED=1; }
 
 INTEGRATION="${INTEGRATION:-$(git config branch.integration || true)}"
 RELEASE="${RELEASE:-$(git config branch.release || true)}"
-TEST_CMD="${TEST_CMD:-$(git config gate.testcmd || echo 'pytest -q')}"
+TEST_CMD="${TEST_CMD:-$(git config gate.testcmd || true)}"
 EPIC_DIR="${EPIC_DIR:-epics}"
 
 [ -n "$INTEGRATION" ] || conf "branch.integration not set. See header."
 [ -n "$RELEASE" ]     || conf "branch.release not set. See header."
+[ -n "$TEST_CMD" ]    || conf "gate.testcmd not set. See header."
 git rev-parse --git-dir >/dev/null 2>&1 || conf "not a git repository"
 
 FAILED=0
@@ -61,10 +62,8 @@ gate_work_to_integration() {
   else bad "tests fail — see /tmp/gate_tests.log"; fi
 
   # 3. closeout ran
-  if grep -qiE '^\*\*Status:\*\*.*closed' "$epic"; then ok "epic closed"
-  elif grep -qiE '^\s*-?\s*\[x\]\s*No change to ARCHITECTURE\.md' "$epic"; then
-    ok "closeout n/a — declared no architecture impact"
-  else bad "epic-closeout has not run (status not closed)"; fi
+  if grep -qiE '^\*\*Status:\*\* *closed\b' "$epic"; then ok "epic closed"
+  else bad "epic-closeout has not run (Status is not exactly closed)"; fi
 
   # 4. rebased on / merged with integration
   if git merge-base --is-ancestor "$INTEGRATION" HEAD 2>/dev/null; then
@@ -109,9 +108,16 @@ gate_integration_to_release() {
     printf '         Cut a new candidate.\n'
   fi
 
-  # The human gate. A script must never assert this.
-  if [ "${RC_CONFIRMED:-}" = "1" ]; then ok "candidate confirmed by user"
-  else bad "candidate not confirmed — rerun with RC_CONFIRMED=1 after testing the build"; fi
+  # The human gate. A script must never assert this, and neither can a non-interactive
+  # caller: the answer is read from the terminal, not from an env var or stdin.
+  if [ -e /dev/tty ] && [ -r /dev/tty ]; then
+    printf 'Have you tested candidate %s yourself? [y/N] ' "$tag" > /dev/tty
+    local answer=; IFS= read -r answer < /dev/tty || answer=
+    case "$answer" in [yY]*) ok "candidate confirmed by user at the terminal" ;;
+                      *)     bad "candidate not confirmed" ;; esac
+  else
+    bad "no terminal available — this gate requires a human at a tty"
+  fi
 
   [ "$FAILED" -eq 0 ] || die "gate refused. Nothing was promoted."
   printf '\n✓ gate passed. Merge %s into %s.\n' "$INTEGRATION" "$RELEASE"
@@ -135,12 +141,23 @@ audit() {
         epic=$(find "$EPIC_DIR" -maxdepth 1 -iname "EPIC-${id}*.md" 2>/dev/null | head -1)
         if [ -z "$epic" ]; then
           printf 'ASK     %-42s names EPIC-%s, which does not exist\n' "$br" "$id"; ask=$((ask+1))
-        elif grep -qiE '^\*\*Status:\*\*.*closed' "$epic"; then
+        elif grep -qiE '^\*\*Status:\*\* *closed\b' "$epic"; then
           printf 'DELETE  %-42s epic closed, branch unmerged — verify then delete\n' "$br"; del=$((del+1))
         else
           printf 'keep    %-42s epic open\n' "$br"
         fi ;;
-      fix/*) printf 'keep    %-42s unmerged direct slice\n' "$br" ;;
+      fix/*)
+        local last_rel age_ref
+        last_rel=$(git rev-parse "$RELEASE" 2>/dev/null || true)
+        if [ -n "$last_rel" ] && git merge-base --is-ancestor "$br" "$RELEASE" 2>/dev/null; then
+          printf 'DELETE  %-42s merged into %s\n' "$br" "$RELEASE"; del=$((del+1))
+        elif [ -n "$last_rel" ] && \
+             [ "$(git rev-list --count "$br" --not "$RELEASE" 2>/dev/null || echo 0)" -gt 0 ] && \
+             [ "$(git log -1 --format=%ct "$br")" -lt "$(git log -1 --format=%ct "$RELEASE")" ]; then
+          printf 'REPORT  %-42s unmerged, older than the last release — your call\n' "$br"; ask=$((ask+1))
+        else
+          printf 'keep    %-42s unmerged direct slice\n' "$br"
+        fi ;;
       *)     printf 'ASK     %-42s no epic id, no triage slug\n' "$br"; ask=$((ask+1)) ;;
     esac
   done < <(git for-each-ref --format='%(refname:short)' refs/heads/)

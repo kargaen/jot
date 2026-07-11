@@ -41,11 +41,12 @@ Any one hit → epic. Check all five; do not stop at the first miss.
 1. **New contract** — an API route, artifact field, registry key, spec field, or public
    signature that does not exist yet.
 2. **Structural change** — folder structure, dependency direction, layer boundary, or tech
-   stack.
+   stack. Exception: a pure package add/remove/upgrade/swap routes to `dependency-change`,
+   which decides whether an epic is needed.
 3. **No authority can pin the test** — no textbook, no benchmark, no legacy output, no flow
    from a shipped epic. If you cannot say what the test asserts *against*, this is a feature
    request wearing a bug report's clothes.
-4. **More than one zone touched.**
+4. **More than one architectural layer touched** — per `ARCHITECTURE.md`'s layer model.
 5. **Correct behaviour is contested** — the user and the document disagree, or two people do.
 
 Trigger 3 is the one that gets skipped. Check it explicitly.
@@ -63,28 +64,35 @@ shipping it as a bug fix would move the architecture without a Change History ro
 
 Name the authority or escalate. There is no third outcome.
 
-**Direct slice:**
+**Direct slice** — check all five triggers, but report two lines by default:
+
+```md
+Route: direct slice — decided by <ARCHITECTURE.md section / shipped epic flow / test authority>
+Next: direct-slice, <the one file>
+```
+
+The full form prints only on "full":
 
 ```md
 Route: direct slice
 
 Correct behaviour is decided by:
-ARCHITECTURE.md §7 — orchestration is the only layer that combines api/, core/, state/.
+<the section, flow, or authority — quoted>
 
-Triggers checked: 1 no, 2 no, 3 no (test asserts against §7), 4 no, 5 no.
+Triggers checked: 1 no, 2 no, 3 no (test asserts against <authority>), 4 no, 5 no.
 
-Scope: frontend/features/results/panel.py — one file, one layer.
+Scope: <file> — one file, one layer.
 Test: the failing test that reproduces it.
 
 Proceed with direct-slice.
 ```
 
-**Escalate:**
+**Escalate** — always the full form:
 
 ```md
 Route: epic
 
-Trigger 1 fired: the button calls `POST /jobs/{id}/preview`, which does not exist.
+Trigger <n> fired: <e.g. the change calls an endpoint that does not exist yet>.
 
 Nothing decides what correct looks like here — there is no flow, no contract, and no
 authority to pin a test against.

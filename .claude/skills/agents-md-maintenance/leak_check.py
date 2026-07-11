@@ -5,13 +5,16 @@ A linter, not an oracle. It catches mechanical leaks — paths, identifiers, ven
 names. It cannot catch semantic ones ("the app uses an MVC pattern"). Read the file.
 
 Usage:  python leak_check.py AGENTS.md
-Exit:   0 = clean, 1 = leaks found
+Exit:   0 = clean, 1 = leaks or warnings found, 2 = bad usage
+
+Known false-positive classes for the identifier check: mixed-case words like
+"iOS" or proper names ("McConnell"). Output is candidates, not verdicts.
 """
 import re
 import sys
 
 # Documents any repo is allowed to reference by name.
-DOC_WHITELIST = {"AGENTS.md", "ARCHITECTURE.md", "README.md", "CODEOWNERS"}
+DOC_WHITELIST = {"AGENTS.md", "AGENTS.local.md", "ARCHITECTURE.md", "README.md", "CODEOWNERS"}
 
 VENDORS = [
     "react", "vue", "svelte", "angular", "next.js", "nextjs", "django", "flask",
@@ -27,13 +30,13 @@ CHECKS = [
      re.compile(r"(?<![\w`])(?:\./|/)?(?:[\w.-]+/){1,}[\w.-]+\.\w{1,5}\b")),
     ("code identifier (camelCase/PascalCase)",
      re.compile(r"\b(?:[a-z]+[A-Z]\w*|[A-Z][a-z]+[A-Z]\w*)\b")),
-    ("named skill",
-     re.compile(r"\.claude/skills/[\w-]+")),
+    ("skill path",
+     re.compile(r"[\w.]*skills/[\w-]+")),
     ("vendor or framework name",
      re.compile(r"\b(" + "|".join(re.escape(v) for v in VENDORS) + r")\b", re.I)),
 ]
 
-DOC_RE = re.compile(r"\b([A-Z][A-Z0-9_]*\.md)\b")
+DOC_RE = re.compile(r"\b([A-Z][A-Z0-9_]*(?:\.local)?\.md)\b")
 FENCE_RE = re.compile(r"^\s*```")
 
 

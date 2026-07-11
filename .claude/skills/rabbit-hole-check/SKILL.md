@@ -1,6 +1,6 @@
 ---
 name: rabbit-hole-check
-description: Use this skill when a request cannot be safely implemented as asked — it conflicts with ARCHITECTURE.md, crosses layers without permission, requires hidden global state, solves a product problem with an architectural workaround, or needs a brittle hack. Also use when the same approach has failed twice: a fix broke working behaviour, a patch needed a patch, or the same error reappeared after a supposed fix. Provides the rabbit-hole and iteration-trap response formats and the exit-path checklist. Do not use for ordinary scope questions that stopping and asking would answer — that is the assumption policy in AGENTS.md.
+description: Use this skill when a request cannot be safely implemented as asked — it conflicts with ARCHITECTURE.md, crosses layers without permission, requires hidden global state, solves a product problem with an architectural workaround, needs a brittle hack, fights a framework's intended usage, deviates from established practice, or has no known way to be achieved. Also use when the same approach has failed twice: a fix broke working behaviour, a patch needed a patch, or the same error reappeared after a supposed fix. Provides the rabbit-hole and iteration-trap response formats and the exit-path checklist. Do not use for ordinary scope questions that stopping and asking would answer — that is AGENTS.md's stop conditions.
 ---
 
 # Rabbit Hole Check
@@ -26,21 +26,30 @@ Triggers — any one:
 - It requires hidden global state, or state a layer is not allowed to know about.
 - It solves a product problem with an architectural workaround.
 - It requires a brittle hack, or debt that will be paid by someone who did not choose it.
+- It fights the framework or library — a supported mechanism already exists for this goal.
+- It deviates from established practice with no reason the deviation buys anything.
+- There is no established way to achieve it — you would be inventing the approach.
 
 ```md
-This is a rabbit hole.
+This is a rabbit hole. 🐇⚠️
 
 What was asked:
 <one sentence>
 
+The goal I think you're after:
+<the product outcome behind the request — correct me if wrong>
+
 Why it cannot be done as asked:
-<the specific conflict — cite the section, name the layer>
+<impossible, or possible-but-costly — say which. Cite the section, name the layer,
+ or name the practice/mechanism being fought>
 
 What it would cost:
-<the debt, the hidden coupling, the thing that breaks later>
+<if impossible: nothing — it cannot be bought. If possible: the debt, the hidden
+ coupling, the thing that breaks later>
 
 Exit paths:
-1. <smallest change that satisfies the product goal within the architecture>
+1. <smallest change that satisfies the stated goal within the architecture — or, if
+   impossible, the nearest achievable outcome>
 2. <a change to the architecture, as an epic, if the goal is worth it>
 3. <do nothing, and why that may be correct>
 
@@ -62,7 +71,7 @@ Triggers — any one:
 The third attempt is almost never the one that works. The premise is wrong, not the code.
 
 ```md
-This is an iteration trap.
+This is an iteration trap. 🐇⚠️
 
 Attempts:
 1. <what was tried, what happened>

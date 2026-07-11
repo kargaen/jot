@@ -19,6 +19,8 @@ $ARGUMENTS
 - Every check runs. A reviewer that stops at the first failure hides the other four.
 - Claims are verified, not read. The epic asserting something is not evidence of it.
 - The verdict is `blocked` or `approved`. Never "approved with suggestions".
+- On `approved`, this skill sets the epic's `Status: active` — the **only** edit it ever
+  makes, and exactly one field. `blocked` leaves Status untouched.
 
 ## Why this is not epic-formulation's checklist again
 
@@ -48,10 +50,13 @@ kind especially — it points at files.
 
 ```bash
 ls -d <fixture path>          # the archived legacy case
-rg -n "<benchmark name>" tests/
+rg -n "<benchmark name>" <the test tree ARCHITECTURE.md declares>
 ```
 
 A test map row whose authority cannot be located is a row with no test behind it.
+
+Exception: a row marked `authority TBD` passes review — it blocks implementation of its own
+item, not the epic. List every TBD row in the verdict; those items cannot start.
 
 ### 3. Every checklist item traces to a test map row
 
@@ -102,20 +107,33 @@ of these → blocked, with the proposed split.
 ## Verdict
 
 ```md
-Review: EPIC-014 — BLOCKED
+Review: EPIC-<NNN> — BLOCKED
 
 Failed:
-- Check 2: §3 names `tests/fixtures/legacy/gumbel_1998.csv` — does not exist.
-    $ ls -d tests/fixtures/legacy/gumbel_1998.csv
+- Check 2: §3 names `<fixture path>` — does not exist.
+    $ ls -d <fixture path>
     ls: cannot access ...
-- Check 5: item 6 creates `backend/rendering/`; §5 declares no architecture impact.
+- Check 5: item <n> creates `<new directory>`; §5 declares no architecture impact.
 
 Passed: 1, 3, 4, 6, 7, 8, 9
 
 Findings (non-blocking):
-- Item 9 and item 10 could be one slice.
+- <e.g. two items that could be one slice>
 
 Nothing was edited. Route to epic-formulation.
+```
+
+```md
+Review: EPIC-<NNN> — APPROVED
+
+Passed: 1–9
+
+Cannot start yet (authority TBD): item <n>, item <m>
+
+Findings (non-blocking):
+- <or none>
+
+Status set to active — the only edit made. Next: epic-implementation, item <first>.
 ```
 
 Report `Passed` explicitly. A review listing only failures cannot be distinguished from a

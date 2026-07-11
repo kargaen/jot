@@ -31,7 +31,9 @@ Read, in order:
 2. The Description sections the epic will touch. Only those; the index routes you.
 3. The existing epic, if updating.
 
-Epics live at `epics/EPIC-<NNN>-<slug>.md`. Numbers are sequential and never reused.
+Epics live at `epics/EPIC-<NNN>-<slug>.md`. Numbers are sequential and never reused;
+check `epics/` for the highest existing number at write time — do not trust the
+conversation.
 
 ## Format
 
@@ -63,6 +65,9 @@ For each function under test, name **one authority** that pins its output:
 3. **Legacy application output** — when replacing an existing routine, the new call must
    reproduce the archived output on the archived cases.
 
+An authority not yet identifiable in revision 1 is written as `authority TBD` — this blocks
+implementation of that item, not review of the epic.
+
 State tolerances in the units of the quantity — `±0.01 m`, not `0.001`. A bare tolerance
 cannot be reviewed.
 
@@ -78,8 +83,8 @@ Every item should trace to an entry in §3's test map. If it does not, ask what 
 
 - Reject: `[ ] Implement caching`
 - Reject: `[ ] Update the frontend to handle the new artifact`
-- Accept: `[ ] 3. Add failing test for quantile at p=0.99 in test_gumbel.py — done when it fails for the right reason`
-- Accept: `[ ] 4. Implement quantile in gumbel.py — done when test 3 passes`
+- Accept: `[ ] 3. Add failing test for <function> edge case in its test file — done when it fails for the right reason`
+- Accept: `[ ] 4. Implement <function> in its module — done when test 3 passes`
 
 Rules:
 - Tests before the code they pin.
@@ -89,8 +94,9 @@ Rules:
 
 ### §5 Summary
 
-**Architecture impact.** Which Description sections this amends when it ships. A required
-Constitution change is a human decision and **blocks the epic** — say so at the top.
+**Architecture impact.** Tick exactly one. Which Description sections this amends when it
+ships. A required Constitution change is a human decision and **blocks the epic** — say so at
+the top.
 
 **North star deviation.** Quote it, answer plainly. "No" should be the common answer. Look
 for the epic that erodes the property the architecture protects — typically one that makes a
@@ -103,16 +109,22 @@ decision becomes an assumption, and assumptions become architecture by accident.
 **New capability.** One sentence if this introduces features the north star never alluded to.
 Scope expansion is not forbidden; silent scope expansion is.
 
+## Status
+
+`draft` while being written here. `epic-review` flips it to `active`; `epic-closeout` flips
+it to `closed` when every item is `[x]` or visibly struck. This skill never sets `active` or
+`closed`.
+
 ## Updating an epic
 
 - Never edit a completed item. `[x]` is a claim that a test passed.
 - Never renumber. Numbers appear in commits, work orders, and closeout rows.
 - Mark additions: `[ ] 12. (added <date>) …`
-- Never silently drop scope. Strike visibly: `[~] 7. ~~Support dfs0 preview~~ — deferred to EPIC-019`
+- Never silently drop scope. Strike visibly: `[~] 7. ~~<the item>~~ — deferred to EPIC-<NNN>`
 - Re-run the §5 checks. They are not write-once.
 
-If an update changes §1 flows that already have `[x]` items beneath them, stop. Implemented
-and specified behaviour have diverged.
+If an update changes a §1 flow whose §3 test-map rows trace to `[x]` checklist items, stop.
+Implemented and specified behaviour have diverged.
 
 ## Push back on
 

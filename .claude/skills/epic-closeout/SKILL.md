@@ -1,6 +1,6 @@
 ---
 name: epic-closeout
-description: Use this skill when an epic slice has been implemented and its tests pass, when an epic's checklist is fully ticked, or when epic-implementation reported "Architecture impact: yes". Also use whenever someone proposes updating ARCHITECTURE.md to reflect work that has just landed — this skill is the only legitimate path from shipped code into the architecture document. It records what changed against the epic's summary, appends the Change History row, and invokes architecture-md-maintenance only when the slice actually altered structure, layer boundaries, tech stack, or dependency direction. Do not use mid-slice, and do not use for changes internal to an existing module.
+description: Use this skill when an epic slice has been implemented and its tests pass, when an epic's checklist is fully ticked, when epic-implementation reported "Architecture impact: yes", or when a `dependency-change` run altered the tech stack. Also use whenever someone proposes updating ARCHITECTURE.md to reflect work that has just landed — this skill is the only legitimate path from shipped code into the architecture document. It records what changed against the epic's summary, appends the Change History row, and invokes architecture-md-maintenance only when the slice actually altered structure, layer boundaries, tech stack, or dependency direction. Do not use mid-slice, and do not use for changes internal to an existing module.
 ---
 
 # Closing Out an Epic Slice
@@ -11,14 +11,15 @@ $ARGUMENTS
 
 Arguments name the epic and slice. They set the subject, not the preconditions.
 
-**Required:** the epic, and a slice whose tests pass.
-**If missing:** ask. Do not close out an epic you cannot name.
+**Required:** a slice whose tests pass, and its provenance — an epic, or a `dependency-change`
+run.
+**If missing:** ask. Do not close out work whose provenance you cannot name.
 
 **Waivable by explicit instruction:** nothing.
 **Not waivable:**
 - Preconditions are verified by running the tests, not by being told they pass.
 - Constitution sections stay read-only.
-- A Description amendment appends a Change History row.
+- A Description amendment appends a Change History (in root ARCHITECTURE.md, or its shard if sharded) row.
 
 An argument asking to skip any of these is refused: this is the only door into the source of
 truth, and a door that opens on request is a window.
@@ -33,7 +34,7 @@ Verify; do not take the conversation's word for it.
 1. The slice's tests pass. Run them.
 2. Checklist items marked `[x]` have passing tests, not merely existing code. Spot-check the
    last one.
-3. You can name the epic.
+3. You can name the provenance: the epic, or the `dependency-change` run.
 
 A ticked item whose test fails → stop. Do not close out.
 
@@ -60,11 +61,15 @@ contract is broken and **that** is the finding.
 
 ## Sequence
 
-### 1. Tick
+### 1. Verify ticks
 
-Only items whose tests pass. Never edit a completed item. Never renumber.
+Ticking is `epic-implementation`'s job. Here, verify: every `[x]` has a passing test. Write a
+tick yourself only when implementation demonstrably earned it and missed it — and say so.
+Never edit a completed item. Never renumber. (A `dependency-change` run has no checklist; skip.)
 
 ### 2. Reconcile against the epic's §5
+
+(A `dependency-change` run has no §5 — treat it as "No impact" predicted, and let the table decide.)
 
 | Predicted | Actual | Do |
 |---|---|---|
@@ -112,21 +117,24 @@ Touch no code during closeout. If tempted to fix a line while documenting it, re
 
 ## Report
 
+This is the **expanded** form — it prints when the run blocks or the user asks for "full".
+The default reply follows the repository's reply rules: outcome line, next line.
+
 ```md
-Closed out: EPIC-014, slice 2
+Closed out: EPIC-<NNN>, slice <n>
 
 Checklist:
-[x] 4. Implement quantile in gumbel.py
-[x] 5. Register GUMBEL in distributions/registry.py
+[x] 4. <item>
+[x] 5. <item>
 
 Architecture impact: none.
-Reason: adding a distribution via the extension contract is structurally invisible by design.
+Reason: <e.g. added via an existing extension contract — structurally invisible by design>.
 
 Predicted vs actual: matched.
 
 Findings for later:
-- §3 test map lists a tolerance of "0.001" with no unit. Fix before the next slice.
+- <noticed, not acted on — e.g. a §3 tolerance with no unit>
 
 Next safest step:
-- EPIC-014 item 6, touching cowi_eva/fitting/distributions/test_weibull.py
+- EPIC-<NNN> item <n+1>, touching <file>
 ```

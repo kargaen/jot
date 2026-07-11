@@ -29,8 +29,10 @@ Every finding is a decision for a human or an epic. None is an edit.
 
 **Folder structure.** Regenerate and diff. Do not paste the result anywhere.
 
+Run `tree.py` (bundled with this skill, in its directory):
+
 ```bash
-python ../architecture-md-maintenance/scripts/tree.py <repo-root> --depth 3 --merge ARCHITECTURE.md
+python <this-skill-dir>/tree.py <repo-root> --depth 3 --merge <the file holding the tree — root ARCHITECTURE.md, or its description shard if sharded>
 ```
 
 Added paths are undocumented. Removed paths are documented fiction. Both are findings.
@@ -41,7 +43,7 @@ manifest entry that shapes the architecture appears in the table.
 **Layer boundaries.** The declared dependency direction is enforced, or it is a wish.
 
 ```bash
-lint-imports            # if import-linter contracts exist
+<the project's import-boundary linter, if ARCHITECTURE.md declares one>
 rg -n "^from|^import" <layer-path> | rg "<forbidden-layer>"
 ```
 
@@ -50,8 +52,14 @@ A boundary with no mechanical enforcement is itself a finding, even when current
 **Published contracts.** Routes, artifact fields, registry keys, spec fields named in the
 document exist in the code, with the names the document gives them.
 
-**Change history.** Every Description section that differs from the last audit has a row. A
-Description change with no row was written illegitimately — treat its content as unverified.
+**Change history.** Check against git, not memory: every commit that touched a Description
+section of `ARCHITECTURE.md` has a matching Change History row.
+
+```bash
+git log --oneline -- ARCHITECTURE.md architecture/
+```
+
+A Description change with no row was written illegitimately — treat its content as unverified.
 
 **Deferred items.** Anything the document describes with "will", "eventually", "to be
 formalized", or "if we ever" is speculative content that escaped into a Description section.
@@ -82,7 +90,7 @@ The middle block is not padding. It is the reason this skill does not fix anythi
 ## Report
 
 ```md
-Audited: ARCHITECTURE.md against <commit sha>
+Audited: ARCHITECTURE.md (and architecture/, if sharded) against <commit sha>
 
 Verified: §3, §6, §12, §21
 Findings: 3
