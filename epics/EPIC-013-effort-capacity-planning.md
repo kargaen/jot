@@ -67,13 +67,25 @@ When they do not mention effort
 Then capture completes exactly as fast as today with no new prompt or required field
 ```
 
+### Flow 5: Per-area capacity *(added 2026-07-12, Q1 resolved yes)*
+
+```gherkin
+Given a user who set a capacity on a specific area (space)
+When a day's tasks in that area exceed the area's capacity
+Then the over-capacity warning names the area, even if the day's total is under the
+     daily capacity
+And areas without their own capacity count only toward the daily total
+```
+
 **Out of scope for this epic:**
-- Per-**area** capacity (parked as Q1 — the owner's own "might even?" question).
+- [~] ~~Per-**area** capacity (parked as Q1)~~ — pulled into scope 2026-07-12 by owner
+  decision ("q1, per area weight, yes"); see Flow 5.
 - Time tracking, hour estimates, or any effort→duration conversion — permanently out per §0,
   not just deferred.
 - Velocity/burndown analytics and completion statistics.
-- NLP parsing of effort from capture text (e.g. "!heavy") — a natural follow-up, but a
-  capture-grammar change is its own decision (Q3).
+- NLP parsing of effort from capture text — owner said yes in principle (2026-07-12); the
+  concrete syntax is a proposal awaiting their reflection (Q3) and lands as its own slice
+  only once confirmed.
 
 ---
 
@@ -93,7 +105,7 @@ to pin first; both live in the model layer per §1/§4)*
 | Effort values and their ordering | This epic: the confirmed three-step ordinal scale |
 | Day-load summation + over-capacity predicate | This epic's rule: sum of effort points of tasks scheduled/due that day, compared to capacity; pure function in the model layer, pinned by unit tests |
 | No-effort tasks unchanged | Legacy application output — existing suites (`npm test`) must pass untouched |
-| Point weights per effort level (e.g. 1/2/3) | TBD — a product decision (Q2) that blocks the predicate's fixture, not the schema slice |
+| Point weights per effort level | Decided 2026-07-12 (Q2): **experimental and user-tweakable at runtime** — weights and capacities live in one editable config, so tuning needs no rebuild. Suggested starting values: light = 1, medium = 2, heavy = 4, daily capacity = 8 (non-linear like scrum scales, so "heavy" carries its hidden complexity; 8 ≈ two heavies, or one heavy + two medium + light chores). Tests pin the *predicate math against whatever config is set*, not the specific numbers. |
 
 ### Test map
 
@@ -101,8 +113,9 @@ to pin first; both live in the model layer per §1/§4)*
 |---|---|---|---|---|
 | 1 | task model accepts optional effort | this epic | new unit fixtures in `tests/unit/models/` | exact |
 | 2 | capacity preference load/save + default | this epic | new unit fixtures | exact |
-| 3 | over-capacity predicate | this epic + Q2 weights | new unit fixtures | exact |
+| 3 | over-capacity predicate (config-driven) | this epic (§3 weights row) | new unit fixtures | exact |
 | 4 | capture path unchanged | legacy output | existing NLP/task suites | exact |
+| 5 | area-scoped load vs. area capacity | this epic (Flow 5) | new unit fixtures | exact |
 
 ### What is deliberately not tested
 
@@ -116,20 +129,30 @@ Stub-level ordering; slices to be finalized at revision 2 after Q2 is decided. M
 first, model predicate second, surfaces last — one file per item when sliced.
 
 ```md
-[ ] 1. Decide point weights for light/medium/heavy (human decision, Q2) — done when
-       recorded here
-[ ] 2. Add failing model test: optional effort on task shape + day-load predicate —
-       done when it fails for the right reason
+[x] 1. Decide point weights for light/medium/heavy (human decision, Q2) — done when
+       recorded here. Recorded 2026-07-12: experimental + runtime-tweakable; suggested
+       defaults light=1 / medium=2 / heavy=4, daily capacity 8 (see §3 authority table)
+[ ] 2. Add failing model test: optional effort on task shape + day-load predicate
+       (predicate takes the weight/capacity config as an argument) — done when it fails
+       for the right reason
 [ ] 3. Migration: nullable effort column on tasks — done when the schema change applies
        cleanly and RLS is untouched
 [ ] 4. Implement effort in the task model + day-load predicate in `src/models/tasks/` —
        done when test 2 passes
-[ ] 5. Capacity preference (default + load/save) with its own failing-then-passing test —
-       done when the test passes
+[ ] 5. Effort config preference (weights + daily capacity, editable defaults, load/save)
+       with its own failing-then-passing test — done when the test passes
 [ ] 6. Effort selector in the task editor surface — done when Flow 1 is exercisable and
        `npm test` passes
 [ ] 7. Over-capacity warning in Today/Upcoming surfaces — done when Flow 3 is exercisable
        and `npm test` passes
+[ ] 8. (added 2026-07-12) Per-area capacity: failing test for area-scoped load vs.
+       area capacity, config extended with optional per-area entries — done when it fails
+       for the right reason (slots after item 5)
+[ ] 9. (added 2026-07-12) Implement per-area capacity in the predicate + warning naming
+       the area — done when test 8 passes and Flow 5 is exercisable
+[ ] 10. (added 2026-07-12) NLP effort token per the confirmed Q3 syntax — done when the
+        gating NLP suite covers it and passes. Blocked until the owner confirms the
+        syntax proposal in §5 Q3
 ```
 
 ---
@@ -154,9 +177,9 @@ permanently out, and Flow 3 requires the warning to be non-blocking.
 
 | # | Question | Blocks | Decision needed by |
 |---|---|---|---|
-| Q1 | Per-area capacity in addition to the daily total? | Nothing in v1 — additive later | Post-v1 |
-| Q2 | Point weights per effort level (1/2/3? 1/2/4?) | The predicate fixture (items 1–2) | Item 1 |
-| Q3 | Should capture grammar learn an effort token? | Nothing in v1 | Own triage later |
+| Q1 | ~~Per-area capacity?~~ **Resolved 2026-07-12: yes, in scope** (Flow 5, items 8–9) | — | — |
+| Q2 | ~~Point weights?~~ **Resolved 2026-07-12: experimental, runtime-tweakable; suggested defaults 1/2/4, capacity 8** (§3) | — | — |
+| Q3 | Effort token syntax for capture. Owner said yes in principle; concrete proposal awaiting their reflection: `~` prefix — `~light ~medium ~heavy`, shorthands `~l ~m ~h`, Danish `~let ~mellem ~tung`. `~` is free in the grammar (`#`=project, `@`=date, `!`=priority) and reads as "roughly", matching estimation semantics. Known tradeoff: `~` hides behind a long-press on some mobile keyboards; fallback candidates `+heavy` or `^heavy` if that annoys in practice. | Item 10 only | Before item 10 |
 
 ### New capability
 
