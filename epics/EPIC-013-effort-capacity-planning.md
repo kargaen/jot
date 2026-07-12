@@ -136,10 +136,14 @@ first, model predicate second, surfaces last — one file per item when sliced.
        (predicate takes the weight/capacity config as an argument) — done when it fails
        for the right reason. Landed as `tests/unit/models/task-effort.test.ts`; observed
        red on assertions (expected 6, got 0) against a stub before the green step.
-[ ] 3. Migration: nullable effort column on tasks — done when the schema change applies
-       cleanly and RLS is untouched. (Also formally adds `effort` to the `Task` interface
-       in `src/models/shared/index.ts`; the predicate reads `task.effort` structurally
-       today, so this only makes the field first-class.)
+[x] 3. Migration: nullable effort column on tasks — `supabase/migrations/20260712000000_task_effort.sql`
+       (`ADD COLUMN IF NOT EXISTS effort text CHECK (effort IN ('light','medium','heavy'))`,
+       nullable, no default, mirrors the `priority` pattern). RLS untouched (ADD COLUMN only,
+       verified by inspection). Formalized `Task.effort` in `src/models/shared/index.ts` and
+       fixed the one consumer (`test-harness/mobileScreens.tsx`); `tsc --noEmit` and
+       `npm test` green. **DB-apply not run here** — the Supabase CLI is absent in this
+       session; `npm run db:reset` (and the RC `migrate-db` job on push to dev) is the
+       apply-cleanly gate. See Action needed.
 [x] 4. Implement effort in the task model + day-load predicate in `src/models/tasks/` —
        done when test 2 passes. Landed as `src/models/tasks/taskEffort.ts`
        (`EffortLevel`, `EffortConfig`, `DEFAULT_EFFORT_CONFIG` = 1/2/4 cap 8,
