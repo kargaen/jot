@@ -1,8 +1,8 @@
 # EPIC-013: Effort-based capacity planning
 
-**Status:** draft
+**Status:** active
 **Created:** 2026-07-12
-**Architecture baseline:** cf04cf6
+**Architecture baseline:** f774c93
 
 **Source:** project owner, 2026-07-12 (north-star braindump, confirmed):
 
@@ -132,13 +132,19 @@ first, model predicate second, surfaces last — one file per item when sliced.
 [x] 1. Decide point weights for light/medium/heavy (human decision, Q2) — done when
        recorded here. Recorded 2026-07-12: experimental + runtime-tweakable; suggested
        defaults light=1 / medium=2 / heavy=4, daily capacity 8 (see §3 authority table)
-[ ] 2. Add failing model test: optional effort on task shape + day-load predicate
+[x] 2. Add failing model test: optional effort on task shape + day-load predicate
        (predicate takes the weight/capacity config as an argument) — done when it fails
-       for the right reason
+       for the right reason. Landed as `tests/unit/models/task-effort.test.ts`; observed
+       red on assertions (expected 6, got 0) against a stub before the green step.
 [ ] 3. Migration: nullable effort column on tasks — done when the schema change applies
-       cleanly and RLS is untouched
-[ ] 4. Implement effort in the task model + day-load predicate in `src/models/tasks/` —
-       done when test 2 passes
+       cleanly and RLS is untouched. (Also formally adds `effort` to the `Task` interface
+       in `src/models/shared/index.ts`; the predicate reads `task.effort` structurally
+       today, so this only makes the field first-class.)
+[x] 4. Implement effort in the task model + day-load predicate in `src/models/tasks/` —
+       done when test 2 passes. Landed as `src/models/tasks/taskEffort.ts`
+       (`EffortLevel`, `EffortConfig`, `DEFAULT_EFFORT_CONFIG` = 1/2/4 cap 8,
+       `taskEffortPoints`, `dayLoad`, `isOverCapacity`); done together with item 2 as one
+       TDD slice, wired into `test:tasks`.
 [ ] 5. Effort config preference (weights + daily capacity, editable defaults, load/save)
        with its own failing-then-passing test — done when the test passes
 [ ] 6. Effort selector in the task editor surface — done when Flow 1 is exercisable and
@@ -150,9 +156,9 @@ first, model predicate second, surfaces last — one file per item when sliced.
        for the right reason (slots after item 5)
 [ ] 9. (added 2026-07-12) Implement per-area capacity in the predicate + warning naming
        the area — done when test 8 passes and Flow 5 is exercisable
-[ ] 10. (added 2026-07-12) NLP effort token per the confirmed Q3 syntax — done when the
-        gating NLP suite covers it and passes. Blocked until the owner confirms the
-        syntax proposal in §5 Q3
+[ ] 10. (added 2026-07-12) NLP effort token using `+` per Q3 (confirmed by owner
+        2026-07-12): `+light +medium +heavy`, shorthands `+l +m +h`, Danish
+        `+let +mellem +tung`. Done when the gating NLP suite covers it and passes.
 ```
 
 ---
@@ -179,7 +185,7 @@ permanently out, and Flow 3 requires the warning to be non-blocking.
 |---|---|---|---|
 | Q1 | ~~Per-area capacity?~~ **Resolved 2026-07-12: yes, in scope** (Flow 5, items 8–9) | — | — |
 | Q2 | ~~Point weights?~~ **Resolved 2026-07-12: experimental, runtime-tweakable; suggested defaults 1/2/4, capacity 8** (§3) | — | — |
-| Q3 | Effort token syntax for capture. Owner said yes in principle; concrete proposal awaiting their reflection: `~` prefix — `~light ~medium ~heavy`, shorthands `~l ~m ~h`, Danish `~let ~mellem ~tung`. `~` is free in the grammar (`#`=project, `@`=date, `!`=priority) and reads as "roughly", matching estimation semantics. Known tradeoff: `~` hides behind a long-press on some mobile keyboards; fallback candidates `+heavy` or `^heavy` if that annoys in practice. | Item 10 only | Before item 10 |
+| Q3 | ~~Effort token syntax?~~ **Resolved 2026-07-12: `+` prefix** — `+light +medium +heavy`, shorthands `+l +m +h`, Danish `+let +mellem +tung`. `+` is free in the grammar (`#`=project, `@`=date, `!`=priority) and stays reachable on mobile keyboards. Lands as item 10. | — | — |
 
 ### New capability
 
