@@ -6,11 +6,8 @@
 
 ## §0 North Star
 
-**Not yet written.** This section is Constitution content — a human decision about the one
-property this architecture protects — and was not present before this document was sharded.
-Nothing here should be inferred or fabricated; the closest existing statement is the product
-tagline ("Think it. Jot it. Do it."), which is a mission statement, not an architectural north
-star. Needs a human author.
+Written by the project owner, 2026-07-12: **attention is opt-in, capture is not.**
+Full text in `architecture/constitution/00-north-star.md`. Every epic's §5 answers to it.
 
 ---
 
@@ -33,6 +30,7 @@ was split from one that mixed classes — both halves trace to the same original
 
 | § | File | Class | Contains |
 |---|---|---|---|
+| 0 | `architecture/constitution/00-north-star.md` | Constitution | North star: attention is opt-in, capture is not |
 | 1 | `architecture/constitution/01-architecture-philosophy.md` | Constitution | MVC layer model, service boundary rule |
 | 2 | `architecture/description/02-repository-structure.md` | Description | Annotated folder tree (**known stale** — see Findings below) |
 | 3 | `architecture/constitution/03-naming-conventions.md` | Constitution | File-naming table by artefact type |
