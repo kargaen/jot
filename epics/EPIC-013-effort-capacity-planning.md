@@ -149,8 +149,10 @@ first, model predicate second, surfaces last — one file per item when sliced.
        (`EffortLevel`, `EffortConfig`, `DEFAULT_EFFORT_CONFIG` = 1/2/4 cap 8,
        `taskEffortPoints`, `dayLoad`, `isOverCapacity`); done together with item 2 as one
        TDD slice, wired into `test:tasks`.
-[ ] 5. Effort config preference (weights + daily capacity, editable defaults, load/save)
-       with its own failing-then-passing test — done when the test passes
+[x] 5. Effort config preference (weights + daily capacity, editable defaults, load/save)
+       — `src/utils/preferences/effortConfig.ts` (localStorage key `jot_effort_config`,
+       per-field fallback to defaults, never throws on corrupt data), pinned by
+       `tests/unit/preferences/effort-config.test.ts`, wired into `test:tasks`.
 [ ] 6. Effort selector in the task editor surface — done when Flow 1 is exercisable and
        `npm test` passes
 [ ] 7. Over-capacity warning in Today/Upcoming surfaces — done when Flow 3 is exercisable
