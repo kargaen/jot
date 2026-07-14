@@ -153,8 +153,12 @@ first, model predicate second, surfaces last — one file per item when sliced.
        — `src/utils/preferences/effortConfig.ts` (localStorage key `jot_effort_config`,
        per-field fallback to defaults, never throws on corrupt data), pinned by
        `tests/unit/preferences/effort-config.test.ts`, wired into `test:tasks`.
-[ ] 6. Effort selector in the task editor surface — done when Flow 1 is exercisable and
-       `npm test` passes
+[x] 6. Effort selector in the task editor surface — effort now flows capture → save:
+       `TaskCreationDraft.effort` + `buildCreateTaskInput` (pinned by
+       `task-create-controller.test.ts`), `CreateTaskInput.effort` + the `tasks` insert in
+       `supabase.service.ts`, `metaEffort`/`cycleEffort` in `useCreateTask.ts`, and a
+       click-to-cycle "+/++/+++" effort MetaField in `CreateTask.view.tsx`. tsc + full
+       build green. (Visual rendering not unit-tested per §3; covered by build + manual.)
 [ ] 7. Over-capacity warning in Today/Upcoming surfaces — done when Flow 3 is exercisable
        and `npm test` passes
 [x] 8. (added 2026-07-12) Per-area capacity: failing test for area-scoped load vs.

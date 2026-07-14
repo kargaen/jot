@@ -37,6 +37,7 @@ assertEqual(
       dueDate: "2026-05-01",
       dueTime: "09:00",
       priority: "high",
+      effort: "heavy",
       recurrenceRule: "FREQ=WEEKLY",
       tagIds: ["tag-1"],
     },
@@ -53,9 +54,17 @@ assertEqual(
     dueDate: "2026-05-01",
     dueTime: "09:00",
     priority: "high",
+    effort: "heavy",
     recurrenceRule: "FREQ=WEEKLY",
     tagIds: ["tag-1"],
   } as CreateTaskInput,
+);
+
+// EPIC-013 item 6: effort defaults to null when the draft sets none.
+assertEqual(
+  "buildCreateTaskInput defaults effort to null",
+  buildCreateTaskInput({ title: "No effort task" }, null, null).effort,
+  null,
 );
 
 let createProjectCalls = 0;

@@ -632,6 +632,7 @@ export interface CreateTaskInput {
   dueTime?: string | null;
   scheduledDate?: string | null;
   priority?: Task["priority"];
+  effort?: Task["effort"];
   recurrenceRule?: string | null;
   estimatedMins?: number | null;
   tagIds?: string[];
@@ -663,6 +664,7 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
       due_time: taskFields.dueTime ?? null,
       scheduled_date: taskFields.scheduledDate ?? null,
       priority: taskFields.priority ?? "none",
+      effort: taskFields.effort ?? null,
       recurrence_rule: taskFields.recurrenceRule ?? null,
       estimated_mins: taskFields.estimatedMins ?? null,
       user_id,
