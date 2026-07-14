@@ -54,6 +54,22 @@ assertEqual("bad weight falls back per-field", loadEffortConfig().weights, {
   heavy: 9,
 });
 
+// Per-area capacities round-trip; non-number entries are dropped (EPIC-013 Q1).
+localStorage.clear();
+saveEffortConfig({
+  weights: DEFAULT_EFFORT_CONFIG.weights,
+  dailyCapacity: 8,
+  areaCapacities: { work: 4, home: 6 },
+});
+assertEqual("area capacities round-trip", loadEffortConfig().areaCapacities, { work: 4, home: 6 });
+
+localStorage.clear();
+localStorage.setItem(
+  EFFORT_CONFIG_KEY,
+  JSON.stringify({ areaCapacities: { work: 4, bad: "x" } }),
+);
+assertEqual("bad area capacity dropped", loadEffortConfig().areaCapacities, { work: 4 });
+
 // Corrupt JSON → defaults, never throws.
 localStorage.clear();
 localStorage.setItem(EFFORT_CONFIG_KEY, "{not json");

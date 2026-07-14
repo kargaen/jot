@@ -157,11 +157,14 @@ first, model predicate second, surfaces last — one file per item when sliced.
        `npm test` passes
 [ ] 7. Over-capacity warning in Today/Upcoming surfaces — done when Flow 3 is exercisable
        and `npm test` passes
-[ ] 8. (added 2026-07-12) Per-area capacity: failing test for area-scoped load vs.
-       area capacity, config extended with optional per-area entries — done when it fails
-       for the right reason (slots after item 5)
-[ ] 9. (added 2026-07-12) Implement per-area capacity in the predicate + warning naming
-       the area — done when test 8 passes and Flow 5 is exercisable
+[x] 8. (added 2026-07-12) Per-area capacity: failing test for area-scoped load vs.
+       area capacity, config extended with optional per-area entries — added per-area
+       cases to `task-effort.test.ts` + a round-trip case to `effort-config.test.ts`;
+       observed red on the missing `overCapacityAreas`/`areaCapacities` symbols.
+[x] 9. (added 2026-07-12) Implement per-area capacity in the predicate + warning naming
+       the area — `EffortConfig.areaCapacities` + `overCapacityAreas()` (returns
+       `AreaOverload[]` naming each over-cap area) in `taskEffort.ts`; persistence carries
+       `areaCapacities` in `effortConfig.ts`. Tests pass; the warning-naming UI is item 7.
 [ ] 10. (added 2026-07-12) NLP effort token using `+` per Q3 (confirmed by owner
         2026-07-12): `+light +medium +heavy`, shorthands `+l +m +h`, Danish
         `+let +mellem +tung`. Done when the gating NLP suite covers it and passes.

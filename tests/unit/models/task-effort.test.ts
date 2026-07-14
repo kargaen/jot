@@ -6,6 +6,7 @@ import {
   taskEffortPoints,
   dayLoad,
   isOverCapacity,
+  overCapacityAreas,
   type EffortConfig,
   type EffortLevel,
 } from "../../../src/models/tasks/taskEffort";
@@ -68,6 +69,42 @@ assertEqual(
   "heavy + medium (8) exceeds tuned capacity 6",
   isOverCapacity([task("heavy"), task("medium")], tuned),
   true,
+);
+
+// ── Per-area capacity (EPIC-013 Flow 5) ──
+// Only areas with their own configured capacity produce an area-level warning; areas
+// without one contribute only to the daily total.
+type AreaTask = { effort?: EffortLevel | null; area_id?: string | null };
+const areaTask = (area_id: string | null, effort: EffortLevel | null): AreaTask => ({ area_id, effort });
+
+const perArea: EffortConfig = {
+  weights: { light: 1, medium: 2, heavy: 4 },
+  dailyCapacity: 100, // high, so only area limits bite in these cases
+  areaCapacities: { work: 4 }, // "work" caps at 4; "home" has none
+};
+
+assertEqual(
+  "no configured area capacities → no area warnings",
+  overCapacityAreas([areaTask("work", "heavy")], DEFAULT_EFFORT_CONFIG),
+  [],
+);
+assertEqual(
+  "work under its cap (4) → no warning",
+  overCapacityAreas([areaTask("work", "heavy")], perArea),
+  [],
+);
+assertEqual(
+  "work over its cap (heavy+medium=6 > 4) → warning names work",
+  overCapacityAreas([areaTask("work", "heavy"), areaTask("work", "medium")], perArea),
+  [{ areaId: "work", load: 6, capacity: 4 }],
+);
+assertEqual(
+  "home has no cap → never warns even when heavy",
+  overCapacityAreas(
+    [areaTask("home", "heavy"), areaTask("home", "heavy"), areaTask("work", "light")],
+    perArea,
+  ),
+  [],
 );
 
 if (failures > 0) {

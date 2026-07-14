@@ -9,6 +9,17 @@ export type EffortLevel = "light" | "medium" | "heavy";
 export interface EffortConfig {
   weights: Record<EffortLevel, number>;
   dailyCapacity: number;
+  // EPIC-013 Q1: optional per-area capacity (areaId → points). An area listed here also
+  // warns when its own day-load exceeds this, independently of the daily total. Areas not
+  // listed contribute only to the daily total.
+  areaCapacities?: Record<string, number>;
+}
+
+// One area whose day-load exceeded its own configured capacity.
+export interface AreaOverload {
+  areaId: string;
+  load: number;
+  capacity: number;
 }
 
 // Suggested starting values (Q2) — non-linear like a scrum scale so "heavy" carries its
@@ -41,4 +52,25 @@ export function isOverCapacity(
   config: EffortConfig,
 ): boolean {
   return dayLoad(tasks, config) > config.dailyCapacity;
+}
+
+// Areas whose day-load exceeds their own configured capacity. Only areas listed in
+// config.areaCapacities can appear; an area without a configured cap never warns (it
+// counts only toward the daily total). Same strict-exceeds rule as the daily check.
+export function overCapacityAreas(
+  tasks: ReadonlyArray<{ effort?: EffortLevel | null; area_id?: string | null }>,
+  config: EffortConfig,
+): AreaOverload[] {
+  const caps = config.areaCapacities;
+  if (!caps) return [];
+  const result: AreaOverload[] = [];
+  for (const areaId of Object.keys(caps)) {
+    const capacity = caps[areaId];
+    const load = dayLoad(
+      tasks.filter((t) => t.area_id === areaId),
+      config,
+    );
+    if (load > capacity) result.push({ areaId, load, capacity });
+  }
+  return result;
 }

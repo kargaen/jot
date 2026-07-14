@@ -16,14 +16,33 @@ function num(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function mergeAreaCapacities(value: unknown): Record<string, number> | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const out: Record<string, number> = {};
+  for (const [areaId, cap] of Object.entries(value)) {
+    if (typeof cap === "number" && Number.isFinite(cap)) out[areaId] = cap;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 function mergeConfig(parsed: unknown): EffortConfig {
   if (typeof parsed !== "object" || parsed === null) return DEFAULT_EFFORT_CONFIG;
-  const p = parsed as { weights?: Partial<Record<EffortLevel, unknown>>; dailyCapacity?: unknown };
+  const p = parsed as {
+    weights?: Partial<Record<EffortLevel, unknown>>;
+    dailyCapacity?: unknown;
+    areaCapacities?: unknown;
+  };
   const weights = { ...DEFAULT_EFFORT_CONFIG.weights };
   for (const level of LEVELS) {
     weights[level] = num(p.weights?.[level], DEFAULT_EFFORT_CONFIG.weights[level]);
   }
-  return { weights, dailyCapacity: num(p.dailyCapacity, DEFAULT_EFFORT_CONFIG.dailyCapacity) };
+  const config: EffortConfig = {
+    weights,
+    dailyCapacity: num(p.dailyCapacity, DEFAULT_EFFORT_CONFIG.dailyCapacity),
+  };
+  const areaCapacities = mergeAreaCapacities(p.areaCapacities);
+  if (areaCapacities) config.areaCapacities = areaCapacities;
+  return config;
 }
 
 export function loadEffortConfig(): EffortConfig {
