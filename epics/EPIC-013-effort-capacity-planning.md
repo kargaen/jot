@@ -165,9 +165,10 @@ first, model predicate second, surfaces last — one file per item when sliced.
        the area — `EffortConfig.areaCapacities` + `overCapacityAreas()` (returns
        `AreaOverload[]` naming each over-cap area) in `taskEffort.ts`; persistence carries
        `areaCapacities` in `effortConfig.ts`. Tests pass; the warning-naming UI is item 7.
-[ ] 10. (added 2026-07-12) NLP effort token using `+` per Q3 (confirmed by owner
-        2026-07-12): `+light +medium +heavy`, shorthands `+l +m +h`, Danish
-        `+let +mellem +tung`. Done when the gating NLP suite covers it and passes.
+[x] 10. (added 2026-07-12) NLP effort token using `+` per Q3: `parseEffort()` in
+        `nlp.service.ts` (`+light/+medium/+heavy`, `+l/+m/+h`, Danish `+let/+mellem/+tung`),
+        wired into `parseInput` (consumed from the title) and `ParsedInput.effort`. Covered
+        by the gating suite `nlp-natural.test.ts` (19/19).
 ```
 
 ---

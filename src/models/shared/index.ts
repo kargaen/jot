@@ -105,6 +105,7 @@ export interface ParsedInput {
   dueDate: string | null;
   dueTime: string | null;
   priority: Task["priority"];
+  effort: Task["effort"];
   tags: Tag[];
   suggestedTagNames: string[];
   recurrenceRule: string | null;

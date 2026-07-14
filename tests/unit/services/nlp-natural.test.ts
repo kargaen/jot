@@ -50,6 +50,27 @@ const cases = [
     input: "Write recap tonight #Work",
     expected: { title: "Write recap", dueDate: "2026-04-15", dueTime: "19:00", projectName: "Work" },
   },
+  // EPIC-013 item 10: the `+` effort token (English words + shorthands).
+  {
+    input: "Fix the printer +heavy",
+    expected: { title: "Fix the printer", effort: "heavy" },
+  },
+  {
+    input: "Email the team +m",
+    expected: { title: "Email the team", effort: "medium" },
+  },
+  {
+    input: "Water the plants +l",
+    expected: { title: "Water the plants", effort: "light" },
+  },
+  {
+    input: "Review PR +light tomorrow",
+    expected: { title: "Review PR", effort: "light", dueDate: "2026-04-16" },
+  },
+  {
+    input: "Buy milk",
+    expected: { title: "Buy milk", effort: undefined },
+  },
 ];
 
 const languageCases = [
@@ -83,6 +104,18 @@ const languageCases = [
     options: { languageMode: "da" as const },
     expected: { title: "Plan every weekday", recurrenceRule: undefined },
   },
+  {
+    label: "danish effort word",
+    input: "Ryd op +tung",
+    options: { languageMode: "da" as const },
+    expected: { title: "Ryd op", effort: "heavy" },
+  },
+  {
+    label: "shorthand effort works in danish mode too",
+    input: "Ring til lægen +m",
+    options: { languageMode: "da" as const },
+    expected: { title: "Ring til lægen", effort: "medium" },
+  },
 ];
 
 let failed = 0;
@@ -95,6 +128,7 @@ for (const testCase of cases) {
     dueTime: result.dueTime ?? undefined,
     recurrenceRule: result.recurrenceRule ?? undefined,
     projectName: result.project?.name ?? undefined,
+    effort: result.effort ?? undefined,
   };
 
   for (const [key, expectedValue] of Object.entries(testCase.expected)) {
@@ -112,6 +146,7 @@ for (const testCase of languageCases) {
     title: result.title,
     dueDate: result.dueDate ?? undefined,
     recurrenceRule: result.recurrenceRule ?? undefined,
+    effort: result.effort ?? undefined,
   };
 
   for (const [key, expectedValue] of Object.entries(testCase.expected)) {
