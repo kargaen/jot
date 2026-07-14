@@ -38,6 +38,9 @@ export interface Task {
   scheduled_date: string | null;
   recurrence_rule: string | null;
   estimated_mins: number | null;
+  // EPIC-013: ordinal effort scale (not time). NULL = no effort set. See
+  // src/models/tasks/taskEffort.ts for the weights/capacity predicate.
+  effort: "light" | "medium" | "heavy" | null;
   sort_order: number;
   completed_at: string | null;
   created_at: string;
@@ -102,6 +105,7 @@ export interface ParsedInput {
   dueDate: string | null;
   dueTime: string | null;
   priority: Task["priority"];
+  effort: Task["effort"];
   tags: Tag[];
   suggestedTagNames: string[];
   recurrenceRule: string | null;

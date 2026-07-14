@@ -902,6 +902,39 @@ export function parsePriority(
   return null;
 }
 
+// ── Effort ──────────────────────────────────────────────────────
+// EPIC-013: the `+` token sets a task's effort. `+light/+medium/+heavy`, shorthands
+// `+l/+m/+h` (language-neutral), and Danish `+let/+mellem/+tung`. `+` is otherwise free
+// in the grammar (`#`=project, `@`=date, `!`=priority).
+
+type EffortLevel = "light" | "medium" | "heavy";
+
+export function parseEffort(
+  input: string,
+  options: ParseOptions = {},
+): { effort: EffortLevel; consumed: string } | null {
+  const mode = options.languageMode ?? "auto";
+  const patterns: Array<{ re: RegExp; effort: EffortLevel }> = [
+    // Shorthands and English words are always accepted; Danish words gate on mode.
+    { re: /(^|\s)\+(light|l)(?=\s|$)/i, effort: "light" },
+    { re: /(^|\s)\+(medium|m)(?=\s|$)/i, effort: "medium" },
+    { re: /(^|\s)\+(heavy|h)(?=\s|$)/i, effort: "heavy" },
+    ...(allowsDanish(mode)
+      ? [
+          { re: /(^|\s)\+(let)(?=\s|$)/i, effort: "light" as EffortLevel },
+          { re: /(^|\s)\+(mellem)(?=\s|$)/i, effort: "medium" as EffortLevel },
+          { re: /(^|\s)\+(tung)(?=\s|$)/i, effort: "heavy" as EffortLevel },
+        ]
+      : []),
+  ];
+
+  for (const { re, effort } of patterns) {
+    const m = input.match(re);
+    if (m) return { effort, consumed: m[0] };
+  }
+  return null;
+}
+
 // ── Tags ────────────────────────────────────────────────────────
 
 export function parseTags(
@@ -1094,6 +1127,13 @@ export function parseInput(
     }
   }
 
+  const effResult = parseEffort(working, options);
+  let effort: EffortLevel | null = null;
+  if (effResult) {
+    effort = effResult.effort;
+    working = working.replace(new RegExp(escapeRegex(effResult.consumed), "i"), " ");
+  }
+
   // @ is now the explicit date prefix — tag parsing is a hidden server-side
   // feature and no longer runs in the main input pipeline.
   const tagResult = { matchedTags: [] as Tag[], newTagNames: [] as string[], consumed: [] as string[] };
@@ -1128,6 +1168,7 @@ export function parseInput(
     dueDate,
     dueTime,
     priority,
+    effort,
     tags: tagResult.matchedTags,
     suggestedTagNames: tagResult.newTagNames,
     recurrenceRule,

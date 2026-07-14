@@ -15,7 +15,9 @@ $ARGUMENTS
 **Required:** the refactor, and why now.
 **If missing:** ask what should change and what must stay identical.
 
-**Waivable by explicit instruction:** the one-file scope, when the user names the files.
+**Waivable by explicit instruction:** the one-file scope, when the user names the files —
+but only after `change-triage` confirms no structural trigger fires. The waiver widens the
+file count; it does not authorise an architecture change.
 **Not waivable:**
 - Behaviour preservation. A refactor that changes behaviour is a feature or a bug.
 - Never in the same run as feature work.
@@ -29,14 +31,17 @@ A refactor proceeds only if all four hold. State each.
    and without it you cannot claim preservation, only hope for it.
 2. **Related to the task.** Refactoring code you happened to read is scope creep. If it is
    unrelated, it is a finding, not a task.
-3. **One file.** A refactor spanning files is an architecture change; route to `change-triage`.
+3. **One file.** The write set is one production file plus its characterisation test. A
+   refactor spanning production files is an architecture change; route to `change-triage`
+   (unless waived — see above).
 4. **Explained before editing.** The user sees the shape of the change before the diff.
 
 ## Never combine
 
 Feature work and refactoring never share a run. When both are needed:
 
-1. Refactor. Tests pass, unchanged.
+1. Refactor. Tests pass, unchanged. Run the project's check commands declared in
+   `ARCHITECTURE.md`.
 2. Stop. Report.
 3. Feature. New test fails, then passes.
 
@@ -61,6 +66,9 @@ After:
 
 Nothing was edited. Proceed?
 ```
+
+After a completed refactor, the reply follows the repository's reply rules: outcome line
+(with the unchanged test as evidence), next line.
 
 ## Stop instead
 

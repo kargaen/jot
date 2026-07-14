@@ -6,15 +6,7 @@ Current scope:
 - `local-db.local.spec.ts` exercises a real local-Supabase harness page and writes test data into the local stack.
 - The harness keeps the first Playwright suite deterministic and visually debuggable while we build out broader coverage.
 
-Planned next slices:
-
-- Desktop onboarding for the first space / area.
-- Dashboard task creation flow using the real `CreateTask.view.tsx` surface.
-- Task row interactions such as complete, open, and detail navigation.
-- Settings panels and their toggle/button coverage.
-- Mobile harness coverage once the desktop flow is stable.
-
-The long-term goal is full button and UI element coverage. The short-term goal is stable, inspectable Playwright runs that are easy to debug from VS Code.
+Planned coverage lives in `epics/EPIC-012-e2e-coverage-expansion.md`. The short-term goal is stable, inspectable Playwright runs that are easy to debug from VS Code.
 
 Local DB path:
 

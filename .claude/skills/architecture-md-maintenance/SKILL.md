@@ -11,9 +11,10 @@ $ARGUMENTS
 
 Arguments set the subject of this run, not its rules.
 
-**Required:** the proposed amendment, and the epic that produced the code it describes.
-**If missing:** ask for the epic. Do not infer it from the conversation, and do not proceed
-on the assumption that one exists.
+**Required:** the proposed amendment, and the epic slice or `dependency-change` run that
+produced the code it describes.
+**If missing:** ask for it. Do not infer it from the conversation, and do not proceed on the
+assumption that one exists.
 
 **Waivable by explicit instruction:** nothing.
 **Not waivable:**
@@ -25,7 +26,9 @@ When an argument asks for either, stop and answer with the Blocked format below.
 
 ## Write classes
 
-Read the document's Write Policy header. If absent, establish this classification first.
+Read the document's Write Policy header. If absent, propose a classification of the
+existing sections and await confirmation before any write — classifying is itself a
+Constitution-class decision.
 
 | Class | Content | Written by | Agent may |
 |---|---|---|---|
@@ -41,14 +44,16 @@ Before writing any sentence into a Description section, all three must hold:
 
 1. The code exists.
 2. Its tests pass.
-3. An epic slice produced it, and you can name the epic.
+3. An epic slice or a `dependency-change` run produced it, and you can name it.
 
 Verify against the filesystem, not the conversation. A convincing description is not evidence.
 
 ```bash
 ls -d <path>                     # directory or module claimed
-rg -n "<symbol>" --type py       # symbol claimed in a contract
+rg -n "<symbol>"                 # symbol claimed in a contract
 git log --oneline -3 -- <path>   # produced by the slice you think it was?
+                                 # (assumes commits carry the epic/slice ID — a
+                                 #  Constitution convention; without it, best-effort)
 ```
 
 Any check fails → the content is Deferred. Route it.
@@ -98,8 +103,10 @@ boundary the title announces.
 Never hand-edit the structure. Never regenerate blind — the `#` annotations are the value and
 cannot be generated.
 
+Run `tree.py` (bundled with this skill, in its directory):
+
 ```bash
-python scripts/tree.py <repo-root> --depth 3 --merge ARCHITECTURE.md
+python <this-skill-dir>/tree.py <repo-root> --depth 3 --merge <the file holding the tree — root ARCHITECTURE.md, or its description shard if sharded>
 ```
 
 It carries annotations forward and reports added paths (need annotations) and removed paths
@@ -130,6 +137,12 @@ Findings for later:
 - §3 lists `backend/rendering/`; no such directory exists. Either never built, or removed
   without a Change History row. Needs a decision, not an edit.
 ```
+
+## Bootstrap
+
+If `ARCHITECTURE.md` does not exist, do not write one from the conversation. Propose a
+minimal skeleton — Write Policy header, empty Constitution and Description sections, empty
+folder tree, empty Change History — and await confirmation. Populating it is an epic.
 
 ## Example
 

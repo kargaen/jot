@@ -2,6 +2,11 @@ import type { CSSProperties } from "react";
 import type { Area, TaskWithTags } from "../../../../models/shared";
 import { isUpcoming } from "../../../../models/tasks/taskVisibility";
 import { friendlyDue } from "../../../../models/tasks/taskPresentation";
+import {
+  DEFAULT_EFFORT_CONFIG,
+  isOverCapacity,
+  type EffortConfig,
+} from "../../../../models/tasks/taskEffort";
 import MobileTaskList, { type TaskListGroup } from "../components/MobileTaskList.view";
 
 interface Props {
@@ -10,9 +15,10 @@ interface Props {
   onComplete: (id: string) => void;
   onOpenTask: (id: string) => void;
   areas: Area[];
+  effortConfig?: EffortConfig;
 }
 
-function buildGroups(tasks: TaskWithTags[], today: string): TaskListGroup[] {
+function buildGroups(tasks: TaskWithTags[], today: string, config: EffortConfig): TaskListGroup[] {
   const upcoming = tasks.filter((t) => isUpcoming(t, today));
   const order: string[] = [];
   const byDate = new Map<string, TaskWithTags[]>();
@@ -25,14 +31,16 @@ function buildGroups(tasks: TaskWithTags[], today: string): TaskListGroup[] {
     }
     byDate.get(date)!.push(task);
   }
-  return order.map((date) => ({
-    key: date,
-    label: friendlyDue(date, null) || date,
-    tasks: byDate.get(date)!,
-  }));
+  return order.map((date) => {
+    const dayTasks = byDate.get(date)!;
+    const base = friendlyDue(date, null) || date;
+    // Calm marker on days already over capacity, so overload is visible while planning ahead.
+    const label = isOverCapacity(dayTasks, config) ? `${base} · full` : base;
+    return { key: date, label, tasks: dayTasks };
+  });
 }
 
-export default function MobileUpcomingView({ tasks, loading, onComplete, onOpenTask, areas }: Props) {
+export default function MobileUpcomingView({ tasks, loading, onComplete, onOpenTask, areas, effortConfig }: Props) {
   const today = new Date().toISOString().split("T")[0];
 
   // Placeholder only on first load; reloads reconcile in place (no flash).
@@ -40,7 +48,7 @@ export default function MobileUpcomingView({ tasks, loading, onComplete, onOpenT
     return <div style={styles.empty}>Loading...</div>;
   }
 
-  const groups = buildGroups(tasks, today);
+  const groups = buildGroups(tasks, today, effortConfig ?? DEFAULT_EFFORT_CONFIG);
 
   if (groups.length === 0) {
     return (

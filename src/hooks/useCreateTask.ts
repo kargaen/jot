@@ -27,6 +27,9 @@ const PRIORITY_CYCLE: Array<Task["priority"]> = [
   "high",
 ];
 
+// EPIC-013: null = no effort set, then light → medium → heavy, cycling back to null.
+const EFFORT_CYCLE: Array<Task["effort"]> = [null, "light", "medium", "heavy"];
+
 export function useCreateTask({
   parentTaskId,
   projectId,
@@ -49,6 +52,7 @@ export function useCreateTask({
   const [metaDueTime, setMetaDueTime] = useState<string | null>(null);
   const [metaDateText, setMetaDateText] = useState("");
   const [metaPriority, setMetaPriority] = useState<Task["priority"]>("none");
+  const [metaEffort, setMetaEffort] = useState<Task["effort"]>(null);
   const [metaRecurrenceRule, setMetaRecurrenceRule] = useState<string | null>(
     null,
   );
@@ -61,6 +65,7 @@ export function useCreateTask({
   const projectFieldRef = useRef<HTMLInputElement>(null);
   const dateFieldRef = useRef<HTMLInputElement>(null);
   const priorityFieldRef = useRef<HTMLInputElement>(null);
+  const effortFieldRef = useRef<HTMLInputElement>(null);
   const recurrenceFieldRef = useRef<HTMLInputElement>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const languageMode = loadNlpLanguageMode();
@@ -76,6 +81,7 @@ export function useCreateTask({
         setMetaDateText("");
       }
       if (!ue.has("priority")) setMetaPriority("none");
+      if (!ue.has("effort")) setMetaEffort(null);
       if (!ue.has("recurrence")) setMetaRecurrenceRule(null);
       return;
     }
@@ -95,6 +101,7 @@ export function useCreateTask({
       );
     }
     if (!ue.has("priority")) setMetaPriority(parsed.priority);
+    if (!ue.has("effort")) setMetaEffort(parsed.effort);
     if (!ue.has("recurrence")) setMetaRecurrenceRule(parsed.recurrenceRule);
   }, [parsed]);
 
@@ -161,6 +168,14 @@ export function useCreateTask({
     markEdited("priority");
   }
 
+  function cycleEffort() {
+    setMetaEffort((prev) => {
+      const idx = EFFORT_CYCLE.indexOf(prev);
+      return EFFORT_CYCLE[(idx + 1) % EFFORT_CYCLE.length];
+    });
+    markEdited("effort");
+  }
+
   function commitDateText() {
     if (!metaDateText) {
       setMetaDueDate(null);
@@ -208,6 +223,7 @@ export function useCreateTask({
           dueDate: metaDueDate,
           dueTime: metaDueTime,
           priority: metaPriority,
+          effort: metaEffort,
           recurrenceRule: metaRecurrenceRule,
           tagIds: [],
           canCreateProjectsAndTags,
@@ -245,12 +261,14 @@ export function useCreateTask({
     metaProjectName,
     metaDateText,
     metaPriority,
+    metaEffort,
     metaRecurrenceRule,
     inputEl,
     titleFieldRef,
     projectFieldRef,
     dateFieldRef,
     priorityFieldRef,
+    effortFieldRef,
     recurrenceFieldRef,
     editButtonRef,
     setMetaTitle,
@@ -258,6 +276,7 @@ export function useCreateTask({
     setMetaDateText,
     markEdited,
     cyclePriority,
+    cycleEffort,
     commitDateText,
     handleInputChange,
     handleSave,

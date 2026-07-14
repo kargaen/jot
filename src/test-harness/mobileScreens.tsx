@@ -45,7 +45,7 @@ function makeTask(over: Partial<TaskWithTags> & { id: string; title: string }): 
     user_id: "u1", project_id: "p1", area_id: null, parent_task_id: null,
     description: null, icon: null, notes: null, status: "todo", priority: "none",
     responsible_user_id: null, responsible_email: null, due_date: null, due_time: null,
-    scheduled_date: null, recurrence_rule: null, estimated_mins: null, sort_order: 0,
+    scheduled_date: null, recurrence_rule: null, estimated_mins: null, effort: null, sort_order: 0,
     completed_at: null, created_at: "2026-06-01", updated_at: "2026-06-01", tags: [],
     ...over,
   };

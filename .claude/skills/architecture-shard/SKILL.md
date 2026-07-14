@@ -31,13 +31,13 @@ CODEOWNERS can enforce, rather than a paragraph asking nicely.
 ```text
 ARCHITECTURE.md                  # index + north star + write policy. Always read.
 architecture/
-├── constitution/                # CODEOWNERS: zone owners. Agents: read-only.
+├── constitution/                # CODEOWNERS: owners. Read-only to agents, enforced at merge.
 │   ├── 01-guiding-principles.md
 │   └── ...
 ├── description/                 # Written only by epic-closeout. Reactionary.
 │   ├── 03-repository-structure.md
 │   └── ...
-└── 25-change-history.md         # neither; append-only
+└── NN-change-history.md         # neither; append-only. NN = its original number
 ```
 
 Three classes, three locations. If a section fits none, do not shard it — ask.
@@ -66,6 +66,8 @@ and description. These are the valuable splits; they were hiding a write-policy 
 
 ### 3. Move verbatim
 
+First: `cp ARCHITECTURE.md ARCHITECTURE.md.bak` — the verification target.
+
 Copy prose unchanged. Resist every improvement. A shard that also edits cannot be reviewed,
 because the diff shows everything as new.
 
@@ -83,13 +85,17 @@ One line per file. The filename carries the meaning; the line disambiguates.
 
 - Every original section number appears in exactly one filename, or two with `a`/`b`.
 - Every internal cross-reference resolves.
-- Concatenating the shards reproduces the original prose. Diff it.
+- Concatenating the shards **in index order** reproduces the original prose. Directory
+  glob order is wrong — constitution and description sections interleave. Read the file
+  column of the index table, top to bottom:
 
 ```bash
-cat architecture/*/*.md | diff - <(sed -n '/^## 1\./,$p' ARCHITECTURE.md.bak) || true
+grep -o '`[^`]*\.md`' ARCHITECTURE.md | tr -d '`' | xargs cat | \
+  grep -v '^#' | diff - <(grep -v '^#' ARCHITECTURE.md.bak)
 ```
 
-Differences should be headers and nothing else. Any prose difference is a bug.
+Headers are stripped on both sides; any remaining difference is prose, and any prose
+difference is a bug. Delete `ARCHITECTURE.md.bak` only after this passes.
 
 ### 6. Stop
 

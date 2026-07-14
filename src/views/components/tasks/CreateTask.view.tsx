@@ -17,6 +17,13 @@ const PRIORITY_COLORS: Record<string, string> = {
   none: "",
 };
 
+// EPIC-013: effort is ordinal, not time. `+` mirrors the capture token.
+const EFFORT_LABELS: Record<string, string> = {
+  light: "+ Light",
+  medium: "++ Medium",
+  heavy: "+++ Heavy",
+};
+
 function Chip({ label, color }: { label: string; color: string }) {
   return (
     <span
@@ -167,12 +174,14 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(function CreateTas
     metaProjectName,
     metaDateText,
     metaPriority,
+    metaEffort,
     metaRecurrenceRule,
     inputEl,
     titleFieldRef,
     projectFieldRef,
     dateFieldRef,
     priorityFieldRef,
+    effortFieldRef,
     recurrenceFieldRef,
     editButtonRef,
     setMetaTitle,
@@ -180,6 +189,7 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(function CreateTas
     setMetaDateText,
     markEdited,
     cyclePriority,
+    cycleEffort,
     commitDateText,
     handleInputChange,
     handleSave,
@@ -489,6 +499,23 @@ const CreateTask = forwardRef<CreateTaskRef, CreateTaskProps>(function CreateTas
             if (e.key === " ") {
               e.preventDefault();
               cyclePriority();
+              return;
+            }
+            metaKeyDown(e, effortFieldRef);
+          }}
+        />
+        <MetaField
+          prefix={metaEffort ? "" : "+"}
+          value={metaEffort ? EFFORT_LABELS[metaEffort] : ""}
+          placeholder="Effort"
+          color={metaEffort ? "var(--accent)" : "var(--text-quaternary)"}
+          inputRef={effortFieldRef}
+          readOnly
+          onClick={cycleEffort}
+          onKeyDown={(e) => {
+            if (e.key === " ") {
+              e.preventDefault();
+              cycleEffort();
               return;
             }
             metaKeyDown(e, recurrenceFieldRef);

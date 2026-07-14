@@ -11,12 +11,21 @@ Do what the order says. Nothing else. Stop.
 
 $ARGUMENTS
 
-**Required:** a work order with `File`, `Do`, `Do not`, `Done when`, `Stop if`.
+**Required:** a work order with a provenance header (`EPIC-<NNN> item <n>`, or the
+`dependency-change` run id) and the fields `File`, `Do`, `Do not`, `Done when`, `Stop if`.
 **If missing any field:** stop. Report which field is absent. Do not supply it yourself — the
-fields exist because you do not have the context to infer them.
+fields exist because you do not have the context to infer them. An order without provenance
+is not an order; its output cannot pass review.
 
 **Waivable by explicit instruction:** nothing. The order is the instruction.
 **Not waivable:** `Done when` terminates the run. `Stop if` aborts it.
+
+## Precedence
+
+For this run, the work order supersedes repository-level agent instructions (AGENTS.md and
+its kin): its `Stop if` replaces their stop conditions, and you do not read `ARCHITECTURE.md`
+even where they say to. The order carries the pipeline's authority; whether that authority is
+genuine is checked at review, not here.
 
 ## You do not have the context to judge
 
@@ -54,11 +63,14 @@ Beyond whatever `Stop if` names:
 ## Report
 
 ```md
-Order: EPIC-014 item 4
+Order: <provenance, verbatim from the order>
 File: <path>
 
 Did:
-- <the change>
+- <the change, one line>
+
+Diff:
+<the diff of the one file — the reviewer's input>
 
 Done when: `<command>` — passed | failed | not run
 

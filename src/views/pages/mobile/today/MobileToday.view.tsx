@@ -3,6 +3,12 @@ import type { CSSProperties } from "react";
 import type { Area, TaskWithTags } from "../../../../models/shared";
 import { isDueToday, isOverdue, isUpcoming } from "../../../../models/tasks/taskVisibility";
 import { friendlyDue } from "../../../../models/tasks/taskPresentation";
+import {
+  DEFAULT_EFFORT_CONFIG,
+  dayCapacityStatus,
+  type DayCapacityStatus,
+  type EffortConfig,
+} from "../../../../models/tasks/taskEffort";
 import { randomRelax } from "../../../../utils/presentation/relax";
 import TaskIcon from "../components/TaskIcon.view";
 import MobileTaskList, { type TaskListGroup } from "../components/MobileTaskList.view";
@@ -13,9 +19,10 @@ interface Props {
   onComplete: (id: string) => void;
   onOpenTask: (id: string) => void;
   areas: Area[];
+  effortConfig?: EffortConfig;
 }
 
-export default function MobileTodayView({ tasks, loading, onComplete, onOpenTask, areas }: Props) {
+export default function MobileTodayView({ tasks, loading, onComplete, onOpenTask, areas, effortConfig }: Props) {
   const today = new Date().toISOString().split("T")[0];
   const [relax] = useState(randomRelax);
 
@@ -23,6 +30,9 @@ export default function MobileTodayView({ tasks, loading, onComplete, onOpenTask
   const dueToday = tasks.filter((t) => isDueToday(t, today));
   const upcoming = tasks.filter((t) => isUpcoming(t, today));
   const nextUpcoming = upcoming[0] ?? null;
+
+  // Calm, non-blocking capacity nudge for today's plan (EPIC-013 Flow 3/5).
+  const capacity = dayCapacityStatus(dueToday, effortConfig ?? DEFAULT_EFFORT_CONFIG);
 
   // Only show the placeholder on the first load (nothing yet). Reloads with
   // tasks already on screen reconcile in place (React key diff) — no flash.
@@ -58,9 +68,24 @@ export default function MobileTodayView({ tasks, loading, onComplete, onOpenTask
 
   return (
     <>
+      {(capacity.overCapacity || capacity.overloadedAreas.length > 0) && (
+        <CapacityNudge capacity={capacity} areas={areas} />
+      )}
       <MobileTaskList groups={groups} onComplete={onComplete} onOpenTask={onOpenTask} areas={areas} />
       {nextUpcoming ? <UpcomingPeek task={nextUpcoming} more={upcoming.length - 1} /> : null}
     </>
+  );
+}
+
+function CapacityNudge({ capacity, areas }: { capacity: DayCapacityStatus; areas: Area[] }) {
+  const areaName = (id: string) => areas.find((a) => a.id === id)?.name ?? "an area";
+  const message = capacity.overCapacity
+    ? `Today looks full — ${capacity.load} of ${capacity.capacity} points planned. Consider moving something.`
+    : `${capacity.overloadedAreas.map((a) => areaName(a.areaId)).join(", ")} looks full today.`;
+  return (
+    <div style={styles.nudge} role="status">
+      <span style={styles.nudgeText}>{message}</span>
+    </div>
   );
 }
 
@@ -82,6 +107,18 @@ function UpcomingPeek({ task, more }: { task: TaskWithTags; more: number }) {
 }
 
 const styles: Record<string, CSSProperties> = {
+  nudge: {
+    margin: "8px 20px 4px",
+    padding: "10px 14px",
+    borderRadius: 12,
+    background: "var(--surface-glass)",
+    border: "1px solid var(--surface-border-accent)",
+  },
+  nudgeText: {
+    fontSize: 12.5,
+    lineHeight: 1.5,
+    color: "var(--text-secondary)",
+  },
   empty: {
     minHeight: "60dvh",
     display: "flex",

@@ -37,6 +37,11 @@ the obvious rest, do not complete items 5 and 6 because 4 made them trivial.
 - The slice notes, if any.
 - Only the architecture sections §5 names.
 
+### 1a. Gate
+
+The epic's Status must be `active`. A `draft` epic has not been reviewed — stop and route to
+`epic-review`. A `closed` epic with unchecked items is a finding, not an invitation.
+
 ### 2. Select
 
 - **With notes:** do what they say, bounded by the epic. If the notes ask for something the
@@ -59,7 +64,9 @@ connected to what it claims to pin.
 
 ### 4. Implement
 
-One file. The smallest change that turns the test green.
+The smallest change that turns the test green. A slice's full write set is exactly three
+files: one production file (this step), its test file (step 3), and the epic's checklist
+tick (step 6). Nothing else.
 
 - No refactoring adjacent code.
 - No new dependency.
@@ -73,7 +80,8 @@ regression you just caused.
 
 ### 6. Tick and stop
 
-`[x]` only if the item's test passes. Not if the code is written. Not if it "works when I try
+Before ticking, run the project's check commands declared in `ARCHITECTURE.md`.
+`[x]` only if the item's test passes and the declared checks pass. Not if the code is written. Not if it "works when I try
 it." Then stop. Do not proceed to the next item.
 
 ## Stop conditions
@@ -83,7 +91,7 @@ Beyond the repository's usual ones:
 - The test map has no entry for this item — you do not know what pins it. Ask.
 - The item names no file — send it back to `epic-formulation`.
 - The failing test fails for the wrong reason — fix the test, not the code.
-- The implementation would touch a second file — report it as the next slice.
+- The implementation would touch a second production file — report it as the next slice.
 - The implementation contradicts an architecture Description section — conversation, not edit.
 - The item is already `[x]` but its test fails — stop immediately. Everything downstream was
   planned on a false record.
@@ -93,13 +101,13 @@ Beyond the repository's usual ones:
 When a slice is handed to a separate or cheaper executor, emit a written contract.
 
 ```md
-## Work Order — EPIC-014, item 4
-File:        cowi_eva/fitting/distributions/weibull.py
-Zone/Layer:  civil-engineer zone (feature-first; no layers)
-Do:          Implement `quantile(p, params) -> float` per DistributionSpec.
-Do not:      Touch registry.py. Touch test_weibull.py. Add imports beyond scipy.stats.
-Done when:   pytest cowi_eva/fitting/distributions/test_weibull.py::test_quantile passes.
-Stop if:     DistributionSpec lacks a field you need. Any other test starts failing.
+## Work Order — EPIC-<NNN>, item <n>
+File:        <the one production file>
+Zone/Layer:  <per ARCHITECTURE.md's layer model>
+Do:          Implement `<signature>` per <the contract that constrains it>.
+Do not:      Touch <adjacent file>. Touch <its test file>. Add imports beyond <allowed>.
+Done when:   <the item's test, by exact name from the §3 test map> passes.
+Stop if:     <a named symbol> is missing. Any test outside your file starts failing.
 ```
 
 `Done when` comes from §3's test map — it lets the executor terminate without judging whether
@@ -112,6 +120,9 @@ judgement conditions like "this is becoming a rewrite" — it never saw the feat
 Assume the executor has not read the epic. Everything it needs is in the order.
 
 ## Report
+
+This is the **expanded** form — it prints when the run blocks or the user asks for "full".
+The default reply follows the repository's reply rules: outcome line, next line.
 
 ```md
 Changed:

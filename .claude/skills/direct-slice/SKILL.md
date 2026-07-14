@@ -43,9 +43,11 @@ exist. If writing the test requires inventing a contract, triage was wrong. Stop
 2. **Run it. Watch it fail.** Confirm it fails for the expected reason — not an import error,
    not a missing fixture. A test that passes before the fix has not reproduced anything, and
    the bug is elsewhere.
-3. **Fix one file.** The smallest change that turns it green.
+3. **Fix one file.** The smallest change that turns it green. The slice's full write set is
+   one production file plus the test file from step 1 — nothing else.
 4. **Run the test, then the file's existing test module.** The smallest suite that would catch
-   a regression you just caused.
+   a regression you just caused. Before reporting, run the project's check commands declared in
+   `ARCHITECTURE.md`.
 5. **Stop.** Report.
 
 No ticking, no checklist, no Change History row. Nothing here is epic state.
@@ -55,7 +57,7 @@ No ticking, no checklist, no Change History row. Nothing here is epic state.
 Stop and hand back to `change-triage` if, mid-slice:
 
 - The fix requires a new contract — route, artifact field, registry key, spec field.
-- The fix requires touching a second zone.
+- The fix requires touching a second architectural layer, per `ARCHITECTURE.md`'s layer model.
 - The fix would change what an architecture Description section says. **A direct slice that
   changes the architecture is a triage failure.** Do not amend the document, do not open
   `epic-closeout`. Report the disagreement.
@@ -69,17 +71,20 @@ Escalating mid-slice is expected and cheap. Discovering the escalation after mer
 
 - Do not refactor adjacent code. Record a finding.
 - Do not fix an unrelated failing test. Record a finding.
-- Do not add a dependency. That is `dependency-change`, and it forces an epic.
+- Do not add a dependency. That is `dependency-change`, which decides the route.
 - Do not batch a second obvious fix into the same run.
 
 ## Report
+
+This is the **expanded** form — it prints when the run blocks or the user asks for "full".
+The default reply follows the repository's reply rules: outcome line, next line.
 
 ```md
 Fixed:
 - <file>: <the exact change>
 
 Authority:
-- ARCHITECTURE.md §7 — orchestration is the only layer that combines api/, core/, state/.
+- <ARCHITECTURE.md section / shipped epic flow / test authority — quoted>
 
 Test:
 - <test name>: reproduced the bug, then passed

@@ -11,6 +11,7 @@ export interface TaskCreationDraft {
   dueDate?: string | null;
   dueTime?: string | null;
   priority?: Task["priority"];
+  effort?: Task["effort"];
   recurrenceRule?: string | null;
   tagIds?: string[];
 }
@@ -53,6 +54,7 @@ export function buildCreateTaskInput(
     dueDate: draft.dueDate ?? null,
     dueTime: draft.dueTime ?? null,
     priority: draft.priority ?? "none",
+    effort: draft.effort ?? null,
     recurrenceRule: draft.recurrenceRule ?? null,
     tagIds: draft.tagIds ?? [],
   };
