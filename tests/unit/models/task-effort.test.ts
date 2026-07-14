@@ -7,6 +7,7 @@ import {
   dayLoad,
   isOverCapacity,
   overCapacityAreas,
+  dayCapacityStatus,
   type EffortConfig,
   type EffortLevel,
 } from "../../../src/models/tasks/taskEffort";
@@ -105,6 +106,26 @@ assertEqual(
     perArea,
   ),
   [],
+);
+
+// ── dayCapacityStatus composite (EPIC-013 item 7) ──
+assertEqual(
+  "status: under capacity, no area caps",
+  dayCapacityStatus([areaTask("work", "medium")], DEFAULT_EFFORT_CONFIG),
+  { load: 2, capacity: 8, overCapacity: false, overloadedAreas: [] },
+);
+assertEqual(
+  "status: over daily + over area, both reported",
+  dayCapacityStatus(
+    [areaTask("work", "heavy"), areaTask("work", "heavy")],
+    { weights: { light: 1, medium: 2, heavy: 4 }, dailyCapacity: 6, areaCapacities: { work: 4 } },
+  ),
+  {
+    load: 8,
+    capacity: 6,
+    overCapacity: true,
+    overloadedAreas: [{ areaId: "work", load: 8, capacity: 4 }],
+  },
 );
 
 if (failures > 0) {

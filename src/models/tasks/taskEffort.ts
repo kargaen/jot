@@ -54,6 +54,27 @@ export function isOverCapacity(
   return dayLoad(tasks, config) > config.dailyCapacity;
 }
 
+// The whole capacity picture for one day's tasks — the calm-warning surfaces (Today,
+// Upcoming) render from this rather than recomputing pieces.
+export interface DayCapacityStatus {
+  load: number;
+  capacity: number;
+  overCapacity: boolean;
+  overloadedAreas: AreaOverload[];
+}
+
+export function dayCapacityStatus(
+  tasks: ReadonlyArray<{ effort?: EffortLevel | null; area_id?: string | null }>,
+  config: EffortConfig,
+): DayCapacityStatus {
+  return {
+    load: dayLoad(tasks, config),
+    capacity: config.dailyCapacity,
+    overCapacity: isOverCapacity(tasks, config),
+    overloadedAreas: overCapacityAreas(tasks, config),
+  };
+}
+
 // Areas whose day-load exceeds their own configured capacity. Only areas listed in
 // config.areaCapacities can appear; an area without a configured cap never warns (it
 // counts only toward the daily total). Same strict-exceeds rule as the daily check.

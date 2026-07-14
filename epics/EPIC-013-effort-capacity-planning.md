@@ -159,8 +159,11 @@ first, model predicate second, surfaces last — one file per item when sliced.
        `supabase.service.ts`, `metaEffort`/`cycleEffort` in `useCreateTask.ts`, and a
        click-to-cycle "+/++/+++" effort MetaField in `CreateTask.view.tsx`. tsc + full
        build green. (Visual rendering not unit-tested per §3; covered by build + manual.)
-[ ] 7. Over-capacity warning in Today/Upcoming surfaces — done when Flow 3 is exercisable
-       and `npm test` passes
+[x] 7. Over-capacity warning in Today/Upcoming surfaces — `dayCapacityStatus()` composite
+       in `taskEffort.ts` (pinned in `task-effort.test.ts`); route containers load the
+       config and pass it down (views stay pure); `MobileToday.view.tsx` renders a calm
+       non-blocking nudge (naming over-cap areas), `MobileUpcoming.view.tsx` marks
+       over-capacity day-groups "· full". tsc + full build green.
 [x] 8. (added 2026-07-12) Per-area capacity: failing test for area-scoped load vs.
        area capacity, config extended with optional per-area entries — added per-area
        cases to `task-effort.test.ts` + a round-trip case to `effort-config.test.ts`;

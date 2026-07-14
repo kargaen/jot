@@ -1,6 +1,7 @@
 import { useNavigate, useOutletContext } from "react-router-dom";
 import type { AppOutletContext } from "./AppLayout.route";
 import MobileUpcomingView from "../views/pages/mobile/upcoming/MobileUpcoming.view";
+import { loadEffortConfig } from "../utils/preferences/effortConfig";
 
 // Route container: reads shared app data from the layout's Outlet and feeds the
 // Upcoming view. Opening a task navigates to its detail route.
@@ -15,6 +16,7 @@ export default function UpcomingRoute() {
       onComplete={onComplete}
       onOpenTask={(id) => navigate(`/tasks/${id}`)}
       areas={data.areas}
+      effortConfig={loadEffortConfig()}
     />
   );
 }
