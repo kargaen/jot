@@ -1,6 +1,6 @@
 # EPIC-013: Effort-based capacity planning
 
-**Status:** active
+**Status:** closed
 **Created:** 2026-07-12
 **Architecture baseline:** f774c93
 
