@@ -118,10 +118,12 @@ Serializer/contract slices first (they pin the data), then UI coverage, then the
        deep-clean within each task, envelope frame kept, interface renamed `JotExportV2`,
        `tasks: Array<Partial<JotExportTask>>`. Conduit inherits it (returns the same output).
        Wired into `test:tasks`; tsc + full suite green.
-[ ] 4. Add failing golden test for the Markdown renderer — done when it fails for the right reason
-[ ] 5. Implement `renderMarkdown(export: JotExportV1): string` in
-       `src/models/export/jotExport.ts` (derived from the serializer output, no second data
-       source) — done when test 4 passes
+[x] 4. Golden test for the Markdown renderer — appended to `task-export.test.ts` (derived
+       human view: ids/timestamps/estimated_mins omitted, `priority: none` skipped, singular
+       header); observed red on the missing `renderMarkdown` export.
+[x] 5. `renderMarkdown(exported: JotExportV2): string` in `src/models/export/jotExport.ts` —
+       pure, import-free, reformats the serializer's already-stripped output (no second data
+       source, §11a). Test 4 passes; tsc green.
 [ ] 6. Introduce the "list exposes its tasks" contract on the shared list component
        (`MobileTaskList.view.tsx` and/or the desktop list) — done when a container can read a
        surface's task set through it, pinned by a small render/prop test

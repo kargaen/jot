@@ -138,6 +138,36 @@ export function serializeTasks(tasks: ExportableTask[], exportedAt?: string): Jo
   };
 }
 
+/**
+ * Renders a JotExport envelope as human-readable Markdown for clipboard paste.
+ * A derived presentation of `serializeTasks`' output (§11a) — NOT a second data
+ * source: it only reformats what the serializer already produced. Ids, timestamps,
+ * and `estimated_mins` are omitted as non-human; `priority: "none"` is skipped as
+ * noise. Absent keys (already dropped by v2) simply produce no line.
+ */
+export function renderMarkdown(exported: JotExportV2): string {
+  const n = exported.task_count;
+  const lines: string[] = [`# Jot export (${n} task${n === 1 ? "" : "s"})`];
+
+  for (const task of exported.tasks) {
+    lines.push("", `## ${task.title ?? "(untitled)"}`);
+    const row = (label: string, value: string | undefined | null) => {
+      if (value) lines.push(`- ${label}: ${value}`);
+    };
+    row("Status", task.status);
+    row("Priority", task.priority && task.priority !== "none" ? task.priority : null);
+    row("Project", task.project ? task.project.name ?? task.project.id : null);
+    row("Due", task.due_date ? task.due_date + (task.due_time ? ` ${task.due_time}` : "") : null);
+    row("Scheduled", task.scheduled_date);
+    row("Repeat", task.recurrence_rule);
+    row("Tags", task.tags && task.tags.length > 0 ? task.tags.map((t) => t.name).join(", ") : null);
+    row("Notes", task.notes);
+    row("Details", task.description_text);
+  }
+
+  return lines.join("\n");
+}
+
 function serializeTask(task: ExportableTask): JotExportTask {
   return {
     id: task.id,

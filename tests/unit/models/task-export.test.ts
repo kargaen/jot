@@ -1,7 +1,7 @@
 // Pins EPIC-014 items 2/3: JotExport v2 — version bump + empty omission.
 // "Empty" (Q3) = null/undefined, empty string, empty array, empty object.
 // Numbers (incl. 0) and booleans are meaningful and kept.
-import { serializeTasks, type ExportableTask } from "../../../src/models/export/jotExport";
+import { serializeTasks, renderMarkdown, type ExportableTask } from "../../../src/models/export/jotExport";
 
 let failures = 0;
 function assertEqual<T>(label: string, actual: T, expected: T) {
@@ -78,6 +78,34 @@ assertEqual("empty export keeps the envelope frame", serializeTasks([], AT), {
   task_count: 0,
   tasks: [],
 });
+
+// ── Markdown rendering (EPIC-014 items 4/5) ──
+// Derived from the serialized (stripped) output; ids/timestamps/estimated_mins are
+// omitted as non-human, priority "none" is skipped as noise.
+const md = renderMarkdown(serializeTasks([sparse, full], AT));
+const expectedMd = [
+  "# Jot export (2 tasks)",
+  "",
+  "## Buy milk",
+  "- Status: todo",
+  "- Priority: high",
+  "- Due: 2026-08-01",
+  "",
+  "## Ship",
+  "- Status: completed",
+  "- Project: House",
+  "- Scheduled: 2026-07-20",
+  "- Tags: home",
+  "- Notes: manual note",
+  "- Details: note body",
+].join("\n");
+assertEqual("markdown renders derived human view", md, expectedMd);
+
+assertEqual(
+  "markdown singular header for one task",
+  renderMarkdown(serializeTasks([sparse], AT)).split("\n")[0],
+  "# Jot export (1 task)",
+);
 
 if (failures > 0) {
   console.error(`\nTask export tests: ${failures} failed`);
