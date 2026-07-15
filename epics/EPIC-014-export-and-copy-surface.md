@@ -2,7 +2,7 @@
 
 **Status:** active
 **Created:** 2026-07-14
-**Architecture baseline:** 0bab9c1
+**Architecture baseline:** 83af2d9
 
 **Source:** owner decisions, 2026-07-14:
 
