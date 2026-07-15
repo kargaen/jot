@@ -1,0 +1,165 @@
+# EPIC-014: Export & copy surface
+
+**Status:** draft
+**Created:** 2026-07-14
+**Architecture baseline:** 0bab9c1
+
+**Source:** owner decisions, 2026-07-14:
+
+> two buttons or maybe a small menu on the existing copy button to pick between json and Markdown.
+> I am missing the button on a *project* list and *area* list. probably also on subtask level…
+> any list view/component should expose a list of tasks that the container of the component can
+> grab and expose to the copy mechanism.
+> dropping empty entries should be the new norm. consumers have to be as resilient that they
+> don't break if something is missing.
+
+Grounded state (verified 2026-07-14):
+- The "copy as JSON" header action exists only in the **mobile** AppShell, driven by a route
+  `handle: { exportTasks }`. Present on today/upcoming/all/logbook/space/project; absent on the
+  overdue/inbox stubs.
+- **Desktop** (`Dashboard.view.tsx`, the main multi-window surface) has **no** copy affordance on
+  any list. Subtask lists (in TaskDetail) have none either.
+- `src/models/export/jotExport.ts` is the single serializer, shared by the clipboard action **and**
+  the Conduit edge function (§11a Constitution; §11b Description). Any output-shape change is an
+  external Conduit API change.
+
+---
+
+## 1. BDD — User Flows
+
+### Flow 1: Copy from any task list
+
+```gherkin
+Given any surface that shows a list of tasks (Today, Upcoming, All, Logbook, an area, a project,
+      a task's subtasks, and the desktop lists)
+When the user triggers copy on that list
+Then the clipboard receives that list's tasks in the chosen format
+And a list the user is looking at never lacks the affordance while another list has it
+```
+
+### Flow 2: Choose JSON or Markdown
+
+```gherkin
+Given the copy affordance on a task list
+When the user picks a format (JSON or Markdown)
+Then JSON yields the machine JotExport payload
+And Markdown yields a human-readable rendering of the same tasks
+And the chosen format is remembered as the default for next time
+```
+
+### Flow 3: Empty fields are omitted
+
+```gherkin
+Given a task with no due date, no notes, no project, and no effort
+When it is exported (JSON, and via the Conduit API)
+Then keys for those absent values are omitted entirely rather than emitted as null
+And a consumer reading a present key always gets a meaningful value
+```
+
+**Out of scope for this epic:**
+- Which tasks each list contains — this epic copies whatever the list already shows.
+- New export *destinations* (save-to-file, Android share sheet) — that is EPIC-008.
+- Auth, tokens, or the Conduit security boundary.
+- A round-trip *import* of Markdown — Markdown is export-only, human-facing.
+- Bumping the JotExport version number — parked as Q2 (a decision, not an omission).
+
+---
+
+## 2. Function Call Signatures
+
+*(deferred to revision 2 — the one contract worth pinning early is that Markdown is produced
+from the serializer's output, `renderMarkdown(export: JotExportV1) -> string`, so no second data
+source of truth exists. Confirm against §11a first, see Q1.)*
+
+---
+
+## 3. TDD — Testing Strategy
+
+### Authority for correctness
+
+| Under test | Authority |
+|---|---|
+| JSON output with empty keys dropped | Legacy application output — the existing `serializeTasks` golden output with null/empty keys removed; a golden fixture in the export test pins it |
+| Markdown rendering | `authority TBD` — no external standard; this epic defines the target Markdown shape as a golden fixture, and that fixture is the authority. Blocked on Q1 (§11a). |
+| Empty-key omission rule (what counts as "empty": null scalars, and empty arrays?) | This epic's stated rule — decided in Q3, then a golden fixture |
+| Copy on each new surface (area, project, subtask, desktop) | Legacy parity — reproduces the mobile export behaviour on the new surface; the serializer output is identical for the same task set |
+
+### Test map
+
+| Flow | Function call | Authority | Fixture | Tolerance |
+|---|---|---|---|---|
+| 3 | `serializeTasks` (empties dropped) | legacy output minus empties | `tests/unit/models/` golden | exact |
+| 2 | Markdown renderer | this epic's golden (Q1-gated) | `tests/unit/models/` golden | exact |
+| 1 | per-surface task exposure → serializer | legacy parity | reuse export fixtures | exact string |
+
+### What is deliberately not tested
+
+The picker's visual design; clipboard permission behaviour on each OS; exact Markdown
+typography beyond the pinned golden.
+
+---
+
+## 4. Checklist
+
+Serializer/contract slices first (they pin the data), then UI coverage, then the picker.
+
+```md
+[ ] 1. Decide the empty-omission rule (Q3): null scalars only, or also empty arrays/objects —
+       done when recorded here
+[ ] 2. Add failing golden test for `serializeTasks` with empties dropped in
+       `tests/unit/models/task-export.test.ts` — done when it fails for the right reason
+[ ] 3. Implement empty-key omission in `src/models/export/jotExport.ts` — done when test 2 passes
+[ ] 4. (§11a-gated, Q1) Add failing golden test for the Markdown renderer — done when it fails
+       for the right reason
+[ ] 5. (§11a-gated, Q1) Implement `renderMarkdown` in `src/models/export/jotExport.ts` (derived
+       from `JotExportV1`, no second data source) — done when test 4 passes
+[ ] 6. Introduce the "list exposes its tasks" contract on the shared list component
+       (`MobileTaskList.view.tsx` and/or the desktop list) — done when a container can read a
+       surface's task set through it, pinned by a small render/prop test
+[ ] 7. Wire copy onto the area and project surfaces on desktop — done when Flow 1 is exercisable
+       there and the build is green
+[ ] 8. Wire copy onto the subtask list surface — done when Flow 1 is exercisable there
+[ ] 9. Add the JSON/Markdown picker affordance to the copy control (+ remembered default in a
+       preference) — done when Flow 2 is exercisable and `npm test` passes
+```
+
+---
+
+## 5. Summary
+
+### Architecture impact
+
+- [ ] No change to ARCHITECTURE.md expected
+- [x] Amends Description sections: §11b (Conduit response shape — empty keys omitted), and §10 /
+  the list-exposure pattern once it ships
+- [ ] **Requires a Constitution change** — see the top-line flag below
+
+**Top-line flag (read first):** the Markdown slices (items 4–5) sit against **§11a**
+(Constitution): *"Never hand-roll a second serialization format."* This epic's design keeps
+Markdown as a pure **presentation derived from** the single `serializeTasks` output — the JSON
+JotExport stays the one data source of truth, and Conduit still emits only JSON. Whether that
+satisfies §11a's wording is a **human decision** (Q1). If the owner reads §11a as forbidding any
+second output format, §11a needs a one-line clarification first (a Constitution edit only a human
+may make), and items 4–5 are blocked until then. Items 1–3 and 6–9 do **not** depend on it.
+
+### North star deviation
+
+§0: "Capture is never more than a moment away… No feature, layer, or dependency may sit between
+the user and capture." This epic is about getting tasks *out*, the mirror of capture, and adds no
+friction to capture. Dropping empty keys and covering every list make output cleaner and more
+uniform — aligned, no deviation.
+
+### Open questions
+
+| # | Question | Blocks | Decision needed by |
+|---|---|---|---|
+| Q1 | Does §11a permit a derived Markdown presentation, or does it need a human clarification first? | Items 4–5 only | Before item 4 |
+| Q2 | Bump JotExport to v2 on the shape change, or keep `version: 1` and document empties-omitted? | Item 3's fixture wording | Item 2 |
+| Q3 | "Empty" = null scalars only, or also empty arrays (`tags: []`) and empty objects? | Items 1–3 | Item 1 |
+| Q4 | Is the format-default preference global, or per-surface? | Item 9 | Item 9 |
+
+### New capability
+
+Yes — a second, human-readable copy format (Markdown) and a universal per-list copy affordance;
+both are named here because they extend the export surface beyond today's JSON-only, mobile-only
+action.
