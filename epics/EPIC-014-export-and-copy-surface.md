@@ -67,9 +67,14 @@ And a consumer reading a present key always gets a meaningful value
 
 ## 2. Function Call Signatures
 
-*(deferred to revision 2 — the one contract worth pinning early is that Markdown is produced
-from the serializer's output, `renderMarkdown(export: JotExportV1) -> string`, so no second data
-source of truth exists. Confirm against §11a first, see Q1.)*
+The one contract pinned early (Q1 resolved): Markdown is produced from the serializer's output,
+so no second data source of truth exists.
+
+```ts
+function renderMarkdown(export: JotExportV1): string;  // pure; derived presentation only
+```
+
+Remaining helpers deferred to revision 2.
 
 ---
 
@@ -80,8 +85,8 @@ source of truth exists. Confirm against §11a first, see Q1.)*
 | Under test | Authority |
 |---|---|
 | JSON output with empty keys dropped | Legacy application output — the existing `serializeTasks` golden output with null/empty keys removed; a golden fixture in the export test pins it |
-| Markdown rendering | `authority TBD` — no external standard; this epic defines the target Markdown shape as a golden fixture, and that fixture is the authority. Blocked on Q1 (§11a). |
-| Empty-key omission rule (what counts as "empty": null scalars, and empty arrays?) | This epic's stated rule — decided in Q3, then a golden fixture |
+| Markdown rendering | This epic's golden fixture is the authority (owner delegated the format: "not bothered with the format details", 2026-07-14). Rendered from `JotExportV1`, so it inherits the empty-omission of Q3. |
+| Empty-key omission rule | **Q3 resolved 2026-07-14: drop anything with no meaning — null scalars, empty strings, empty arrays, empty objects.** Golden fixture pins it. |
 | Copy on each new surface (area, project, subtask, desktop) | Legacy parity — reproduces the mobile export behaviour on the new surface; the serializer output is identical for the same task set |
 
 ### Test map
@@ -104,23 +109,24 @@ typography beyond the pinned golden.
 Serializer/contract slices first (they pin the data), then UI coverage, then the picker.
 
 ```md
-[ ] 1. Decide the empty-omission rule (Q3): null scalars only, or also empty arrays/objects —
-       done when recorded here
-[ ] 2. Add failing golden test for `serializeTasks` with empties dropped in
+[x] 1. Empty-omission rule (Q3) — recorded 2026-07-14: drop anything with no meaning (null
+       scalars, empty strings, empty arrays, empty objects). Bump to `version: 2` (Q2).
+[ ] 2. Add failing golden test for `serializeTasks` v2 with empties dropped in
        `tests/unit/models/task-export.test.ts` — done when it fails for the right reason
-[ ] 3. Implement empty-key omission in `src/models/export/jotExport.ts` — done when test 2 passes
-[ ] 4. (§11a-gated, Q1) Add failing golden test for the Markdown renderer — done when it fails
-       for the right reason
-[ ] 5. (§11a-gated, Q1) Implement `renderMarkdown` in `src/models/export/jotExport.ts` (derived
-       from `JotExportV1`, no second data source) — done when test 4 passes
+[ ] 3. Implement empty omission + `version: 2` in `src/models/export/jotExport.ts` — done when
+       test 2 passes
+[ ] 4. Add failing golden test for the Markdown renderer — done when it fails for the right reason
+[ ] 5. Implement `renderMarkdown(export: JotExportV1): string` in
+       `src/models/export/jotExport.ts` (derived from the serializer output, no second data
+       source) — done when test 4 passes
 [ ] 6. Introduce the "list exposes its tasks" contract on the shared list component
        (`MobileTaskList.view.tsx` and/or the desktop list) — done when a container can read a
        surface's task set through it, pinned by a small render/prop test
 [ ] 7. Wire copy onto the area and project surfaces on desktop — done when Flow 1 is exercisable
        there and the build is green
 [ ] 8. Wire copy onto the subtask list surface — done when Flow 1 is exercisable there
-[ ] 9. Add the JSON/Markdown picker affordance to the copy control (+ remembered default in a
-       preference) — done when Flow 2 is exercisable and `npm test` passes
+[ ] 9. Add the JSON/Markdown picker affordance to the copy control + a global remembered default
+       preference (Q4) — done when Flow 2 is exercisable and `npm test` passes
 ```
 
 ---
@@ -134,13 +140,13 @@ Serializer/contract slices first (they pin the data), then UI coverage, then the
   the list-exposure pattern once it ships
 - [ ] **Requires a Constitution change** — see the top-line flag below
 
-**Top-line flag (read first):** the Markdown slices (items 4–5) sit against **§11a**
-(Constitution): *"Never hand-roll a second serialization format."* This epic's design keeps
-Markdown as a pure **presentation derived from** the single `serializeTasks` output — the JSON
-JotExport stays the one data source of truth, and Conduit still emits only JSON. Whether that
-satisfies §11a's wording is a **human decision** (Q1). If the owner reads §11a as forbidding any
-second output format, §11a needs a one-line clarification first (a Constitution edit only a human
-may make), and items 4–5 are blocked until then. Items 1–3 and 6–9 do **not** depend on it.
+**Top-line flag (resolved).** The Markdown slices (items 4–5) sit against **§11a**
+(Constitution): *"Never hand-roll a second serialization format."* Owner decided 2026-07-14
+that Markdown is acceptable **as a presentation derived from** the single `serializeTasks`
+output — the JSON JotExport stays the one data source of truth, Conduit still emits only JSON,
+nothing forks. Under that reading no Constitution change is *required* to proceed. A one-line
+§11a clarification (permitting derived human-presentation formats) would remove future ambiguity,
+but only a human may make that edit — see Action needed. Not a blocker.
 
 ### North star deviation
 
@@ -153,10 +159,10 @@ uniform — aligned, no deviation.
 
 | # | Question | Blocks | Decision needed by |
 |---|---|---|---|
-| Q1 | Does §11a permit a derived Markdown presentation, or does it need a human clarification first? | Items 4–5 only | Before item 4 |
-| Q2 | Bump JotExport to v2 on the shape change, or keep `version: 1` and document empties-omitted? | Item 3's fixture wording | Item 2 |
-| Q3 | "Empty" = null scalars only, or also empty arrays (`tags: []`) and empty objects? | Items 1–3 | Item 1 |
-| Q4 | Is the format-default preference global, or per-surface? | Item 9 | Item 9 |
+| Q1 | ~~§11a and derived Markdown?~~ **Resolved 2026-07-14: accepted as derived presentation; no required Constitution change.** | — | — |
+| Q2 | ~~Version bump?~~ **Resolved 2026-07-14: bump to `version: 2`.** | — | — |
+| Q3 | ~~What is "empty"?~~ **Resolved 2026-07-14: drop anything with no meaning — null/empty scalars, empty arrays, empty objects.** | — | — |
+| Q4 | ~~Default global or per-surface?~~ **Resolved 2026-07-14: global.** | — | — |
 
 ### New capability
 
