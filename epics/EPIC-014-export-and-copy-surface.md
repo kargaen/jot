@@ -124,12 +124,17 @@ Serializer/contract slices first (they pin the data), then UI coverage, then the
 [x] 5. `renderMarkdown(exported: JotExportV2): string` in `src/models/export/jotExport.ts` —
        pure, import-free, reformats the serializer's already-stripped output (no second data
        source, §11a). Test 4 passes; tsc green.
-[ ] 6. Introduce the "list exposes its tasks" contract on the shared list component
-       (`MobileTaskList.view.tsx` and/or the desktop list) — done when a container can read a
-       surface's task set through it, pinned by a small render/prop test
-[ ] 7. Wire copy onto the area and project surfaces on desktop — done when Flow 1 is exercisable
-       there and the build is green
-[ ] 8. Wire copy onto the subtask list surface — done when Flow 1 is exercisable there
+[x] 6. "List exposes its tasks" contract realized as a reusable control: `useCopyTasks.ts`
+       (View→Hook→Controller→Service glue) + `views/components/ui/CopyTasksControl.view.tsx`
+       (props: `tasks`, `onCopied?`). AppShell refactored onto it — which also removed
+       AppShell's prior direct view→service import. tsc + build green. (No render-test: this
+       repo has no React test harness; the copy path is pinned by the controller test, and §3
+       lists visual rendering as not-tested. Finding recorded.)
+[x] 7. Copy on desktop area/project surfaces — `<CopyTasksControl tasks={displayTasks} />` in
+       the desktop Dashboard header; covers today/inbox/area/project (whatever `displayTasks`
+       holds). Build green.
+[x] 8. Copy on the subtask list — `<CopyTasksControl tasks={subtasks} />` in TaskDetail's
+       Subtasks header. Build green.
 [x] 9. JSON/Markdown picker + global remembered default (Q4) — `src/utils/preferences/exportFormat.ts`
        (localStorage `jot_export_format`, JSON default, pinned by `export-format.test.ts`);
        `exportTasksToClipboard(..., format)` dispatches JSON vs `renderMarkdown` (pinned by

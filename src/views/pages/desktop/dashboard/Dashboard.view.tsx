@@ -22,6 +22,7 @@ import CompletionHeatmap from "../../../components/pulse/CompletionHeatmap.view"
 import LogbookRow from "../../../components/tasks/LogbookRow.view";
 import CreateTask from "../../../components/tasks/CreateTask.view";
 import TaskRow from "../../../components/tasks/TaskRow.view";
+import CopyTasksControl from "../../../components/ui/CopyTasksControl.view";
 import DesktopGroupedTaskList from "./DesktopGroupedTaskList.view";
 import { useDashboard, type DashboardView } from "../../../../hooks/useDashboard";
 
@@ -1277,6 +1278,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
           {selectedProject && (
             <div style={{ width: 12, height: 12, borderRadius: "50%", background: projectColor(selectedProject.id) }} />
           )}
+          {displayTasks.length > 0 && <CopyTasksControl tasks={displayTasks} />}
           <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}>
             <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>Pin</span>
             <Toggle on={alwaysOnTop || compact} onToggle={toggleAlwaysOnTop} />

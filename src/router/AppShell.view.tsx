@@ -1,13 +1,10 @@
-import { useState, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { NavLink, Outlet, useMatches, useOutletContext } from "react-router-dom";
-import { CalendarDays, Clipboard, History, List, Plus, Settings as SettingsIcon, Sun } from "lucide-react";
+import { CalendarDays, History, List, Plus, Settings as SettingsIcon, Sun } from "lucide-react";
 import type { TaskWithTags } from "../models/shared";
-import { exportTasksToClipboard } from "../controllers/tasks/exportTasks.controller";
-import type { ExportFormat } from "../models/export/jotExport";
-import { loadExportFormat, saveExportFormat } from "../utils/preferences/exportFormat";
-import { copyTextToClipboard } from "../services/tauri/clipboard.service";
 import { useMessageToast } from "../hooks/useMessageToast";
 import Toast from "../views/components/ui/Toast.view";
+import CopyTasksControl from "../views/components/ui/CopyTasksControl.view";
 
 // Layout route for every surface that shows the persistent app frame.
 // It renders the title (top), a scrollable Outlet (middle), and the navbar
@@ -50,51 +47,14 @@ export default function AppShell() {
   const exportMatch = [...matches].reverse().find((m) => (m.handle as RouteHandle | undefined)?.exportTasks);
   const exportTasks = (exportMatch?.handle as RouteHandle | undefined)?.exportTasks;
   const { message, showMessage } = useMessageToast();
-  const [format, setFormat] = useState<ExportFormat>(loadExportFormat);
-
-  function pickFormat(next: ExportFormat) {
-    setFormat(next);
-    saveExportFormat(next); // global default, remembered (Q4)
-  }
-
-  async function handleExport() {
-    if (!exportTasks) return;
-    const tasks = exportTasks(outletContext, exportMatch?.params ?? {});
-    const { count } = await exportTasksToClipboard({ copyToClipboard: copyTextToClipboard }, tasks, format);
-    const label = format === "markdown" ? "Markdown" : "JSON";
-    showMessage(count === 1 ? `1 task copied as ${label}` : `${count} tasks copied as ${label}`);
-  }
+  const exportableTasks = exportTasks ? exportTasks(outletContext, exportMatch?.params ?? {}) : null;
 
   return (
     <div style={styles.shell}>
       <header style={styles.header}>
         <span style={styles.title}>{title}</span>
-        {exportTasks ? (
-          <div style={styles.exportGroup}>
-            {(["json", "markdown"] as const).map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => pickFormat(f)}
-                style={{
-                  ...styles.formatChip,
-                  ...(format === f ? styles.formatChipActive : null),
-                }}
-                aria-pressed={format === f}
-                aria-label={`Copy format ${f === "markdown" ? "Markdown" : "JSON"}`}
-              >
-                {f === "markdown" ? "MD" : "JSON"}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => void handleExport()}
-              style={styles.exportButton}
-              aria-label={`Copy tasks as ${format === "markdown" ? "Markdown" : "JSON"}`}
-            >
-              <Clipboard size={18} color="var(--text-secondary)" />
-            </button>
-          </div>
+        {exportableTasks ? (
+          <CopyTasksControl tasks={exportableTasks} onCopied={showMessage} />
         ) : null}
       </header>
       {message ? <Toast message={message} /> : null}
@@ -139,40 +99,6 @@ const styles: Record<string, CSSProperties> = {
     paddingTop: "calc(16px + env(safe-area-inset-top))",
     borderBottom: "1px solid var(--border-subtle)",
     background: "var(--bg-primary)",
-  },
-  exportGroup: {
-    flexShrink: 0,
-    display: "flex",
-    alignItems: "center",
-    gap: 4,
-  },
-  formatChip: {
-    height: 24,
-    padding: "0 8px",
-    borderRadius: 8,
-    border: "1px solid var(--border-default)",
-    background: "transparent",
-    color: "var(--text-tertiary)",
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: 0.2,
-    cursor: "pointer",
-  },
-  formatChipActive: {
-    borderColor: "var(--accent)",
-    color: "var(--accent)",
-  },
-  exportButton: {
-    flexShrink: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: 32,
-    height: 32,
-    padding: 0,
-    border: "none",
-    background: "transparent",
-    cursor: "pointer",
   },
   title: {
     fontSize: 22,
