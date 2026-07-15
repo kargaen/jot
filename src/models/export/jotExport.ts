@@ -66,6 +66,9 @@ export interface JotExportV2 {
   tasks: Array<Partial<JotExportTask>>;
 }
 
+// EPIC-014: clipboard export can be the machine JSON or the derived Markdown.
+export type ExportFormat = "json" | "markdown";
+
 // Empty (EPIC-014 Q3): null/undefined, empty string, empty array, empty object.
 // Numbers (including 0) and booleans are meaningful and always kept.
 function isEmpty(value: unknown): boolean {
