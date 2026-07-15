@@ -18,7 +18,7 @@ const sparse: ExportableTask = {
   id: "t1", title: "Buy milk", status: "todo", priority: "high",
   description: null, notes: "", project_id: null, area_id: "area-1",
   parent_task_id: null, due_date: "2026-08-01", due_time: null,
-  scheduled_date: null, recurrence_rule: null, estimated_mins: null,
+  scheduled_date: null, recurrence_rule: null, estimated_mins: null, effort: null,
   responsible_email: null, completed_at: null,
   created_at: "2026-07-01T00:00:00Z", updated_at: "2026-07-01T00:00:00Z",
   tags: [], project: null,
@@ -44,7 +44,7 @@ const full: ExportableTask = {
   description: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "note body" }] }] },
   notes: "manual note", project_id: "p1", area_id: null, parent_task_id: null,
   due_date: null, due_time: null, scheduled_date: "2026-07-20", recurrence_rule: null,
-  estimated_mins: 0, responsible_email: null, completed_at: "2026-07-10T09:00:00Z",
+  estimated_mins: 0, effort: "heavy", responsible_email: null, completed_at: "2026-07-10T09:00:00Z",
   created_at: "2026-07-01T00:00:00Z", updated_at: "2026-07-10T09:00:00Z",
   tags: [{ id: "g1", name: "home" }], project: { id: "p1", name: "House" },
 };
@@ -57,6 +57,7 @@ assertEqual("populated task keeps meaningful fields; estimated_mins 0 kept", ser
   tasks: [
     {
       id: "t2", title: "Ship", status: "completed", priority: "none",
+      effort: "heavy",
       description: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "note body" }] }] },
       description_text: "note body",
       notes: "manual note",
@@ -93,6 +94,7 @@ const expectedMd = [
   "",
   "## Ship",
   "- Status: completed",
+  "- Effort: heavy",
   "- Project: House",
   "- Scheduled: 2026-07-20",
   "- Tags: home",

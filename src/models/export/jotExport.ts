@@ -17,6 +17,7 @@ export interface ExportableTask {
   title: string;
   status: "todo" | "completed" | "cancelled";
   priority: "none" | "low" | "medium" | "high";
+  effort: "light" | "medium" | "heavy" | null;
   description: Record<string, unknown> | null;
   notes: string | null;
   project_id: string | null;
@@ -40,6 +41,7 @@ export interface JotExportTask {
   title: string;
   status: "todo" | "completed" | "cancelled";
   priority: "none" | "low" | "medium" | "high";
+  effort: "light" | "medium" | "heavy" | null;
   description: Record<string, unknown> | null;
   description_text: string | null;
   notes: string | null;
@@ -159,6 +161,7 @@ export function renderMarkdown(exported: JotExportV2): string {
     };
     row("Status", task.status);
     row("Priority", task.priority && task.priority !== "none" ? task.priority : null);
+    row("Effort", task.effort);
     row("Project", task.project ? task.project.name ?? task.project.id : null);
     row("Due", task.due_date ? task.due_date + (task.due_time ? ` ${task.due_time}` : "") : null);
     row("Scheduled", task.scheduled_date);
@@ -177,6 +180,7 @@ function serializeTask(task: ExportableTask): JotExportTask {
     title: task.title,
     status: task.status,
     priority: task.priority,
+    effort: task.effort,
     description: task.description,
     description_text: tiptapToText(task.description),
     notes: task.notes,
