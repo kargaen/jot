@@ -111,10 +111,13 @@ Serializer/contract slices first (they pin the data), then UI coverage, then the
 ```md
 [x] 1. Empty-omission rule (Q3) — recorded 2026-07-14: drop anything with no meaning (null
        scalars, empty strings, empty arrays, empty objects). Bump to `version: 2` (Q2).
-[ ] 2. Add failing golden test for `serializeTasks` v2 with empties dropped in
-       `tests/unit/models/task-export.test.ts` — done when it fails for the right reason
-[ ] 3. Implement empty omission + `version: 2` in `src/models/export/jotExport.ts` — done when
-       test 2 passes
+[x] 2. Golden test for `serializeTasks` v2 with empties dropped — landed as
+       `tests/unit/models/task-export.test.ts` (sparse-drops, populated-keeps incl.
+       `estimated_mins: 0`, empty-envelope frame); observed red on v1/unstripped output.
+[x] 3. Empty omission + `version: 2` in `src/models/export/jotExport.ts` — `isEmpty`/`dropEmpty`
+       deep-clean within each task, envelope frame kept, interface renamed `JotExportV2`,
+       `tasks: Array<Partial<JotExportTask>>`. Conduit inherits it (returns the same output).
+       Wired into `test:tasks`; tsc + full suite green.
 [ ] 4. Add failing golden test for the Markdown renderer — done when it fails for the right reason
 [ ] 5. Implement `renderMarkdown(export: JotExportV1): string` in
        `src/models/export/jotExport.ts` (derived from the serializer output, no second data

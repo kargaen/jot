@@ -1,6 +1,7 @@
-// JotExport v1 — the single source of truth for how tasks leave Jot.
+// JotExport v2 — the single source of truth for how tasks leave Jot.
 // Consumed by BOTH the in-app export (clipboard) and the `conduit` edge
 // function (supabase/functions/conduit), so the two surfaces can never drift.
+// v2 omits empty/null fields (EPIC-014); consumers must tolerate absent keys.
 //
 // This module must stay dependency-free and import-free: it runs unchanged in
 // the browser/WebView (Vite) and in Deno (Supabase edge functions, which
@@ -57,12 +58,40 @@ export interface JotExportTask {
   updated_at: string;
 }
 
-export interface JotExportV1 {
+export interface JotExportV2 {
   format: "jot.export";
-  version: 1;
+  version: 2;
   exported_at: string;
   task_count: number;
-  tasks: JotExportTask[];
+  tasks: Array<Partial<JotExportTask>>;
+}
+
+// Empty (EPIC-014 Q3): null/undefined, empty string, empty array, empty object.
+// Numbers (including 0) and booleans are meaningful and always kept.
+function isEmpty(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "string") return value.length === 0;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "object") return Object.keys(value as object).length === 0;
+  return false;
+}
+
+// Deep-drops empty values so exported tasks carry only meaningful keys. Recurses
+// first, so a container that becomes empty after cleaning (e.g. `tags: []`) is
+// itself dropped. Consumers must tolerate absent keys — that is the v2 contract.
+function dropEmpty<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map(dropEmpty).filter((v) => !isEmpty(v)) as unknown as T;
+  }
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, v] of Object.entries(value)) {
+      const cleaned = dropEmpty(v);
+      if (!isEmpty(cleaned)) out[key] = cleaned;
+    }
+    return out as T;
+  }
+  return value;
 }
 
 /**
@@ -95,16 +124,17 @@ export function tiptapToText(doc: Record<string, unknown> | null): string | null
 }
 
 /**
- * Serializes tasks into the JotExport v1 envelope. Pure and deterministic
+ * Serializes tasks into the JotExport v2 envelope. Pure and deterministic
  * (pass `exportedAt` for reproducible output; defaults to now).
  */
-export function serializeTasks(tasks: ExportableTask[], exportedAt?: string): JotExportV1 {
+export function serializeTasks(tasks: ExportableTask[], exportedAt?: string): JotExportV2 {
   return {
     format: "jot.export",
-    version: 1,
+    version: 2,
     exported_at: exportedAt ?? new Date().toISOString(),
     task_count: tasks.length,
-    tasks: tasks.map(serializeTask),
+    // Envelope keys stay as a stable frame; empties are dropped within each task.
+    tasks: tasks.map((task) => dropEmpty(serializeTask(task))),
   };
 }
 
