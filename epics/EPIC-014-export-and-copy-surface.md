@@ -1,6 +1,6 @@
 # EPIC-014: Export & copy surface
 
-**Status:** active
+**Status:** closed
 **Created:** 2026-07-14
 **Architecture baseline:** 83af2d9
 
