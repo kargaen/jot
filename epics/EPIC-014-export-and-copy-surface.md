@@ -130,8 +130,12 @@ Serializer/contract slices first (they pin the data), then UI coverage, then the
 [ ] 7. Wire copy onto the area and project surfaces on desktop — done when Flow 1 is exercisable
        there and the build is green
 [ ] 8. Wire copy onto the subtask list surface — done when Flow 1 is exercisable there
-[ ] 9. Add the JSON/Markdown picker affordance to the copy control + a global remembered default
-       preference (Q4) — done when Flow 2 is exercisable and `npm test` passes
+[x] 9. JSON/Markdown picker + global remembered default (Q4) — `src/utils/preferences/exportFormat.ts`
+       (localStorage `jot_export_format`, JSON default, pinned by `export-format.test.ts`);
+       `exportTasksToClipboard(..., format)` dispatches JSON vs `renderMarkdown` (pinned by
+       `export-tasks-controller.test.ts`); AppShell renders JSON/MD chips + clipboard, copies in
+       the chosen format and remembers it. tsc + full build green. (Desktop copy in item 7 reuses
+       this same control.)
 ```
 
 ---
