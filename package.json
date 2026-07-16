@@ -22,7 +22,7 @@
     "test:all:local": "npm run db:prepare:e2e && npm run test:rust && npm run test:code && npm run test:ui:local:raw",
     "test:code": "npm run test:nlp && npm run test:tasks",
     "test:nlp": "tsx tests/unit/services/nlp.test.ts && tsx tests/unit/services/nlp-natural.test.ts",
-    "test:tasks": "tsx tests/unit/models/task-models.test.ts && tsx tests/unit/models/task-effort.test.ts && tsx tests/unit/preferences/effort-config.test.ts && tsx tests/unit/controllers/task-create-controller.test.ts",
+    "test:tasks": "tsx tests/unit/models/task-models.test.ts && tsx tests/unit/models/task-effort.test.ts && tsx tests/unit/models/task-export.test.ts && tsx tests/unit/preferences/effort-config.test.ts && tsx tests/unit/preferences/export-format.test.ts && tsx tests/unit/controllers/task-create-controller.test.ts && tsx tests/unit/controllers/export-tasks-controller.test.ts",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:ui": "playwright test",
     "test:ui:local": "npm run db:prepare:e2e && npm run test:ui:local:raw",

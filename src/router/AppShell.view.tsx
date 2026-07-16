@@ -1,11 +1,10 @@
 import type { CSSProperties } from "react";
 import { NavLink, Outlet, useMatches, useOutletContext } from "react-router-dom";
-import { CalendarDays, Clipboard, History, List, Plus, Settings as SettingsIcon, Sun } from "lucide-react";
+import { CalendarDays, History, List, Plus, Settings as SettingsIcon, Sun } from "lucide-react";
 import type { TaskWithTags } from "../models/shared";
-import { exportTasksToClipboard } from "../controllers/tasks/exportTasks.controller";
-import { copyTextToClipboard } from "../services/tauri/clipboard.service";
 import { useMessageToast } from "../hooks/useMessageToast";
 import Toast from "../views/components/ui/Toast.view";
+import CopyTasksControl from "../views/components/ui/CopyTasksControl.view";
 
 // Layout route for every surface that shows the persistent app frame.
 // It renders the title (top), a scrollable Outlet (middle), and the navbar
@@ -48,27 +47,14 @@ export default function AppShell() {
   const exportMatch = [...matches].reverse().find((m) => (m.handle as RouteHandle | undefined)?.exportTasks);
   const exportTasks = (exportMatch?.handle as RouteHandle | undefined)?.exportTasks;
   const { message, showMessage } = useMessageToast();
-
-  async function handleExport() {
-    if (!exportTasks) return;
-    const tasks = exportTasks(outletContext, exportMatch?.params ?? {});
-    const { count } = await exportTasksToClipboard({ copyToClipboard: copyTextToClipboard }, tasks);
-    showMessage(count === 1 ? "1 task copied as JSON" : `${count} tasks copied as JSON`);
-  }
+  const exportableTasks = exportTasks ? exportTasks(outletContext, exportMatch?.params ?? {}) : null;
 
   return (
     <div style={styles.shell}>
       <header style={styles.header}>
         <span style={styles.title}>{title}</span>
-        {exportTasks ? (
-          <button
-            type="button"
-            onClick={() => void handleExport()}
-            style={styles.exportButton}
-            aria-label="Copy tasks as JSON"
-          >
-            <Clipboard size={18} color="var(--text-secondary)" />
-          </button>
+        {exportableTasks ? (
+          <CopyTasksControl tasks={exportableTasks} onCopied={showMessage} />
         ) : null}
       </header>
       {message ? <Toast message={message} /> : null}
@@ -113,18 +99,6 @@ const styles: Record<string, CSSProperties> = {
     paddingTop: "calc(16px + env(safe-area-inset-top))",
     borderBottom: "1px solid var(--border-subtle)",
     background: "var(--bg-primary)",
-  },
-  exportButton: {
-    flexShrink: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: 32,
-    height: 32,
-    padding: 0,
-    border: "none",
-    background: "transparent",
-    cursor: "pointer",
   },
   title: {
     fontSize: 22,

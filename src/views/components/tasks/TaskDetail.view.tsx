@@ -5,6 +5,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import * as LucideIcons from "lucide-react";
 import { ChevronDown } from "lucide-react";
 import type { Area, Project, Tag, TaskWithTags } from "../../../models/shared";
+import CopyTasksControl from "../ui/CopyTasksControl.view";
 import { useTaskDetail, getTaskDetailIconComponent } from "../../../hooks/useTaskDetail";
 import TaskRow from "./TaskRow.view";
 import CreateTask from "./CreateTask.view";
@@ -544,6 +545,9 @@ export default function TaskDetail({
         <div>
           <div
             style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
               fontSize: 12,
               fontWeight: 600,
               color: "var(--text-tertiary)",
@@ -552,7 +556,8 @@ export default function TaskDetail({
               marginBottom: 8,
             }}
           >
-            Subtasks {subtasks.length > 0 && `· ${subtasks.length}`}
+            <span style={{ flex: 1 }}>Subtasks {subtasks.length > 0 && `· ${subtasks.length}`}</span>
+            {subtasks.length > 0 && <CopyTasksControl tasks={subtasks} />}
           </div>
 
           {subtasks.length > 0 && (

@@ -1,6 +1,7 @@
-// JotExport v1 — the single source of truth for how tasks leave Jot.
+// JotExport v2 — the single source of truth for how tasks leave Jot.
 // Consumed by BOTH the in-app export (clipboard) and the `conduit` edge
 // function (supabase/functions/conduit), so the two surfaces can never drift.
+// v2 omits empty/null fields (EPIC-014); consumers must tolerate absent keys.
 //
 // This module must stay dependency-free and import-free: it runs unchanged in
 // the browser/WebView (Vite) and in Deno (Supabase edge functions, which
@@ -16,6 +17,7 @@ export interface ExportableTask {
   title: string;
   status: "todo" | "completed" | "cancelled";
   priority: "none" | "low" | "medium" | "high";
+  effort: "light" | "medium" | "heavy" | null;
   description: Record<string, unknown> | null;
   notes: string | null;
   project_id: string | null;
@@ -39,6 +41,7 @@ export interface JotExportTask {
   title: string;
   status: "todo" | "completed" | "cancelled";
   priority: "none" | "low" | "medium" | "high";
+  effort: "light" | "medium" | "heavy" | null;
   description: Record<string, unknown> | null;
   description_text: string | null;
   notes: string | null;
@@ -57,12 +60,43 @@ export interface JotExportTask {
   updated_at: string;
 }
 
-export interface JotExportV1 {
+export interface JotExportV2 {
   format: "jot.export";
-  version: 1;
+  version: 2;
   exported_at: string;
   task_count: number;
-  tasks: JotExportTask[];
+  tasks: Array<Partial<JotExportTask>>;
+}
+
+// EPIC-014: clipboard export can be the machine JSON or the derived Markdown.
+export type ExportFormat = "json" | "markdown";
+
+// Empty (EPIC-014 Q3): null/undefined, empty string, empty array, empty object.
+// Numbers (including 0) and booleans are meaningful and always kept.
+function isEmpty(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "string") return value.length === 0;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "object") return Object.keys(value as object).length === 0;
+  return false;
+}
+
+// Deep-drops empty values so exported tasks carry only meaningful keys. Recurses
+// first, so a container that becomes empty after cleaning (e.g. `tags: []`) is
+// itself dropped. Consumers must tolerate absent keys — that is the v2 contract.
+function dropEmpty<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map(dropEmpty).filter((v) => !isEmpty(v)) as unknown as T;
+  }
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, v] of Object.entries(value)) {
+      const cleaned = dropEmpty(v);
+      if (!isEmpty(cleaned)) out[key] = cleaned;
+    }
+    return out as T;
+  }
+  return value;
 }
 
 /**
@@ -95,17 +129,49 @@ export function tiptapToText(doc: Record<string, unknown> | null): string | null
 }
 
 /**
- * Serializes tasks into the JotExport v1 envelope. Pure and deterministic
+ * Serializes tasks into the JotExport v2 envelope. Pure and deterministic
  * (pass `exportedAt` for reproducible output; defaults to now).
  */
-export function serializeTasks(tasks: ExportableTask[], exportedAt?: string): JotExportV1 {
+export function serializeTasks(tasks: ExportableTask[], exportedAt?: string): JotExportV2 {
   return {
     format: "jot.export",
-    version: 1,
+    version: 2,
     exported_at: exportedAt ?? new Date().toISOString(),
     task_count: tasks.length,
-    tasks: tasks.map(serializeTask),
+    // Envelope keys stay as a stable frame; empties are dropped within each task.
+    tasks: tasks.map((task) => dropEmpty(serializeTask(task))),
   };
+}
+
+/**
+ * Renders a JotExport envelope as human-readable Markdown for clipboard paste.
+ * A derived presentation of `serializeTasks`' output (§11a) — NOT a second data
+ * source: it only reformats what the serializer already produced. Ids, timestamps,
+ * and `estimated_mins` are omitted as non-human; `priority: "none"` is skipped as
+ * noise. Absent keys (already dropped by v2) simply produce no line.
+ */
+export function renderMarkdown(exported: JotExportV2): string {
+  const n = exported.task_count;
+  const lines: string[] = [`# Jot export (${n} task${n === 1 ? "" : "s"})`];
+
+  for (const task of exported.tasks) {
+    lines.push("", `## ${task.title ?? "(untitled)"}`);
+    const row = (label: string, value: string | undefined | null) => {
+      if (value) lines.push(`- ${label}: ${value}`);
+    };
+    row("Status", task.status);
+    row("Priority", task.priority && task.priority !== "none" ? task.priority : null);
+    row("Effort", task.effort);
+    row("Project", task.project ? task.project.name ?? task.project.id : null);
+    row("Due", task.due_date ? task.due_date + (task.due_time ? ` ${task.due_time}` : "") : null);
+    row("Scheduled", task.scheduled_date);
+    row("Repeat", task.recurrence_rule);
+    row("Tags", task.tags && task.tags.length > 0 ? task.tags.map((t) => t.name).join(", ") : null);
+    row("Notes", task.notes);
+    row("Details", task.description_text);
+  }
+
+  return lines.join("\n");
 }
 
 function serializeTask(task: ExportableTask): JotExportTask {
@@ -114,6 +180,7 @@ function serializeTask(task: ExportableTask): JotExportTask {
     title: task.title,
     status: task.status,
     priority: task.priority,
+    effort: task.effort,
     description: task.description,
     description_text: tiptapToText(task.description),
     notes: task.notes,
