@@ -4,6 +4,7 @@ import AppShell from "./AppShell.view";
 import IndexRoute from "./Index.route";
 import TodayRoute from "./Today.route";
 import UpcomingRoute from "./Upcoming.route";
+import InboxRoute from "./Inbox.route";
 import AllRoute from "./All.route";
 import CaptureRoute from "./Capture.route";
 import LogbookRoute from "./Logbook.route";
@@ -15,7 +16,7 @@ import AuthRoute from "./Auth.route";
 import OnboardingRoute from "./Onboarding.route";
 import type { AppOutletContext } from "./AppLayout.route";
 import MobileApp from "../views/pages/mobile/app/MobileApp.view";
-import { isDueToday, isOverdue, isUpcoming } from "../models/tasks/taskVisibility";
+import { isDueToday, isInbox, isOverdue, isUpcoming } from "../models/tasks/taskVisibility";
 
 // Export resolvers mirror each screen's own visibility grouping (same pure
 // model predicates the views use) so "copy as JSON" matches what's on screen.
@@ -29,6 +30,10 @@ function upcomingExport(ctx: unknown) {
   const { data } = ctx as AppOutletContext;
   const today = new Date().toISOString().split("T")[0];
   return data.visibleTasks.filter((t) => isUpcoming(t, today));
+}
+
+function inboxExport(ctx: unknown) {
+  return (ctx as AppOutletContext).data.visibleTasks.filter(isInbox);
 }
 
 function allExport(ctx: unknown) {
@@ -86,7 +91,7 @@ export const router = createBrowserRouter([
           { path: "today", handle: { title: "Today", exportTasks: todayExport }, element: <TodayRoute /> },
           { path: "upcoming", handle: { title: "Upcoming", exportTasks: upcomingExport }, element: <UpcomingRoute /> },
           { path: "overdue", handle: { title: "Overdue" }, element: <Pending /> },
-          { path: "inbox", handle: { title: "Inbox" }, element: <Pending /> },
+          { path: "inbox", handle: { title: "Inbox", exportTasks: inboxExport }, element: <InboxRoute /> },
           { path: "all", handle: { title: "All", exportTasks: allExport }, element: <AllRoute /> },
           { path: "logbook", handle: { title: "Logbook", exportTasks: logbookExport }, element: <LogbookRoute /> },
           { path: "capture", handle: { title: "Capture" }, element: <CaptureRoute /> },
