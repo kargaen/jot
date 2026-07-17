@@ -15,8 +15,28 @@ permissions:
   contents: write
 
 jobs:
+  rls-test:
+    name: Supabase RLS Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Start local Supabase
+        run: npx supabase start
+
+      - name: Run pgTAP RLS tests
+        run: npx supabase test db
+
   migrate-db:
     name: Apply Database Migrations
+    needs: rls-test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
