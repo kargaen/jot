@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { NavLink, Outlet, useMatches, useOutletContext } from "react-router-dom";
-import { CalendarDays, History, List, Plus, Settings as SettingsIcon, Sun } from "lucide-react";
+import { CalendarDays, History, Inbox, List, Plus, Settings as SettingsIcon, Sun } from "lucide-react";
 import type { TaskWithTags } from "../models/shared";
 import { useMessageToast } from "../hooks/useMessageToast";
 import Toast from "../views/components/ui/Toast.view";
@@ -28,6 +28,7 @@ type RouteHandle = { title?: string | TitleResolver; exportTasks?: ExportTasksRe
 const NAV: { to: string; label: string; Icon: typeof Sun }[] = [
   { to: "/today", label: "Today", Icon: Sun },
   { to: "/upcoming", label: "Upcoming", Icon: CalendarDays },
+  { to: "/inbox", label: "Inbox", Icon: Inbox },
   { to: "/logbook", label: "Logbook", Icon: History },
   { to: "/all", label: "All", Icon: List },
   { to: "/capture", label: "Capture", Icon: Plus },
