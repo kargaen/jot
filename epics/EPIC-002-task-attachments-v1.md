@@ -173,17 +173,17 @@ resize, storage-cost accounting, and premium-tier behavior.
 [x] 2. Implement paste-limit decision logic in `src/models/tasks/taskAttachmentPaste.ts` — done when item 1 passes
 [x] 3. Add failing image-resize decision tests in `tests/unit/models/task-attachments.test.ts` — done when an oversized image expects a resized uploadable file and an unshrinkable image expects rejection
 [x] 4. Implement image resize handling in `src/models/tasks/taskAttachmentPaste.ts` — done when item 3 passes without adding a runtime dependency
-[x] 5. Add failing attachment metadata/RLS tests in `supabase/tests/rls.test.sql` — done when task owner/shared-member allowed cases and unauthorized denied cases fail before the migration
-[x] 6. Add attachment metadata table, policies, and task-delete metadata cascade in `supabase/migrations/<timestamp>_task_attachments.sql` — done when item 5 passes locally
-[x] 7. Add failing storage-path and object-cleanup tests in `supabase/tests/rls.test.sql` — done when task delete leaves an object cleanup expectation failing before storage cleanup exists
-[x] 8. Add failing storage upload/delete service tests in `tests/unit/services/task-attachments-service.test.ts` — done when one upload and one delete-by-task-attachment-path case fail for the right reason
-[x] 8a. (added 2026-07-17) Add storage upload/delete service functions in `src/services/backend/supabase.service.ts` — done when item 8 passes
-[x] 9. Add attachment orchestration tests in `tests/unit/controllers/task-attachments-controller.test.ts` — done when paste accept, resize notice, rejection notice, upload failure, and refresh cases fail for the right reason
-[x] 10. Add task attachment controller functions in `src/controllers/tasks/taskAttachments.controller.ts` — done when item 9 passes
-[x] 11. Add hook-level paste state tests in `tests/unit/controllers/task-attachments-controller.test.ts` — done when uploading/uploaded/failed state and notice text are asserted from the task-detail paste path
-[x] 12. Wire attachment paste state into `src/hooks/useTaskDetail.ts` — done when item 11 passes
-[x] 13. Add compact attachment-list rendering tests in `tests/unit/controllers/task-attachments-controller.test.ts` — done when the view contract expects links plus upload state but no preview gallery
-[x] 14. Render the compact attachment list and paste target feedback in `src/views/components/tasks/TaskDetail.view.tsx` — done when item 13 passes and manual paste in the task detail shows the expected notice
+[ ] 5. Add failing attachment metadata/RLS tests in `supabase/tests/rls.test.sql` — done when task owner/shared-member allowed cases and unauthorized denied cases fail before the migration
+[ ] 6. Add attachment metadata table, policies, and task-delete metadata cascade in `supabase/migrations/<timestamp>_task_attachments.sql` — done when item 5 passes locally
+[ ] 7. Add failing storage-path and object-cleanup tests in `supabase/tests/rls.test.sql` — done when task delete leaves an object cleanup expectation failing before storage cleanup exists
+[ ] 8. Add failing storage upload/delete service tests in `tests/unit/services/task-attachments-service.test.ts` — done when one upload and one delete-by-task-attachment-path case fail for the right reason
+[ ] 8a. (added 2026-07-17) Add storage upload/delete service functions in `src/services/backend/supabase.service.ts` — done when item 8 passes
+[ ] 9. Add attachment orchestration tests in `tests/unit/controllers/task-attachments-controller.test.ts` — done when paste accept, resize notice, rejection notice, upload failure, and refresh cases fail for the right reason
+[ ] 10. Add task attachment controller functions in `src/controllers/tasks/taskAttachments.controller.ts` — done when item 9 passes
+[ ] 11. Add hook-level paste state tests in `tests/unit/controllers/task-attachments-controller.test.ts` — done when uploading/uploaded/failed state and notice text are asserted from the task-detail paste path
+[ ] 12. Wire attachment paste state into `src/hooks/useTaskDetail.ts` — done when item 11 passes
+[ ] 13. Add compact attachment-list rendering tests in `tests/unit/controllers/task-attachments-controller.test.ts` — done when the view contract expects links plus upload state but no preview gallery
+[ ] 14. Render the compact attachment list and paste target feedback in `src/views/components/tasks/TaskDetail.view.tsx` — done when item 13 passes and manual paste in the task detail shows the expected notice
 ```
 
 ---

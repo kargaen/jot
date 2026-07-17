@@ -9,6 +9,10 @@ import {
 import {
   filterVisibleProjects,
   filterVisibleTasks,
+  isDueToday,
+  isInbox,
+  isOverdue,
+  isUpcoming,
 } from "../../../src/models/tasks/taskVisibility";
 import { groupTasksByAreaAndProject } from "../../../src/models/tasks/taskGrouping";
 import type { Area, Project, TaskWithTags } from "../../../src/models/shared";
@@ -49,6 +53,7 @@ const projects: Project[] = [
 const tasks: TaskWithTags[] = [
   {
     id: "overdue",
+    status: "todo",
     project_id: "area-visible-project",
     area_id: null,
     due_date: "2026-04-29",
@@ -59,6 +64,7 @@ const tasks: TaskWithTags[] = [
   } as TaskWithTags,
   {
     id: "today-early",
+    status: "todo",
     project_id: null,
     area_id: "area-visible",
     due_date: "2026-04-30",
@@ -69,6 +75,7 @@ const tasks: TaskWithTags[] = [
   } as TaskWithTags,
   {
     id: "today-late",
+    status: "todo",
     project_id: "area-visible-project",
     area_id: null,
     due_date: "2026-04-30",
@@ -79,6 +86,7 @@ const tasks: TaskWithTags[] = [
   } as TaskWithTags,
   {
     id: "someday-hidden",
+    status: "todo",
     project_id: "area-hidden-project",
     area_id: null,
     due_date: null,
@@ -86,6 +94,44 @@ const tasks: TaskWithTags[] = [
     sort_order: 1000,
     created_at: "2026-04-04T10:00:00Z",
     title: "Someday hidden",
+  } as TaskWithTags,
+];
+
+const builtInViewTasks: TaskWithTags[] = [
+  ...tasks,
+  {
+    id: "scheduled-today",
+    status: "todo",
+    project_id: null,
+    area_id: null,
+    scheduled_date: "2026-04-30",
+    due_date: null,
+    due_time: null,
+    sort_order: 1000,
+    created_at: "2026-04-05T10:00:00Z",
+    title: "Scheduled today",
+  } as TaskWithTags,
+  {
+    id: "future",
+    status: "todo",
+    project_id: "area-visible-project",
+    area_id: null,
+    due_date: "2026-05-02",
+    due_time: null,
+    sort_order: 1000,
+    created_at: "2026-04-06T10:00:00Z",
+    title: "Future task",
+  } as TaskWithTags,
+  {
+    id: "completed-inbox",
+    status: "completed",
+    project_id: null,
+    area_id: null,
+    due_date: null,
+    due_time: null,
+    sort_order: 1000,
+    created_at: "2026-04-07T10:00:00Z",
+    title: "Completed inbox task",
   } as TaskWithTags,
 ];
 
@@ -118,6 +164,23 @@ assertEqual(
   "filterVisibleTasks",
   filterVisibleTasks(tasks, projects, ["area-hidden"]).map((task) => task.id),
   ["overdue", "today-early", "today-late"],
+);
+assertEqual(
+  "built-in Today membership",
+  builtInViewTasks
+    .filter((task) => isOverdue(task, "2026-04-30") || isDueToday(task, "2026-04-30"))
+    .map((task) => task.id),
+  ["overdue", "today-early", "today-late", "scheduled-today"],
+);
+assertEqual(
+  "built-in Upcoming membership",
+  builtInViewTasks.filter((task) => isUpcoming(task, "2026-04-30")).map((task) => task.id),
+  ["future"],
+);
+assertEqual(
+  "built-in Inbox membership",
+  builtInViewTasks.filter(isInbox).map((task) => task.id),
+  ["today-early", "scheduled-today"],
 );
 
 // ── groupTasksByAreaAndProject ──────────────────────────────────────────────
@@ -201,4 +264,4 @@ assertEqual(
 );
 assertEqual("groupTasksByAreaAndProject: empty input", groupTasksByAreaAndProject([], [], []), []);
 
-console.log("Task model tests passed: 23/23");
+console.log("Task model tests passed: 26/26");
