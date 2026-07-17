@@ -3,16 +3,15 @@ import {
   useAreasTabActions,
   useSharingTab,
   useAccountTabActions,
+  useNlpLanguageMode,
 } from "../../../../hooks/usePreferences";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAuth } from "../../../../hooks/useAuth";
 import type {
   Area,
-  NlpLanguageMode,
 } from "../../../../models/shared";
 
 const JOT_ISSUES_URL = "https://github.com/kargaen/jot/issues";
-import { loadNlpLanguageMode, saveNlpLanguageMode } from "../../../../services/capture/nlpSettings.service";
 import { spaceColor } from "../../../../utils/presentation/colors";
 import {
   type AppThemePreference,
@@ -543,12 +542,7 @@ function AppearanceTab() {
 // ─── Feedback tab ────────────────────────────────────────────────────────────
 
 function CaptureTab() {
-  const [languageMode, setLanguageMode] = useState<NlpLanguageMode>(loadNlpLanguageMode);
-
-  function selectLanguageMode(next: NlpLanguageMode) {
-    setLanguageMode(next);
-    saveNlpLanguageMode(next);
-  }
+  const { languageMode, selectLanguageMode } = useNlpLanguageMode();
 
   const optionStyle = (active: boolean): React.CSSProperties => ({
     width: "100%",

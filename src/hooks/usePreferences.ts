@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Area, AreaMember, ProjectMember } from "../models/shared";
+import type { Area, AreaMember, NlpLanguageMode, ProjectMember } from "../models/shared";
 import { logger } from "../utils/observability/logger";
 import {
   acceptInvite,
@@ -17,6 +17,7 @@ import {
   updateArea,
   updatePassword,
 } from "../services/backend/supabase.service";
+import { loadNlpLanguageMode, saveNlpLanguageMode } from "../services/capture/nlpSettings.service";
 
 // ── AreasTab ──────────────────────────────────────────────────────────────────
 
@@ -124,6 +125,19 @@ export function useSharingTab(
     handleAcceptProject,
     handleDeclineProject,
   };
+}
+
+// ── CaptureTab ────────────────────────────────────────────────────────────────
+
+export function useNlpLanguageMode() {
+  const [languageMode, setLanguageMode] = useState<NlpLanguageMode>(loadNlpLanguageMode);
+
+  function selectLanguageMode(next: NlpLanguageMode) {
+    setLanguageMode(next);
+    saveNlpLanguageMode(next);
+  }
+
+  return { languageMode, selectLanguageMode };
 }
 
 // ── AccountTab ────────────────────────────────────────────────────────────────

@@ -2,19 +2,14 @@ import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import type { ApiToken, Area, AreaMember, NlpLanguageMode, Project, TaskWithTags } from "../../../../models/shared";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { syncWidgetsDebug } from "../../../../services/sync/widgetSync.service";
 import { clearTimings, getTimingStats } from "../../../../utils/observability/timing";
-import { copyTextToClipboard } from "../../../../services/tauri/clipboard.service";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useSharingTab } from "../../../../hooks/usePreferences";
+import { useCopyRevealedToken, useMobileNlpLanguageMode, useMobileWidgetSyncDebug } from "../../../../hooks/useMobileSettings";
 
 const JOT_ISSUES_URL = "https://github.com/kargaen/jot/issues";
 import Toggle from "../../../components/ui/Toggle.view";
 import Button from "../../../components/ui/Button.view";
-import {
-  loadNlpLanguageMode,
-  saveNlpLanguageMode,
-} from "../../../../services/capture/nlpSettings.service";
 import {
   type AppThemePreference,
   applyThemePreference,
@@ -140,8 +135,7 @@ function LatencyDebugSection() {
 // ── Widget sync debug (TEMP) ────────────────────────────────────────────────────
 
 function WidgetSyncDebugSection() {
-  const [result, setResult] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { result, busy, run } = useMobileWidgetSyncDebug();
   return (
     <section style={styles.section}>
       <div style={styles.sectionHeader}>Widget sync (debug)</div>
@@ -151,12 +145,7 @@ function WidgetSyncDebugSection() {
             variant="secondary"
             size="sm"
             loading={busy}
-            onClick={() => {
-              setBusy(true);
-              void syncWidgetsDebug()
-                .then(setResult)
-                .finally(() => setBusy(false));
-            }}
+            onClick={() => void run()}
           >
             Run widget sync
           </Button>
@@ -293,12 +282,7 @@ const LANGUAGE_OPTIONS: { value: NlpLanguageMode; label: string; hint: string }[
 ];
 
 function CaptureSection() {
-  const [mode, setMode] = useState<NlpLanguageMode>(loadNlpLanguageMode);
-
-  function selectMode(next: NlpLanguageMode) {
-    setMode(next);
-    saveNlpLanguageMode(next);
-  }
+  const { mode, selectMode } = useMobileNlpLanguageMode();
 
   return (
     <section style={styles.section}>
@@ -823,7 +807,7 @@ function ApiTokensSection({ actions }: { actions: ApiTokensActions }) {
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
   const [revealed, setRevealed] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { copied, setCopied, copy } = useCopyRevealedToken();
 
   async function handleGenerate(e: FormEvent) {
     e.preventDefault();
@@ -850,9 +834,7 @@ function ApiTokensSection({ actions }: { actions: ApiTokensActions }) {
   }
 
   async function handleCopy() {
-    if (!revealed) return;
-    await copyTextToClipboard(revealed);
-    setCopied(true);
+    await copy(revealed);
   }
 
   return (
