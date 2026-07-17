@@ -60,6 +60,17 @@ export interface TaskTag {
   tag_id: string;
 }
 
+export interface TaskAttachment {
+  id: string;
+  task_id: string;
+  user_id: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  storage_path: string;
+  created_at: string;
+}
+
 export interface TaskWithTags extends Task {
   tags: Tag[];
   subtasks?: TaskWithTags[];

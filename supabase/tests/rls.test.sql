@@ -12,7 +12,7 @@
 
 BEGIN;
 
-SELECT plan(21);
+SELECT plan(24);
 
 -- ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -352,9 +352,61 @@ SELECT is(
   'non-member cannot see user A''s project'
 );
 
+
+-- ── task_attachments ────────────────────────────────────────────────────────
+
+-- 22. User can insert attachment metadata for their own task.
+SELECT _as_service();
+INSERT INTO public.tasks (id, user_id, title, status, priority)
+VALUES (
+  'c0000001-0000-4000-8000-000000000030',
+  'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+  'Attachment owner task', 'todo', 'none'
+)
+ON CONFLICT (id) DO NOTHING;
+
+SELECT _as_user('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
+SELECT lives_ok(
+  $$INSERT INTO public.task_attachments (id, task_id, user_id, filename, mime_type, size_bytes, storage_path)
+    VALUES (
+      'd0000001-0000-4000-8000-000000000001',
+      'c0000001-0000-4000-8000-000000000030',
+      'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+      'brief.pdf', 'application/pdf', 1024,
+      'task-attachments/aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa/c0000001-0000-4000-8000-000000000030/brief.pdf'
+    )$$,
+  'user A can insert attachment metadata for own task'
+);
+
+-- 23. User cannot insert attachment metadata for another user's task.
+SELECT _as_user('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+SELECT throws_ok(
+  $$INSERT INTO public.task_attachments (id, task_id, user_id, filename, mime_type, size_bytes, storage_path)
+    VALUES (
+      'd0000001-0000-4000-8000-000000000002',
+      'c0000001-0000-4000-8000-000000000030',
+      'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb',
+      'forged.pdf', 'application/pdf', 1024,
+      'task-attachments/bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb/c0000001-0000-4000-8000-000000000030/forged.pdf'
+    )$$,
+  '42501',
+  NULL,
+  'user B cannot insert attachment metadata for user A task'
+);
+
+-- 24. Deleting a task cascades attachment metadata.
+SELECT _as_user('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
+DELETE FROM public.tasks WHERE id = 'c0000001-0000-4000-8000-000000000030';
+SELECT is(
+  (SELECT COUNT(*)::int FROM public.task_attachments WHERE task_id = 'c0000001-0000-4000-8000-000000000030'),
+  0,
+  'deleting a task removes attachment metadata'
+);
+
 -- ── Cleanup ───────────────────────────────────────────────────────────────────
 
 SELECT _as_service();
+DELETE FROM public.task_attachments WHERE task_id::text LIKE 'c0000001-0000-4000-8000-%';
 DELETE FROM public.task_tags WHERE task_id LIKE 'c0000001-0000-4000-8000-%';
 DELETE FROM public.tasks WHERE id LIKE 'c0000001-0000-4000-8000-%';
 DELETE FROM public.project_members WHERE project_id = 'a2a2a2a2-a2a2-4a2a-a2a2-a2a2a2a2a2a2';

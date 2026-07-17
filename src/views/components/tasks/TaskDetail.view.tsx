@@ -182,6 +182,9 @@ export default function TaskDetail({
     estimatedMins,
     assignablePeople,
     subtasks,
+    attachments,
+    attachmentStatus,
+    attachmentNotice,
     saveStatus,
     completing,
     editor,
@@ -200,6 +203,9 @@ export default function TaskDetail({
     updateLink,
     handleCompleteTask,
     handleCompleteSubtask,
+    handleAttachmentPaste,
+    handleOpenAttachment,
+    handleDeleteAttachment,
     refreshSubtasks,
     openTaskLink,
     normalizedLink,
@@ -282,7 +288,7 @@ export default function TaskDetail({
         </span>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px" }} onPaste={handleAttachmentPaste}>
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
           <button
             onClick={() => {
@@ -527,6 +533,75 @@ export default function TaskDetail({
             </div>
           </FieldRow>
         </div>
+
+
+
+        <FieldRow label="Attachments">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div
+              style={{
+                padding: "8px 10px",
+                borderRadius: "var(--radius-sm)",
+                border: "1px dashed var(--border-default)",
+                background: "var(--bg-secondary)",
+                fontSize: 12,
+                color: "var(--text-tertiary)",
+              }}
+            >
+              Paste an image, PDF, text file, or Markdown file here. Max 5 MB · 3 files.
+            </div>
+            {attachmentNotice && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: attachmentStatus === "uploaded" ? "var(--accent)" : "var(--priority-high)",
+                }}
+              >
+                {attachmentNotice}
+              </div>
+            )}
+            {attachmentStatus === "uploading" && (
+              <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>Uploading…</div>
+            )}
+            {attachments.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {attachments.map((attachment) => (
+                  <div
+                    key={attachment.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "6px 8px",
+                      borderRadius: "var(--radius-sm)",
+                      background: "var(--bg-secondary)",
+                      fontSize: 13,
+                    }}
+                  >
+                    <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {attachment.filename}
+                    </span>
+                    <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                      {Math.ceil(attachment.size_bytes / 1024)} KB
+                    </span>
+                    <button
+                      onClick={() => { void handleOpenAttachment(attachment); }}
+                      style={{ border: "none", background: "transparent", color: "var(--accent)", cursor: "pointer", fontSize: 12 }}
+                    >
+                      Open
+                    </button>
+                    <button
+                      onClick={() => { void handleDeleteAttachment(attachment); }}
+                      style={{ border: "none", background: "transparent", color: "var(--text-tertiary)", cursor: "pointer", fontSize: 12 }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </FieldRow>
 
         <div style={{ marginBottom: 28 }}>
           <div

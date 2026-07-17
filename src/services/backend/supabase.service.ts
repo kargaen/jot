@@ -8,6 +8,7 @@ import type {
   ProjectMember,
   Tag,
   Task,
+  TaskAttachment,
   TaskWithTags,
 } from "../../models/shared";
 import { logger } from "../../utils/observability/logger";
@@ -697,6 +698,72 @@ export async function fetchTask(id: string): Promise<TaskWithTags> {
     ...data,
     tags: data.task_tags?.map((tt: { tags: Tag }) => tt.tags) ?? [],
   };
+}
+
+
+export async function fetchTaskAttachments(taskId: string): Promise<TaskAttachment[]> {
+  const { data, error } = await supabase
+    .from("task_attachments")
+    .select("*")
+    .eq("task_id", taskId)
+    .order("created_at");
+  if (error) logErr("fetchTaskAttachments", error);
+  return (data ?? []) as TaskAttachment[];
+}
+
+export async function uploadTaskAttachment(input: {
+  taskId: string;
+  file: File;
+}): Promise<TaskAttachment> {
+  const user_id = await getCurrentUserId();
+  const safeName = input.file.name.replace(/[\/\\]/g, "-");
+  const storage_path = `task-attachments/${user_id}/${input.taskId}/${crypto.randomUUID()}-${safeName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("task-attachments")
+    .upload(storage_path, input.file, { contentType: input.file.type, upsert: false });
+  if (uploadError) logErr("uploadTaskAttachment(upload)", uploadError);
+
+  const { data, error } = await supabase
+    .from("task_attachments")
+    .insert({
+      task_id: input.taskId,
+      user_id,
+      filename: input.file.name,
+      mime_type: input.file.type || "application/octet-stream",
+      size_bytes: input.file.size,
+      storage_path,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    await supabase.storage.from("task-attachments").remove([storage_path]);
+    logErr("uploadTaskAttachment(metadata)", error);
+  }
+
+  return data as TaskAttachment;
+}
+
+export async function removeTaskAttachment(attachment: TaskAttachment): Promise<void> {
+  const { error: removeError } = await supabase.storage
+    .from("task-attachments")
+    .remove([attachment.storage_path]);
+  if (removeError) logErr("removeTaskAttachment(storage)", removeError);
+
+  const { error } = await supabase
+    .from("task_attachments")
+    .delete()
+    .eq("id", attachment.id);
+  if (error) logErr("removeTaskAttachment(metadata)", error);
+}
+
+export async function createTaskAttachmentUrl(attachment: TaskAttachment): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from("task-attachments")
+    .createSignedUrl(attachment.storage_path, 60);
+  if (error) logErr("createTaskAttachmentUrl", error);
+  return data.signedUrl;
 }
 
 export async function fetchTags(): Promise<Tag[]> {

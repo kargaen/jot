@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ClipboardEvent } from "react";
 import { useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -12,6 +12,7 @@ import type {
   AssignablePerson,
   Project,
   Tag,
+  TaskAttachment,
   TaskWithTags,
 } from "../models/shared";
 import {
@@ -25,6 +26,14 @@ import {
   loadTaskDetailSubtasks,
   saveTaskDetail,
 } from "../controllers/tasks/taskDetail.controller";
+import {
+  deleteTaskAttachment,
+  loadTaskAttachments,
+  openTaskAttachment,
+  pasteTaskAttachment,
+  TASK_ATTACHMENT_MAX_COUNT,
+  type TaskAttachmentNotice,
+} from "../controllers/tasks/taskAttachments.controller";
 import { normalizeTaskLink } from "../models/tasks/taskPresentation";
 
 export interface UseTaskDetailOptions {
@@ -60,6 +69,9 @@ export function useTaskDetail({
   const [assignablePeople, setAssignablePeople] = useState<AssignablePerson[]>([]);
   const [subtasks, setSubtasks] = useState<TaskWithTags[]>([]);
   const [tags, setTags] = useState<Tag[]>(task.tags ?? []);
+  const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
+  const [attachmentStatus, setAttachmentStatus] = useState<"idle" | "uploading" | "uploaded" | "failed">("idle");
+  const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">(
     "idle",
   );
@@ -189,6 +201,75 @@ export function useTaskDetail({
       iconSuggested.current = suggested;
     }
   }, [title, icon]);
+
+
+  const refreshAttachments = useCallback(async () => {
+    const updated = await loadTaskAttachments(task.id);
+    setAttachments(updated);
+  }, [task.id]);
+
+  useEffect(() => {
+    refreshAttachments().catch((err: unknown) => {
+      logger.warn("task-detail", "refreshAttachments failed", err instanceof Error ? err.message : err);
+    });
+  }, [refreshAttachments]);
+
+  const noticeText = useCallback((notice: TaskAttachmentNotice): string => {
+    switch (notice) {
+      case "too-large":
+        return "File too large. Maximum size is 5 MB.";
+      case "image-still-too-large":
+        return "Resized image is still too large. Maximum size is 5 MB.";
+      case "too-many":
+        return `A task can have at most ${TASK_ATTACHMENT_MAX_COUNT} attachments.`;
+      case "unsupported-type":
+        return "Unsupported file type. Paste an image, PDF, text file, or Markdown file.";
+      case "resized-image":
+        return "Resized image before upload.";
+    }
+  }, []);
+
+  const handleAttachmentPaste = useCallback(
+    async (event: ClipboardEvent) => {
+      const files = Array.from(event.clipboardData.files);
+      if (files.length === 0) return;
+      event.preventDefault();
+      const file = files[0];
+      setAttachmentStatus("uploading");
+      setAttachmentNotice(null);
+      try {
+        const result = await pasteTaskAttachment({
+          taskId: task.id,
+          file,
+          existingAttachmentCount: attachments.length,
+        });
+        if (result.notice) setAttachmentNotice(noticeText(result.notice));
+        if (result.attachment) {
+          setAttachments((previous) => [...previous, result.attachment as TaskAttachment]);
+          setAttachmentStatus("uploaded");
+          onUpdated();
+        } else {
+          setAttachmentStatus("failed");
+        }
+      } catch (err) {
+        logger.error("task-detail", "attachment paste failed", err instanceof Error ? err.message : err);
+        setAttachmentStatus("failed");
+        setAttachmentNotice("Attachment upload failed.");
+      }
+    },
+    [attachments.length, noticeText, onUpdated, task.id],
+  );
+
+  const handleOpenAttachment = useCallback(async (attachment: TaskAttachment) => {
+    const url = await openTaskAttachment(attachment);
+    await openUrl(url);
+  }, []);
+
+  const handleDeleteAttachment = useCallback(async (attachment: TaskAttachment) => {
+    await deleteTaskAttachment(attachment);
+    setAttachments((previous) => previous.filter((item) => item.id !== attachment.id));
+    onUpdated();
+  }, [onUpdated]);
 
   const refreshSubtasks = useCallback(async () => {
     const updated = await loadTaskDetailSubtasks(task.id);
@@ -397,6 +478,9 @@ export function useTaskDetail({
     assignablePeople,
     subtasks,
     tags,
+    attachments,
+    attachmentStatus,
+    attachmentNotice,
     saveStatus,
     completing,
     editor,
@@ -416,6 +500,9 @@ export function useTaskDetail({
     updateLink,
     handleCompleteTask,
     handleCompleteSubtask,
+    handleAttachmentPaste,
+    handleOpenAttachment,
+    handleDeleteAttachment,
     refreshSubtasks,
     openTaskLink,
     normalizedLink,
