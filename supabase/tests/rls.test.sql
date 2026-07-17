@@ -7,8 +7,8 @@
 -- succeeds or is denied, depending on which user owns the targeted rows.
 --
 -- Two users are set up at the top via auth.users inserts so all tests are
--- deterministic and self-contained.  The service-role wrapper functions below
--- isolate the JWT-switching boilerplate.
+-- deterministic and self-contained. The helper functions below isolate the
+-- JWT-switching and fixture-owner boilerplate.
 
 BEGIN;
 
@@ -59,10 +59,11 @@ BEGIN
   SET LOCAL ROLE authenticated;
 END $$;
 
-CREATE OR REPLACE FUNCTION _as_service()
+CREATE OR REPLACE FUNCTION _as_fixture_owner()
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-  SET LOCAL ROLE service_role;
+  PERFORM set_config('request.jwt.claims', '{}', true);
+  RESET ROLE;
 END $$;
 
 -- ── Unauthenticated access ────────────────────────────────────────────────────
@@ -222,7 +223,7 @@ SELECT lives_ok(
 );
 
 -- 14. User CANNOT delete another user's task.
-SELECT _as_service();
+SELECT _as_fixture_owner();
 INSERT INTO public.tasks (id, user_id, area_id, title, status, priority)
 VALUES (
   'c0000001-0000-4000-8000-000000000010',
@@ -236,7 +237,7 @@ SELECT lives_ok(
   $$DELETE FROM public.tasks WHERE id = 'c0000001-0000-4000-8000-000000000010'$$,
   'DELETE on other user task is silently ignored (no error, 0 rows affected)'
 );
-SELECT _as_service();
+SELECT _as_fixture_owner();
 SELECT is(
   (SELECT COUNT(*)::int FROM public.tasks WHERE id = 'c0000001-0000-4000-8000-000000000010'),
   1,
@@ -265,7 +266,7 @@ SELECT is(
 -- ── Shared-area access ────────────────────────────────────────────────────────
 
 -- 17. After area_member invite is accepted, user B can insert tasks into A's area.
-SELECT _as_service();
+SELECT _as_fixture_owner();
 INSERT INTO public.area_members (area_id, owner_user_id, invited_email, status, user_id)
 VALUES (
   'a1a1a1a1-a1a1-4a1a-a1a1-a1a1a1a1a1a1',
@@ -299,7 +300,7 @@ SELECT is(
 -- ── Shared-project access ─────────────────────────────────────────────────────
 
 -- 19. After project_member invite, user B can insert tasks into A's project.
-SELECT _as_service();
+SELECT _as_fixture_owner();
 INSERT INTO public.project_members (project_id, owner_user_id, invited_email, status, user_id)
 VALUES (
   'a2a2a2a2-a2a2-4a2a-a2a2-a2a2a2a2a2a2',
@@ -332,7 +333,7 @@ SELECT lives_ok(
 );
 
 -- 21. Non-member cannot see A's project.
-SELECT _as_service();
+SELECT _as_fixture_owner();
 DELETE FROM public.project_members
 WHERE project_id = 'a2a2a2a2-a2a2-4a2a-a2a2-a2a2a2a2a2a2'
   AND user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb';
@@ -340,7 +341,7 @@ WHERE project_id = 'a2a2a2a2-a2a2-4a2a-a2a2-a2a2a2a2a2a2'
 SELECT _as_user('bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
 
 -- Remove shared area membership too so B truly has no access to A's project.
-SELECT _as_service();
+SELECT _as_fixture_owner();
 DELETE FROM public.area_members
 WHERE area_id = 'a1a1a1a1-a1a1-4a1a-a1a1-a1a1a1a1a1a1'
   AND user_id = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb';
@@ -356,7 +357,7 @@ SELECT is(
 -- ── task_attachments ────────────────────────────────────────────────────────
 
 -- 22. User can insert attachment metadata for their own task.
-SELECT _as_service();
+SELECT _as_fixture_owner();
 INSERT INTO public.tasks (id, user_id, title, status, priority)
 VALUES (
   'c0000001-0000-4000-8000-000000000030',
@@ -405,7 +406,7 @@ SELECT is(
 
 -- ── Cleanup ───────────────────────────────────────────────────────────────────
 
-SELECT _as_service();
+SELECT _as_fixture_owner();
 DELETE FROM public.task_attachments WHERE task_id::text LIKE 'c0000001-0000-4000-8000-%';
 DELETE FROM public.task_tags WHERE task_id::text LIKE 'c0000001-0000-4000-8000-%';
 DELETE FROM public.tasks WHERE id::text LIKE 'c0000001-0000-4000-8000-%';
