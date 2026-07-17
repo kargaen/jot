@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import type { ParsedInput, Project, Tag, Task } from "../../../../models/shared";
-import { parseInput } from "../../../../services/capture/nlp.service";
+import { useMobileCaptureParser } from "../../../../hooks/useMobileCapture";
 import { friendlyDue, textToDescriptionDoc } from "../../../../models/tasks/taskPresentation";
 import Button from "../../../components/ui/Button.view";
 
@@ -24,6 +24,7 @@ const PRIORITY_CHOICES: { value: Task["priority"]; label: string }[] = [
 ];
 
 export default function MobileCaptureView({ projects, tags, onSave, resetToken }: Props) {
+  const parseText = useMobileCaptureParser(projects, tags);
   const [text, setText] = useState("");
   const [parsed, setParsed] = useState<ParsedInput | null>(null);
   const [parsing, setParsing] = useState(false);
@@ -58,14 +59,14 @@ export default function MobileCaptureView({ projects, tags, onSave, resetToken }
     setParsing((prev) => prev || parsed === null);
     parseTimer.current = setTimeout(() => {
       try {
-        setParsed(parseInput(text, projects, tags));
+        setParsed(parseText(text));
       } catch {
         // parsing failure is non-fatal; chips just won't show
       }
       setParsing(false);
     }, 120);
     return () => { if (parseTimer.current) clearTimeout(parseTimer.current); };
-  }, [text, projects, tags]);
+  }, [text, parseText]);
 
   // Opened fresh from the widget — start with a clean form.
   useEffect(() => {
@@ -85,7 +86,7 @@ export default function MobileCaptureView({ projects, tags, onSave, resetToken }
   const splittable = parsed?.longSplit ?? null;
 
   function buildDraft(): ParsedInput {
-    const base = parsed ?? parseInput(text, projects, tags);
+    const base = parsed ?? parseText(text);
     let project = base.project;
     let suggested = base.suggestedProjectName;
     if (ovProjectId !== undefined) {

@@ -1,5 +1,7 @@
 # 2. Full Tree
 
+Verified EPIC-001 boundary-enforcement additions (2026-07-17): `scripts/check-view-service-imports.ts` owns the view→service import scan, `tests/unit/models/import-boundary.test.ts` gates it, and `package.json` exposes it through `test:boundaries` and the standard code test. Service-backed view behaviours now route through hooks: `src/hooks/usePreferences.ts`, `src/hooks/useMobileApp.ts`, `src/hooks/useMobileSettings.ts`, `src/hooks/useMobileCapture.ts`, and `src/hooks/useReminderWindowShell.ts`.
+
 ```
 jot/
 │

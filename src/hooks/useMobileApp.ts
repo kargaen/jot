@@ -40,8 +40,10 @@ import { logger } from "../utils/observability/logger";
 import { drainCaptureOutbox, syncWidgets } from "../services/sync/widgetSync.service";
 import { time } from "../utils/observability/timing";
 import { saveCreateTaskDraft } from "../controllers/tasks/saveCreateTask.controller";
+import { exportTasksToClipboard } from "../controllers/tasks/exportTasks.controller";
 import { sortTasksBySchedule } from "../models/tasks/taskPresentation";
 import { filterVisibleProjects, filterVisibleTasks, loadHiddenAreas, saveHiddenAreas } from "../utils/preferences/hiddenAreas";
+import { copyTextToClipboard } from "../services/tauri/clipboard.service";
 
 // ── Main data + mutations ─────────────────────────────────────────────────────
 
@@ -446,4 +448,14 @@ export function useCaptureComposer() {
     saveDraft: (input: Parameters<typeof saveCreateTaskDraft>[1]) =>
       saveCreateTaskDraft({ createProject, createTask }, input),
   };
+}
+
+// ── Task export ───────────────────────────────────────────────────────────────
+
+export function useMobileTaskExport() {
+  return useCallback(
+    (tasks: Parameters<typeof exportTasksToClipboard>[1]) =>
+      exportTasksToClipboard({ copyToClipboard: copyTextToClipboard }, tasks),
+    [],
+  );
 }

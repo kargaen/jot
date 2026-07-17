@@ -5,7 +5,7 @@ import type { ParsedInput } from "../../../../models/shared";
 import { randomCompletionMessage } from "../../../../utils/presentation/completionMessage";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useMobileAuth } from "../../../../hooks/useMobileAuth";
-import { useMobileAppData, useCaptureComposer, useMobileAccountActions, useMobileSpacesActions, useMobileProjectsActions, useApiTokensActions } from "../../../../hooks/useMobileApp";
+import { useMobileAppData, useCaptureComposer, useMobileAccountActions, useMobileSpacesActions, useMobileProjectsActions, useApiTokensActions, useMobileTaskExport } from "../../../../hooks/useMobileApp";
 import MobileAuthView from "../auth/MobileAuth.view";
 import MobileTodayView from "../today/MobileToday.view";
 import MobileUpcomingView from "../upcoming/MobileUpcoming.view";
@@ -16,8 +16,6 @@ import MobileCaptureView from "../capture/MobileCapture.view";
 import MobileSettingsView from "../settings/MobileSettings.view";
 import MobileOnboardingView from "../onboarding/MobileOnboarding.view";
 import { logger } from "../../../../utils/observability/logger";
-import { exportTasksToClipboard } from "../../../../controllers/tasks/exportTasks.controller";
-import { copyTextToClipboard } from "../../../../services/tauri/clipboard.service";
 
 type Tab = "today" | "upcoming" | "tasks" | "logbook" | "capture" | "settings";
 
@@ -30,6 +28,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
   const spaceActions = useMobileSpacesActions();
   const projectActions = useMobileProjectsActions();
   const apiTokens = useApiTokensActions();
+  const exportTasks = useMobileTaskExport();
   const [activeTab, setActiveTab] = useState<Tab>("today");
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -188,7 +187,7 @@ export default function MobileApp({ launchNotice = null }: { launchNotice?: stri
           allTags={appData.tags}
           onUpdated={appData.refresh}
           onBack={() => { setSelectedTaskId(null); setActiveTab("tasks"); }}
-          onExport={() => exportTasksToClipboard({ copyToClipboard: copyTextToClipboard }, [selectedTask])}
+          onExport={() => exportTasks([selectedTask])}
           onCompleted={() => { showCompletionToast(); setSelectedTaskId(null); setActiveTab("tasks"); }}
         />
       </div>
