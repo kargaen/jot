@@ -12,7 +12,7 @@
 
 BEGIN;
 
-SELECT plan(24);
+SELECT plan(25);
 
 -- ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -407,8 +407,8 @@ SELECT is(
 
 SELECT _as_service();
 DELETE FROM public.task_attachments WHERE task_id::text LIKE 'c0000001-0000-4000-8000-%';
-DELETE FROM public.task_tags WHERE task_id LIKE 'c0000001-0000-4000-8000-%';
-DELETE FROM public.tasks WHERE id LIKE 'c0000001-0000-4000-8000-%';
+DELETE FROM public.task_tags WHERE task_id::text LIKE 'c0000001-0000-4000-8000-%';
+DELETE FROM public.tasks WHERE id::text LIKE 'c0000001-0000-4000-8000-%';
 DELETE FROM public.project_members WHERE project_id = 'a2a2a2a2-a2a2-4a2a-a2a2-a2a2a2a2a2a2';
 DELETE FROM public.area_members WHERE area_id = 'a1a1a1a1-a1a1-4a1a-a1a1-a1a1a1a1a1a1';
 DELETE FROM public.projects WHERE id = 'a2a2a2a2-a2a2-4a2a-a2a2-a2a2a2a2a2a2';
