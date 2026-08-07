@@ -14,6 +14,10 @@ on:
 permissions:
   contents: write
 
+env:
+  # Keep in sync with the `supabase` devDependency in package.json.
+  SUPABASE_CLI_VERSION: "2.98.0"
+
 jobs:
   rls-test:
     name: Supabase RLS Tests
@@ -42,15 +46,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Pinned, not @latest. `@latest` re-resolved to a newer CLI on every run, and
+      # 2.112.0 broke `link`: its validator rejects the `inserted_at` timestamp the
+      # Management API returns for one of the project's API keys, so the job died
+      # before pushing anything ("failed to get api keys: SchemaError ... [2]").
+      # SUPABASE_CLI_VERSION tracks the `supabase` devDependency in package.json —
+      # bump both together so CI and local use the same tool.
       - name: Apply Supabase migrations
         run: |
-          npx supabase@latest link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} --password ${{ secrets.SUPABASE_DB_PASSWORD }}
-          npx supabase@latest db push --linked --yes --include-all
+          npx supabase@${SUPABASE_CLI_VERSION} link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} --password ${{ secrets.SUPABASE_DB_PASSWORD }}
+          npx supabase@${SUPABASE_CLI_VERSION} db push --linked --yes --include-all
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: Deploy conduit edge function
-        run: npx supabase@latest functions deploy conduit --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: npx supabase@${SUPABASE_CLI_VERSION} functions deploy conduit --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
