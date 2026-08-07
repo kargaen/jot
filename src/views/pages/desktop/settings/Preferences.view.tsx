@@ -19,6 +19,11 @@ import {
   loadThemePreference,
   saveThemePreference,
 } from "../../../../utils/presentation/theme";
+import {
+  MAX_LINGERING_DAYS,
+  MIN_LINGERING_DAYS,
+  clampLingeringDays,
+} from "../../../../utils/preferences/lingering";
 import Toggle from "../../../components/ui/Toggle.view";
 
 import { enable as enableAutostart, disable as disableAutostart, isEnabled as isAutostart } from "@tauri-apps/plugin-autostart";
@@ -28,12 +33,16 @@ export default function Preferences({
   areas,
   hiddenAreaIds,
   onHiddenChange,
+  lingeringDays,
+  onLingeringDaysChange,
   onAreasChange,
   onClose,
 }: {
   areas: Area[];
   hiddenAreaIds: string[];
   onHiddenChange: (ids: string[]) => void;
+  lingeringDays: number;
+  onLingeringDaysChange: (days: number) => void;
   onAreasChange: () => void;
   onClose: () => void;
 }) {
@@ -76,7 +85,9 @@ export default function Preferences({
           {tab === "sharing" && (
             <SharingTab areas={areas} currentUserId={user?.id ?? ""} onSharedChange={onAreasChange} />
           )}
-          {tab === "reminders" && <RemindersTab />}
+          {tab === "reminders" && (
+            <RemindersTab lingeringDays={lingeringDays} onLingeringDaysChange={onLingeringDaysChange} />
+          )}
           {tab === "appearance" && <AppearanceTab />}
           {tab === "capture" && <CaptureTab />}
           {tab === "feedback" && <FeedbackTab />}
@@ -389,12 +400,28 @@ const DURATION_OPTIONS = [
   { value: "300", label: "5 minutes" },
 ];
 
-function RemindersTab() {
+function RemindersTab({
+  lingeringDays,
+  onLingeringDaysChange,
+}: {
+  lingeringDays: number;
+  onLingeringDaysChange: (days: number) => void;
+}) {
   const [autostart, setAutostart] = useState(false);
   const [autostartError, setAutostartError] = useState<string | null>(null);
   const [enabled,  setEnabled]  = useState(localStorage.getItem("jot_reminder_enabled")  !== "false");
   const [time,     setTime]     = useState(localStorage.getItem("jot_reminder_time")      ?? "08:00");
   const [duration, setDuration] = useState(localStorage.getItem("jot_reminder_duration") ?? "180");
+  // Kept as a draft string so clearing the field to retype doesn't clamp mid-keystroke;
+  // the committed value goes through onLingeringDaysChange (which clamps and persists).
+  const [lingeringDraft, setLingeringDraft] = useState(String(lingeringDays));
+
+  function commitLingeringDays(raw: string) {
+    const parsed = Number(raw);
+    const next = Number.isFinite(parsed) ? clampLingeringDays(parsed) : lingeringDays;
+    setLingeringDraft(String(next));
+    if (next !== lingeringDays) onLingeringDaysChange(next);
+  }
 
   useEffect(() => { isAutostart().then(setAutostart).catch(() => {}); }, []);
   const toggleAutostart = useCallback(async () => {
@@ -495,6 +522,35 @@ function RemindersTab() {
         The countdown pauses automatically when you're away from your keyboard, so you'll never miss it.
         Use <strong>Snooze 1h</strong> on the popup to defer it when you're in a flow.
       </p>
+
+      {/* Lingering threshold — how long an undated task may sit before Jot surfaces it.
+          Not a reminder: it only decides what the Lingering list contains when opened. */}
+      <div style={{ ...rowStyle, borderBottom: "none", borderTop: "1px solid var(--border-subtle)", marginTop: 12 }}>
+        <div>
+          <div style={labelStyle}>Lingering after</div>
+          <div style={hintStyle}>
+            Days an undated task may sit untouched before it shows up in Lingering
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="number"
+            min={MIN_LINGERING_DAYS}
+            max={MAX_LINGERING_DAYS}
+            value={lingeringDraft}
+            onChange={(e) => setLingeringDraft(e.target.value)}
+            onBlur={(e) => commitLingeringDays(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+            style={{
+              width: 64, padding: "5px 8px", borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border-default)",
+              background: "var(--bg-secondary)",
+              fontSize: 13, color: "var(--text-primary)", fontFamily: "inherit",
+            }}
+          />
+          <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>days</span>
+        </div>
+      </div>
     </div>
   );
 }

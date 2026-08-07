@@ -16,6 +16,13 @@ import {
   loadThemePreference,
   saveThemePreference,
 } from "../../../../utils/presentation/theme";
+import {
+  MAX_LINGERING_DAYS,
+  MIN_LINGERING_DAYS,
+  clampLingeringDays,
+  loadLingeringDays,
+  saveLingeringDays,
+} from "../../../../utils/preferences/lingering";
 
 interface AccountActions {
   changePassword: (password: string) => Promise<unknown>;
@@ -76,6 +83,7 @@ export default function MobileSettingsView({
     <div style={styles.shell}>
       <AccountSection email={email} actions={accountActions} onSignedOut={onSignedOut} />
       <AppearanceSection />
+      <LingeringSection />
       <CaptureSection />
       <SpacesSection
         areas={areas}
@@ -268,6 +276,55 @@ function AppearanceSection() {
             </div>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+// ── Lingering ───────────────────────────────────────────────────────────────────
+
+// How long an undated task may sit untouched before the Lingering screen picks it up.
+// Purely a filter threshold — nothing here notifies, so raising it only makes that
+// screen quieter (§0 clause 2).
+function LingeringSection() {
+  const [days, setDays] = useState(loadLingeringDays);
+  // Draft string so clearing the field to retype doesn't clamp mid-keystroke.
+  const [draft, setDraft] = useState(() => String(loadLingeringDays()));
+
+  function commit(raw: string) {
+    const parsed = Number(raw);
+    const next = Number.isFinite(parsed) ? clampLingeringDays(parsed) : days;
+    setDraft(String(next));
+    if (next !== days) {
+      saveLingeringDays(next);
+      setDays(next);
+    }
+  }
+
+  return (
+    <section style={styles.section}>
+      <div style={styles.sectionHeader}>Lingering</div>
+      <div style={styles.sectionHint}>
+        Undated tasks appear on the Lingering screen once they've sat this long without a
+        change.
+      </div>
+      <div style={styles.card}>
+        <div style={styles.row}>
+          <span style={styles.rowLabel}>Lingering after</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={MIN_LINGERING_DAYS}
+              max={MAX_LINGERING_DAYS}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={(e) => commit(e.target.value)}
+              style={styles.daysInput}
+            />
+            <span style={styles.rowValue}>days</span>
+          </span>
+        </div>
       </div>
     </section>
   );
@@ -1001,6 +1058,17 @@ const styles: Record<string, CSSProperties> = {
   rowValue: {
     fontSize: 14,
     color: "var(--text-secondary)",
+  },
+  daysInput: {
+    width: 64,
+    padding: "8px 10px",
+    borderRadius: 10,
+    border: "1px solid var(--border-default)",
+    background: "var(--bg-primary)",
+    color: "var(--text-primary)",
+    fontSize: 15,
+    fontFamily: "inherit",
+    textAlign: "right",
   },
   divider: {
     height: 1,

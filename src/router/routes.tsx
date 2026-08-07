@@ -4,6 +4,7 @@ import AppShell from "./AppShell.view";
 import IndexRoute from "./Index.route";
 import TodayRoute from "./Today.route";
 import UpcomingRoute from "./Upcoming.route";
+import LingeringRoute from "./Lingering.route";
 import InboxRoute from "./Inbox.route";
 import AllRoute from "./All.route";
 import CaptureRoute from "./Capture.route";
@@ -17,6 +18,8 @@ import OnboardingRoute from "./Onboarding.route";
 import type { AppOutletContext } from "./AppLayout.route";
 import MobileApp from "../views/pages/mobile/app/MobileApp.view";
 import { isDueToday, isInbox, isOverdue, isUpcoming } from "../models/tasks/taskVisibility";
+import { filterLingeringTasks } from "../models/tasks/taskAttention";
+import { loadLingeringDays } from "../utils/preferences/lingering";
 
 // Export resolvers mirror each screen's own visibility grouping (same pure
 // model predicates the views use) so "copy as JSON" matches what's on screen.
@@ -30,6 +33,12 @@ function upcomingExport(ctx: unknown) {
   const { data } = ctx as AppOutletContext;
   const today = new Date().toISOString().split("T")[0];
   return data.visibleTasks.filter((t) => isUpcoming(t, today));
+}
+
+function lingeringExport(ctx: unknown) {
+  const { data } = ctx as AppOutletContext;
+  const today = new Date().toISOString().split("T")[0];
+  return filterLingeringTasks(data.visibleTasks, today, loadLingeringDays());
 }
 
 function inboxExport(ctx: unknown) {
@@ -90,6 +99,7 @@ export const router = createBrowserRouter([
         children: [
           { path: "today", handle: { title: "Today", exportTasks: todayExport }, element: <TodayRoute /> },
           { path: "upcoming", handle: { title: "Upcoming", exportTasks: upcomingExport }, element: <UpcomingRoute /> },
+          { path: "lingering", handle: { title: "Lingering", exportTasks: lingeringExport }, element: <LingeringRoute /> },
           { path: "overdue", handle: { title: "Overdue" }, element: <Pending /> },
           { path: "inbox", handle: { title: "Inbox", exportTasks: inboxExport }, element: <InboxRoute /> },
           { path: "all", handle: { title: "All", exportTasks: allExport }, element: <AllRoute /> },
