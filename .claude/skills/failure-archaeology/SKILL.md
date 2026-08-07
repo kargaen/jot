@@ -298,6 +298,33 @@ at `scripts/ci-integration-test.ts` (earlier `.mjs`).
   Tauri plugin can silently float `@tauri-apps/api` up — after adding any `@tauri-apps/*` dep, verify the
   JS `api` version still matches the Rust crate before assuming the RC will build.
 
+### 5.3 RC `migrate-db` red on an unpinned Supabase CLI (`failed to get api keys: SchemaError`)
+- **Symptom:** `Apply Database Migrations` fails within ~10s of starting; every downstream job
+  (integration test, Windows installer, Android APK) reports **skipped**, so the run looks like a
+  build failure when nothing was ever built. Log:
+  `failed to get api keys: SchemaError(Expected a string matching the RegExp ^...(?:Z)$ at [2]["inserted_at"])`.
+- **Root cause:** The step ran `npx supabase@latest`, which re-resolves on every run and pulled
+  **2.112.0**. That CLI validates the Management API's api-keys response against a strict RFC3339
+  regex demanding a `Z` suffix; the third key's `inserted_at` does not match, so `link` aborts
+  **before `db push` runs**. The repo already pinned `supabase` at `^2.98.0` in `package.json`, but
+  `migrate-db` bypassed that pin — and does not run `npm ci` anyway.
+- **Evidence:** Run **31205942612** on `dev` (merge of PR #25, commit `cbb9258`). Job log shows
+  `npm warn exec The following package was not found and will be installed: supabase@2.112.0`,
+  then the SchemaError, then `Process completed with exit code 1`. The `rls-test` job on the same
+  run passed — it only drives the **local** stack and never calls the Management API. The merged
+  diff contained no migrations, no SQL, and no workflow changes, so it did not cause this.
+- **Fix/Status:** Pinned via a workflow-level `SUPABASE_CLI_VERSION: "2.98.0"` consumed by all three
+  `npx supabase@...` invocations in `migrate-db`. **Unverified from a dev machine** — the step needs
+  the repo's Supabase secrets, so the pin was proven only by the next CI run.
+- **Do-not-repeat:** Never use `npx supabase@latest` (or any unpinned `@latest` tool) in a job that
+  talks to the Management API — a third-party release then lands directly in your pipeline. Keep
+  `SUPABASE_CLI_VERSION` in step with the `supabase` devDependency. Note the remaining exposure:
+  `rls-test` still runs bare `npx supabase`, deliberately left alone because it is green and the
+  local-stack path did not regress — pin it only if it breaks, and verify pgTAP still passes.
+  If pinning does **not** fix this, the trigger is the project's key data rather than the CLI (a
+  new-format `sb_secret_` key whose timestamp serializes with an offset — cf. supabase/cli#4775),
+  and the fix belongs on the Supabase side, not in the workflow.
+
 ### 5.2 CI integration test polluted `feedback`; the table was then dropped
 - **Symptom:** (See 2.3.) Diagnostic probe rows accumulated in the world-readable `feedback` table.
 - **Root cause / resolution path:** In-app feedback was replaced by a link to GitHub issues (5c31dd1), the
