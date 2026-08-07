@@ -525,6 +525,8 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
     overdueTask,
     todayTasks,
     upcomingTasks,
+    lingeringTasks,
+    lingeringDays,
     displayTasks,
     areaGroups,
     areaUrgentCounts,
@@ -532,6 +534,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
     viewTitle,
     loadData,
     setPersistedDefaultAreaId,
+    setPersistedLingeringDays,
     addProject,
     handleHiddenChange,
     handleComplete,
@@ -765,7 +768,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
   useEffect(() => {
     const unlisten = listen<{ view: string }>("navigate", (e) => {
       const v = e.payload.view;
-      if (v === "today" || v === "upcoming" || v === "overdue" || v === "inbox" || v === "logbook") {
+      if (v === "today" || v === "upcoming" || v === "overdue" || v === "lingering" || v === "inbox" || v === "logbook") {
         setView(v);
       }
     });
@@ -1033,6 +1036,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
           { id: "today"  as const,   label: "Today",    icon: "◉",  urgent: todayTasks.length },
           { id: "spaces" as const,   label: "Spaces",   icon: "⬡",  urgent: 0 },
           { id: "upcoming" as const, label: "Upcoming", icon: "→",  urgent: 0 },
+          { id: "lingering" as const, label: "Lingering", icon: "◌", urgent: 0 },
           { id: "all" as const,      label: "All",      icon: "☰",  urgent: 0 },
           { id: "logbook" as const,  label: "Logbook",  icon: "◎",  urgent: 0 },
         ]).map((tab) => {
@@ -1059,7 +1063,7 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
       </div>
 
       {showPrefs && (
-        <Preferences areas={areas} hiddenAreaIds={hiddenAreaIds} onHiddenChange={handleHiddenChange} onAreasChange={loadData} onClose={() => setShowPrefs(false)} />
+        <Preferences areas={areas} hiddenAreaIds={hiddenAreaIds} onHiddenChange={handleHiddenChange} lingeringDays={lingeringDays} onLingeringDaysChange={setPersistedLingeringDays} onAreasChange={loadData} onClose={() => setShowPrefs(false)} />
       )}
       {renderSidebarContextMenu()}
       {renderShareSheet()}
@@ -1145,11 +1149,12 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
 
         <nav style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
           {([
-            { id: "overdue",  label: "Overdue",  count: overdueTask.length },
-            { id: "today",    label: "Today",    count: todayTasks.length },
-            { id: "upcoming", label: "Upcoming", count: upcomingTasks.length },
-            { id: "all",      label: "All",      count: 0 },
-            { id: "logbook",  label: "Logbook",  count: 0 },
+            { id: "overdue",   label: "Overdue",   count: overdueTask.length },
+            { id: "today",     label: "Today",     count: todayTasks.length },
+            { id: "upcoming",  label: "Upcoming",  count: upcomingTasks.length },
+            { id: "lingering", label: "Lingering", count: lingeringTasks.length },
+            { id: "all",       label: "All",       count: 0 },
+            { id: "logbook",   label: "Logbook",   count: 0 },
           ] as const).map(({ id, label, count }) => (
             <NavItem
               key={id}
@@ -1411,6 +1416,8 @@ export default function Dashboard({ launchNotice = null }: { launchNotice?: stri
           areas={areas}
           hiddenAreaIds={hiddenAreaIds}
           onHiddenChange={handleHiddenChange}
+          lingeringDays={lingeringDays}
+          onLingeringDaysChange={setPersistedLingeringDays}
           onAreasChange={loadData}
           onClose={() => setShowPrefs(false)}
         />
@@ -1822,6 +1829,7 @@ function EmptyState({ view, onCloseProject }: { view: View; onCloseProject?: () 
     today:    { title: "Nothing due today",      hint: "Press Ctrl+Space to add a task" },
     inbox:    { title: "",                       hint: "" },
     upcoming: { title: "Nothing upcoming",       hint: "Tasks with future dates will appear here" },
+    lingering: { title: "Nothing lingering",     hint: "Undated tasks show up here once they've sat untouched for a while" },
     all:      { title: "No open tasks",          hint: "Press Ctrl+Space to add a task" },
     logbook:  { title: "No completed tasks yet", hint: "Completed tasks are stored here" },
     project:  { title: "No tasks",              hint: "Add a task to this project" },

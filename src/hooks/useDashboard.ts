@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Area, Project, Tag, TaskWithTags } from "../models/shared";
 import { filterVisibleProjects, filterVisibleTasks } from "../models/tasks/taskVisibility";
 import { groupTasksByAreaAndProject } from "../models/tasks/taskGrouping";
+import { filterLingeringTasks } from "../models/tasks/taskAttention";
 import { loadHiddenAreas, saveHiddenAreas } from "../utils/preferences/hiddenAreas";
+import { loadLingeringDays, saveLingeringDays } from "../utils/preferences/lingering";
 import { logger } from "../utils/observability/logger";
 import {
   closeDashboardProject,
@@ -53,6 +55,7 @@ export type DashboardView =
   | "today"
   | "inbox"
   | "upcoming"
+  | "lingering"
   | "all"
   | "project"
   | "logbook";
@@ -72,6 +75,7 @@ export function useDashboard({ userId }: UseDashboardOptions) {
   const [heatmapDates, setHeatmapDates] = useState<string[]>([]);
   const [hiddenAreaIds, setHiddenAreaIds] = useState<string[]>(loadHiddenAreas);
   const [defaultAreaId, setDefaultAreaId] = useState<string | null>(loadDefaultAreaId);
+  const [lingeringDays, setLingeringDays] = useState<number>(loadLingeringDays);
   const [selectedInboxAreaId, setSelectedInboxAreaId] = useState<string | null>(null);
   const [closeDialog, setCloseDialog] = useState<{ projectId: string; taskCount: number } | null>(
     null,
@@ -216,6 +220,13 @@ export function useDashboard({ userId }: UseDashboardOptions) {
     [visibleTasks, today],
   );
 
+  // Undated open tasks nobody has touched for a while. No date bucket surfaces these, so
+  // without this list they only ever appear buried in All. Longest-untouched first.
+  const lingeringTasks = useMemo(
+    () => filterLingeringTasks(visibleTasks, today, lingeringDays),
+    [visibleTasks, today, lingeringDays],
+  );
+
   const projectTasks = useMemo(
     () =>
       selectedProject
@@ -280,6 +291,8 @@ export function useDashboard({ userId }: UseDashboardOptions) {
             : inboxTasks;
         case "upcoming":
           return upcomingTasks;
+        case "lingering":
+          return lingeringTasks;
         case "all":
           return visibleTasks;
         case "project":
@@ -289,7 +302,11 @@ export function useDashboard({ userId }: UseDashboardOptions) {
       }
     })();
 
-    return view === "logbook" ? raw : sortTasks(raw, view === "project");
+    // Lingering is already ordered longest-untouched first, and every task in it is
+    // undated — the due-date sort would only scramble that into creation order.
+    return view === "logbook" || view === "lingering"
+      ? raw
+      : sortTasks(raw, view === "project");
   }, [
     view,
     overdueTask,
@@ -299,6 +316,7 @@ export function useDashboard({ userId }: UseDashboardOptions) {
     projects,
     inboxTasks,
     upcomingTasks,
+    lingeringTasks,
     projectTasks,
     logbookTasks,
   ]);
@@ -312,13 +330,15 @@ export function useDashboard({ userId }: UseDashboardOptions) {
           ? (areas.find((area) => area.id === selectedInboxAreaId)?.name ?? "Inbox")
           : view === "upcoming"
             ? "Upcoming"
-            : view === "all"
-              ? "All"
-              : view === "logbook"
-                ? "Logbook"
-                : view === "project" && selectedProject
-                  ? selectedProject.name
-                  : "";
+            : view === "lingering"
+              ? "Lingering"
+                : view === "all"
+                  ? "All"
+                  : view === "logbook"
+                    ? "Logbook"
+                    : view === "project" && selectedProject
+                      ? selectedProject.name
+                      : "";
 
   const handleHiddenChange = useCallback(
     (ids: string[]) => {
@@ -335,6 +355,13 @@ export function useDashboard({ userId }: UseDashboardOptions) {
     },
     [selectedInboxAreaId, selectedProject],
   );
+
+  // Settings writes the threshold through here rather than to localStorage directly, so
+  // the Lingering list re-filters the moment the user changes it.
+  const setPersistedLingeringDays = useCallback((days: number) => {
+    saveLingeringDays(days);
+    setLingeringDays(loadLingeringDays());
+  }, []);
 
   const setPersistedDefaultAreaId = useCallback((id: string | null) => {
     setDefaultAreaId(id);
@@ -652,6 +679,8 @@ export function useDashboard({ userId }: UseDashboardOptions) {
     overdueTask,
     todayTasks,
     upcomingTasks,
+    lingeringTasks,
+    lingeringDays,
     displayTasks,
     areaGroups,
     areaUrgentCounts,
@@ -659,6 +688,7 @@ export function useDashboard({ userId }: UseDashboardOptions) {
     viewTitle,
     loadData,
     setPersistedDefaultAreaId,
+    setPersistedLingeringDays,
     addProject,
     handleHiddenChange,
     handleComplete,

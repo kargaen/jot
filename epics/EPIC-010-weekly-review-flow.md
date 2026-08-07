@@ -44,14 +44,15 @@ Then nothing nags them beyond whatever entry point the review has
 
 ## 3. TDD — Testing Strategy
 
-Authority: "stale" needs a definition before anything can pin it (Q1) — the task-visibility
-predicates in `src/models/tasks/` are where it would live as a pure predicate.
+Authority: Q1 is answered (see §5) — the predicate is `isLingering` in
+`src/models/tasks/taskAttention.ts`, pinned by `tests/unit/models/task-attention.test.ts`.
+The review flow reuses it rather than defining a second notion of staleness.
 
 ### Test map
 
 | Flow | Function call | Authority | Fixture | Tolerance |
 |---|---|---|---|---|
-| 1 | staleness predicate | recorded definition (Q1) | TBD | exact |
+| 1 | `isLingering(task, today, thresholdDays)` | `tests/unit/models/task-attention.test.ts` | inline `LingeringCandidate` rows | exact |
 
 ### What is deliberately not tested
 
@@ -62,7 +63,8 @@ The tone/copy of the ritual.
 ## 4. Checklist
 
 ```md
-[ ] 1. Define "stale task" (human decision) — done when recorded here as a testable predicate
+[x] 1. Define "stale task" (human decision) — recorded in §5 Q1; predicate lives in
+       src/models/tasks/taskAttention.ts and shipped 2026-08-07 as the Lingering bucket
 [ ] 2. Revision 2: slices — done when epic-review returns approved
 ```
 
@@ -85,7 +87,7 @@ that principle directly; the Flow 2 guard keeps it from becoming productivity th
 
 | # | Question | Blocks | Decision needed by |
 |---|---|---|---|
-| Q1 | Definition of stale | Everything | Item 1 |
+| ~~Q1~~ | ~~Definition of stale~~ — **answered by the owner, 2026-08-07:** a task is stale ("lingering") when it is open, carries no `due_date` **and** no `scheduled_date`, and its `updated_at` is at least *N* days old, where *N* is a user setting defaulting to 7. Dated tasks are never stale — Overdue/Upcoming already own them. | — | Closed |
 
 ### New capability
 

@@ -87,7 +87,9 @@ Draft backlog items for later formulation:
 
 [ ] 2. Area view project tiles and nested-task visibility — when clicking an area, show Projects as tiles with small summaries and decide whether tasks inside projects show directly under areas via toggle or setting. Reflection: product/navigation decision, not just a view tweak. Complexity: L.
 
-[ ] 3. Prevent no-due-date tasks from getting lost — decide whether this is by design or needs a surfaced view/reminder. Reflection: important but sensitive; surfacing should probably be an Inbox/Unscheduled/review view rather than noisy reminders. Complexity: M-L.
+[x] 3. Prevent no-due-date tasks from getting lost — decided (Q3) and shipped 2026-08-07 as
+       the Lingering bucket: a passive fourth date view beside Overdue/Today/Upcoming, with a
+       user-set threshold (default 7 days). No reminders were added.
 
 [ ] 4. Show grouped recursive lists up to three levels — main view shows areas/projects/tasks; project view shows projects/tasks/subtasks one level, but not two levels until task view. Reflection: broad navigation/display model change with hierarchy, indentation, recursion limits, and performance implications. Complexity: XL.
 ```
@@ -112,7 +114,7 @@ Draft backlog items for later formulation:
 |---|---|---|---|
 | Q1 | Should search include hidden areas/spaces by default? | Blocks item 1 | Before search formulation |
 | Q2 | Should nested project tasks show under areas by default, via toggle, or via user setting? | Blocks item 2 | Before hierarchy work |
-| Q3 | Should undated tasks surface in a review/default view or via active reminders? | Blocks item 3 | Before implementation |
+| ~~Q3~~ | ~~Should undated tasks surface in a review/default view or via active reminders?~~ — **answered by the owner, 2026-08-07:** a default view, never reminders. "Lingering" sits beside Overdue/Today/Upcoming and lists open, undated tasks untouched for at least *N* days (user setting, default 7). Predicate: `src/models/tasks/taskAttention.ts`. | — | Closed |
 | Q4 | What summaries should project tiles show? | Blocks item 2 | Before implementation |
 
 ### New capability
