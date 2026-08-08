@@ -157,7 +157,8 @@ export function useDashboard({ userId }: UseDashboardOptions) {
   useEffect(() => {
     if (!userId) return;
     const THROTTLE_MS = 500;
-    const unsubscribe = subscribeToDashboardTaskChanges(() => {
+
+    const reload = () => {
       const now = Date.now();
       const elapsed = now - realtimeLastFiredRef.current;
       if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
@@ -172,11 +173,41 @@ export function useDashboard({ userId }: UseDashboardOptions) {
           void loadData();
         }, THROTTLE_MS - elapsed);
       }
-    });
+    };
+
+    // Realtime holds a replication slot and polls WAL for as long as any client is
+    // subscribed, so the subscription follows visibility rather than mount: a hidden
+    // window costs nothing, and one reload on return catches up whatever it missed.
+    // Visibility, not focus — a visible but unfocused window should still update live.
+    let unsubscribe: (() => void) | null = null;
+
+    const attach = () => {
+      if (!unsubscribe) unsubscribe = subscribeToDashboardTaskChanges(reload);
+    };
+
+    const detach = () => {
+      if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        attach();
+        reload();
+      } else {
+        detach();
+      }
+    };
+
+    if (document.visibilityState === "visible") attach();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
-      unsubscribe();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      detach();
     };
   }, [userId, loadData]);
 
