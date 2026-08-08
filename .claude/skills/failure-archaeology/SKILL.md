@@ -313,17 +313,20 @@ at `scripts/ci-integration-test.ts` (earlier `.mjs`).
   then the SchemaError, then `Process completed with exit code 1`. The `rls-test` job on the same
   run passed — it only drives the **local** stack and never calls the Management API. The merged
   diff contained no migrations, no SQL, and no workflow changes, so it did not cause this.
-- **Fix/Status:** Pinned via a workflow-level `SUPABASE_CLI_VERSION: "2.98.0"` consumed by all three
-  `npx supabase@...` invocations in `migrate-db`. **Unverified from a dev machine** — the step needs
-  the repo's Supabase secrets, so the pin was proven only by the next CI run.
+- **Fix/Status:** SETTLED. Pinned via a workflow-level `SUPABASE_CLI_VERSION: "2.98.0"` consumed by
+  all three `npx supabase@...` invocations in `migrate-db`. **Confirmed green** by run
+  **31211008845** (`388d6a8`): all five jobs succeeded, `Apply Supabase migrations` completing in
+  16s, and the Windows installer + signed APK published. The competing theory — that the trigger was
+  the project's key data (a new-format `sb_secret_` key serializing its timestamp with a `+00:00`
+  offset instead of `Z`, cf. supabase/cli#4775) — is therefore **ruled out**: the same project data
+  passes under 2.98.0. The cause was purely the CLI version.
 - **Do-not-repeat:** Never use `npx supabase@latest` (or any unpinned `@latest` tool) in a job that
-  talks to the Management API — a third-party release then lands directly in your pipeline. Keep
-  `SUPABASE_CLI_VERSION` in step with the `supabase` devDependency. Note the remaining exposure:
-  `rls-test` still runs bare `npx supabase`, deliberately left alone because it is green and the
-  local-stack path did not regress — pin it only if it breaks, and verify pgTAP still passes.
-  If pinning does **not** fix this, the trigger is the project's key data rather than the CLI (a
-  new-format `sb_secret_` key whose timestamp serializes with an offset — cf. supabase/cli#4775),
-  and the fix belongs on the Supabase side, not in the workflow.
+  talks to the Management API — a third-party release then lands directly in your pipeline with no
+  review. Keep `SUPABASE_CLI_VERSION` in step with the `supabase` devDependency; bump both together
+  and let one RC run prove the new version before relying on it. Remaining known exposure:
+  `rls-test` still runs bare `npx supabase`, deliberately left unpinned because it was green and
+  only drives the **local** stack (no Management API call, which is why it survived the outage) —
+  pin it only if it actually breaks, and re-check pgTAP when you do.
 
 ### 5.2 CI integration test polluted `feedback`; the table was then dropped
 - **Symptom:** (See 2.3.) Diagnostic probe rows accumulated in the world-readable `feedback` table.
